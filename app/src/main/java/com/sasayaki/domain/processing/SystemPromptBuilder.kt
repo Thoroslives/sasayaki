@@ -69,7 +69,7 @@ object SystemPromptBuilder {
         val lines = mutableListOf<String>()
         appContext.displayName?.let { lines += "- Target app: $it" }
         appContext.packageName?.takeIf { it.isNotBlank() }?.let { lines += "- Target package: $it" }
-        inferStyleForApp(appContext)?.let { lines += "- App style hint: $it" }
+        appCategoryOf(appContext.packageName)?.styleHint?.let { lines += "- App style hint: $it" }
         lines += "- Treat the app hint as a preference only; the output rules below always win."
         return "Context:\n${lines.joinToString("\n")}"
     }
@@ -134,26 +134,4 @@ object SystemPromptBuilder {
     } else {
         "Do not add emoji the speaker did not dictate."
     }
-
-    private fun inferStyleForApp(appContext: AppContext): String? {
-        val appLower = listOfNotNull(appContext.label, appContext.packageName)
-            .joinToString(" ")
-            .lowercase()
-        return when {
-            appLower.containsAny("mail", "outlook", "gmail", "proton") ->
-                "Use a professional written tone with proper greetings and sign-offs if present."
-            appLower.containsAny(
-                "slack", "discord", "telegram", "whatsapp", "messenger",
-                "signal", "messages", "molly", "element", "matrix"
-            ) ->
-                "Use a casual conversational tone. Keep it concise and natural for chat."
-            appLower.containsAny("docs", "notion", "notes", "obsidian", "keep", "evernote", "writer") ->
-                "Use a clear, structured writing style suitable for documents and notes."
-            appLower.containsAny("twitter", "x", "mastodon", "threads", "bluesky") ->
-                "Keep it concise and suitable for social media posts."
-            else -> null
-        }
-    }
-
-    private fun String.containsAny(vararg terms: String): Boolean = terms.any { contains(it) }
 }

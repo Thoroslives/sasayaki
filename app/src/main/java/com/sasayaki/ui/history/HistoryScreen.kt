@@ -94,12 +94,17 @@ fun HistoryRoute(viewModel: HistoryViewModel = hiltViewModel()) {
             viewModel.requestDelete(id)
             scope.launch {
                 snackbarHostState.currentSnackbarData?.dismiss()
-                val result = snackbarHostState.showSnackbar(
-                    message = "Dictation deleted",
-                    actionLabel = "Undo",
-                    duration = SnackbarDuration.Short
-                )
-                if (result == SnackbarResult.ActionPerformed) viewModel.undoDelete(id) else viewModel.commitDelete(id)
+                var undone = false
+                try {
+                    undone = snackbarHostState.showSnackbar(
+                        message = "Dictation deleted",
+                        actionLabel = "Undo",
+                        duration = SnackbarDuration.Short
+                    ) == SnackbarResult.ActionPerformed
+                } finally {
+                    // Leaving the tab cancels the snackbar; that counts as not undoing.
+                    if (undone) viewModel.undoDelete(id) else viewModel.commitDelete(id)
+                }
             }
         },
         onClearAll = viewModel::clearAll,

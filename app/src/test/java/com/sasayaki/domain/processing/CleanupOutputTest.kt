@@ -1,9 +1,12 @@
 package com.sasayaki.domain.processing
 
+import com.sasayaki.domain.model.PostProcessingPrompt
 import com.sasayaki.domain.model.Profile
 import com.sasayaki.domain.model.SummarizeMode
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class CleanupOutputTest {
@@ -80,9 +83,23 @@ class CleanupOutputTest {
     }
 
     @Test
-    fun `untouched output keeps dictated line breaks`() {
+    fun `line breaks at the edges survive only when dictated`() {
         assertEquals("\nThanks for the update.", stripModelArtifacts("\nThanks for the update.", "new paragraph thanks for the update"))
         assertEquals("Thanks.\n", stripModelArtifacts(" Thanks.\n", "thanks new line"))
+        assertEquals("Hello world.", stripModelArtifacts("Hello world.\n", "hello world"))
+        assertEquals("Hello.", stripModelArtifacts("\n\nHello.", "hello"))
+        assertEquals("Hola.\n", stripModelArtifacts("Hola.\n", "hola punto y aparte"))
+    }
+
+    @Test
+    fun `only a final undictated note is cut`() {
+        val agenda = "Agenda\nNotes: bring slides"
+        assertEquals(agenda, stripModelArtifacts("$agenda\n\nNote: I formatted this as a list.", "agenda new line notes colon bring slides"))
+    }
+
+    @Test
+    fun `words that merely contain quote do not count as dictated quotes`() {
+        assertEquals("Raise the quota.", stripModelArtifacts("\"Raise the quota.\"", "raise the quota"))
     }
 
     @Test
@@ -90,10 +107,19 @@ class CleanupOutputTest {
         val request = "translate this into japanese please"
         val long = "x".repeat(200)
         assertNull(rejectCleanup(request, long, "stop", lengthCheck = LengthCheck.NONE))
-        assertEquals(LengthCheck.NONE, lengthCheckFor(Profile(name = "T", profilePrompt = "Translate to English")))
-        assertEquals(LengthCheck.NONE, lengthCheckFor(Profile(name = "T", selectedPromptIds = setOf(4L))))
-        assertEquals(LengthCheck.GROWTH_ONLY, lengthCheckFor(Profile(name = "T", summarizeMode = SummarizeMode.LIGHT)))
-        assertEquals(LengthCheck.FULL, lengthCheckFor(Profile(name = "T")))
+        assertEquals(LengthCheck.NONE, lengthCheckFor(SummarizeMode.NONE, freeform = true))
+        assertEquals(LengthCheck.GROWTH_ONLY, lengthCheckFor(SummarizeMode.LIGHT, freeform = false))
+        assertEquals(LengthCheck.FULL, lengthCheckFor(SummarizeMode.NONE, freeform = false))
+    }
+
+    @Test
+    fun `only applicable custom prompts make a cleanup freeform`() {
+        val builtIn = PostProcessingPrompt(id = 1, title = "Role", prompt = "x", builtIn = true)
+        val custom = PostProcessingPrompt(id = 2, title = "Mine", prompt = "Translate", builtIn = false)
+        val prompts = listOf(builtIn, custom)
+        assertTrue(hasFreeformPrompts(Profile(name = "T", profilePrompt = "Translate to English"), prompts))
+        assertTrue(hasFreeformPrompts(Profile(name = "T", selectedPromptIds = setOf(2L)), prompts))
+        assertFalse(hasFreeformPrompts(Profile(name = "T", selectedPromptIds = setOf(1L, 9L)), prompts))
     }
 
     @Test

@@ -7,6 +7,7 @@ data class ChatCompletionRequest(
     @SerializedName("messages") val messages: List<ChatMessage>,
     @SerializedName("temperature") val temperature: Double? = null,
     @SerializedName("max_tokens") val maxTokens: Int? = null,
+    @SerializedName("max_completion_tokens") val maxCompletionTokens: Int? = null,
     @SerializedName("reasoning_effort") val reasoningEffort: String? = null,
     @SerializedName("chat_template_kwargs") val chatTemplateKwargs: Map<String, Any>? = null
 )

@@ -11,7 +11,9 @@ import com.sasayaki.domain.model.PostProcessingPrompt
 import com.sasayaki.domain.model.Profile
 import com.sasayaki.domain.model.TextReplacementRule
 import com.sasayaki.domain.processing.applyReplacementRules
+import com.sasayaki.domain.processing.CleanupPlan
 import com.sasayaki.domain.processing.SystemPromptBuilder
+import com.sasayaki.domain.processing.hasFreeformPrompts
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -65,12 +67,16 @@ class ProcessingRepository @Inject constructor(
      * Loads the prompt text for [profile] and hands assembly to [SystemPromptBuilder],
      * which holds the ordering and precedence rules and is unit-tested directly.
      */
-    suspend fun buildSystemPrompt(profile: Profile, appContext: AppContext?): String {
-        return SystemPromptBuilder.build(
-            profile = profile,
-            appContext = appContext,
-            prompts = promptDao.getAll().map(PostProcessingPromptEntity::toDomain),
-            vocabulary = preferencesDataStore.preferences.first().vocabulary
+    suspend fun cleanupPlan(profile: Profile, appContext: AppContext?): CleanupPlan {
+        val prompts = promptDao.getAll().map(PostProcessingPromptEntity::toDomain)
+        return CleanupPlan(
+            systemPrompt = SystemPromptBuilder.build(
+                profile = profile,
+                appContext = appContext,
+                prompts = prompts,
+                vocabulary = preferencesDataStore.preferences.first().vocabulary
+            ),
+            freeform = hasFreeformPrompts(profile, prompts)
         )
     }
 }

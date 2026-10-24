@@ -9,6 +9,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.runBlocking
 import kotlin.system.measureTimeMillis
 
 data class Completion(
@@ -57,8 +58,10 @@ class BenchmarkClient {
             )
         }
 
-    // hintRungs mirrors the app's per-model memory of which optional fields a server accepts.
-    private val hintRungs = mutableMapOf<String, Int>()
+    private class Refused(val code: Int, val body: String) : Exception("HTTP $code")
+
+    // optionalFields is the app's own memory of which optional fields a server refuses.
+    private val optionalFields = OptionalFieldMemory()
 
     /**
      * complete sends the request the app sends, including the probing for optional fields,
@@ -72,34 +75,26 @@ class BenchmarkClient {
         var failure: String? = null
         val latency = measureTimeMillis {
             try {
-                var rung = hintRungs[model] ?: 0
-                while (true) {
-                    val payload = cleanupRequest(model, systemPrompt, userText, style, ModelHints.LADDER[rung])
-                    val http = Request.Builder()
-                        .url("$endpoint/chat/completions")
-                        .addHeader("Authorization", "Bearer $apiKey")
-                        .post(gson.toJson(payload).toRequestBody("application/json".toMediaType()))
-                        .build()
-                    val code = client.newCall(http).execute().use { response ->
-                        val body = response.body?.string().orEmpty()
-                        if (response.isSuccessful) {
-                            val parsed = gson.fromJson(body, ChatCompletionResponse::class.java)
-                            raw = parsed.text
-                            finishReason = parsed.finishReason
-                            text = stripModelArtifacts(raw, userText)
+                val parsed = runBlocking {
+                    optionalFields.send(model, { e -> (e as? Refused)?.takeIf { it.code in setOf(400, 422) }?.body }) { omitted ->
+                        val payload = cleanupRequest(model, systemPrompt, userText, style, withExamples = true, omitted = omitted)
+                        val http = Request.Builder()
+                            .url("$endpoint/chat/completions")
+                            .addHeader("Authorization", "Bearer $apiKey")
+                            .post(gson.toJson(payload).toRequestBody("application/json".toMediaType()))
+                            .build()
+                        client.newCall(http).execute().use { response ->
+                            val body = response.body?.string().orEmpty()
+                            if (!response.isSuccessful) throw Refused(response.code, body)
+                            gson.fromJson(body, ChatCompletionResponse::class.java)
                         }
-                        response.code
                     }
-                    if (code in 200..299) {
-                        hintRungs[model] = rung
-                        break
-                    }
-                    if (code !in setOf(400, 422) || rung == ModelHints.LADDER.lastIndex) {
-                        failure = "HTTP $code"
-                        break
-                    }
-                    rung++
                 }
+                raw = parsed.text
+                finishReason = parsed.finishReason
+                text = stripModelArtifacts(raw, userText)
+            } catch (e: Refused) {
+                failure = "HTTP ${e.code}"
             } catch (e: Exception) {
                 failure = e::class.simpleName + ": " + (e.message ?: "")
             }

@@ -3,8 +3,6 @@ package com.sasayaki.domain.processing
 import android.util.Log
 import com.sasayaki.data.api.ApiClientFactory
 import com.sasayaki.data.api.LlmApiService
-import com.sasayaki.data.api.model.ChatCompletionRequest
-import com.sasayaki.data.api.model.ChatCompletionResponse
 import com.sasayaki.data.repository.ProcessingRepository
 import com.sasayaki.data.repository.ProviderRepository
 import com.sasayaki.domain.provider.Purpose
@@ -14,7 +12,6 @@ import com.sasayaki.domain.model.Profile
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 import retrofit2.HttpException
-import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -53,13 +50,19 @@ class TextProcessor @Inject constructor(
 
             val service = apiClientFactory.create(LlmApiService::class.java, endpoint.baseUrl, endpoint.apiKey)
 
-            val systemPrompt = processingRepository.buildSystemPrompt(profile, appContext)
+            val plan = processingRepository.cleanupPlan(profile, appContext)
 
-            val response = complete(service, "${endpoint.baseUrl}|${endpoint.model}") { hints ->
-                cleanupRequest(endpoint.model, systemPrompt, ruleProcessedText, profile.outputStyle, hints)
+            val response = optionalFields.send("${endpoint.baseUrl}|${endpoint.model}", ::refusal) { omitted ->
+                service.chatCompletion(
+                    cleanupRequest(
+                        endpoint.model, plan.systemPrompt, ruleProcessedText, profile.outputStyle,
+                        withExamples = !plan.freeform, omitted = omitted
+                    )
+                )
             }
             val cleaned = stripModelArtifacts(response.text, ruleProcessedText)
-            val rejection = rejectCleanup(ruleProcessedText, cleaned, response.finishReason, lengthCheckFor(profile))
+            val lengthCheck = lengthCheckFor(profile.summarizeMode, plan.freeform)
+            val rejection = rejectCleanup(ruleProcessedText, cleaned, response.finishReason, lengthCheck)
             if (rejection != null) {
                 Log.w(TAG, "Cleanup output rejected ($rejection); using rule-processed text")
                 ruleProcessedText
@@ -77,25 +80,12 @@ class TextProcessor @Inject constructor(
         }
     }
 
-    private suspend fun complete(
-        service: LlmApiService,
-        serverModel: String,
-        request: (ModelHints) -> ChatCompletionRequest
-    ): ChatCompletionResponse {
-        var rung = acceptedHints[serverModel] ?: 0
-        while (true) {
-            try {
-                return service.chatCompletion(request(ModelHints.LADDER[rung])).also { acceptedHints[serverModel] = rung }
-            } catch (e: HttpException) {
-                if (e.code() !in REJECTED_REQUEST_CODES || rung == ModelHints.LADDER.lastIndex) throw e
-                rung++
-            }
-        }
-    }
+    private val optionalFields = OptionalFieldMemory()
 
-    // acceptedHints remembers per server and model the first rung of [ModelHints.LADDER]
-    // that was not rejected, so only the first cleanup pays for the probing.
-    private val acceptedHints = ConcurrentHashMap<String, Int>()
+    private fun refusal(error: Throwable): String? =
+        (error as? HttpException)?.takeIf { it.code() in REJECTED_REQUEST_CODES }?.let {
+            it.response()?.errorBody()?.string().orEmpty()
+        }
 
     private companion object {
         const val TAG = "TextProcessor"

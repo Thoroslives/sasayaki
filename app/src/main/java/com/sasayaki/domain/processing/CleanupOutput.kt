@@ -1,5 +1,6 @@
 package com.sasayaki.domain.processing
 
+import com.sasayaki.domain.model.PostProcessingPrompt
 import com.sasayaki.domain.model.Profile
 import com.sasayaki.domain.model.SummarizeMode
 
@@ -25,16 +26,25 @@ private const val LABEL =
 private val leadingLabel = Regex("^$LABEL\\s*:\\s*", RegexOption.IGNORE_CASE)
 // spokenLabel ignores the colon, which a transcript holds as a word or not at all.
 private val spokenLabel = Regex("^$LABEL\\b", RegexOption.IGNORE_CASE)
-private val trailingNote = Regex("\\n+\\(?notes?\\s*:(.*)$", setOf(RegexOption.DOT_MATCHES_ALL, RegexOption.IGNORE_CASE))
+private val noteHeader = Regex("\\n+\\(?notes?\\s*:", RegexOption.IGNORE_CASE)
 private val quotePairs = listOf('"' to '"', '“' to '”', '\'' to '\'', '«' to '»', '„' to '“', '「' to '」')
-private val dictatedQuote =
-    Regex("[\"“”«»„「」]|quot|comillas|guillemets|virgolett|aspas|cometes|anführungszeichen", RegexOption.IGNORE_CASE)
+private val dictatedQuote = Regex(
+    "[\"“”«»„「」]|(?<!\\p{L})(?:(?:un)?quote[sd]?|quotation|comillas|guillemets|virgolette|aspas|cometes|anführungszeichen)(?!\\p{L})",
+    setOf(RegexOption.IGNORE_CASE)
+)
+// spokenBreak matches a line-break command at the start or end of a transcript, the only
+// reason for a cleanup to begin or end with a line break.
+private const val SPOKEN_BREAK =
+    "new line|new paragraph|newline|nueva línea|nuevo párrafo|punto y aparte|nouvelle ligne|à la ligne|" +
+        "nouveau paragraphe|a capo|nuova riga|nuovo paragrafo|neue zeile|neuer absatz|nova linha|novo parágrafo|" +
+        "nieuwe regel|nieuwe alinea|nova línia|punt i a part"
+private val leadingSpokenBreak = Regex("(?iu)^\\W*(?:$SPOKEN_BREAK)\\b")
+private val trailingSpokenBreak = Regex("(?iu)\\b(?:$SPOKEN_BREAK)\\W*$")
 
 /**
  * stripModelArtifacts removes the reasoning and framing models wrap around an answer.
  * Framing the speaker could have dictated (a label, quotes, a note) is kept when [input]
- * has it too, in written or spoken form. Untouched output keeps its line breaks, which
- * may be a dictated new line.
+ * has it too, in written or spoken form.
  */
 fun stripModelArtifacts(output: String, input: String): String {
     var text = reasoningBlock.replace(output, "")
@@ -56,11 +66,13 @@ fun stripModelArtifacts(output: String, input: String): String {
 
     val trimmedInput = input.trim()
     if (!spokenLabel.containsMatchIn(trimmedInput)) text = leadingLabel.replaceFirst(text, "")
-    trailingNote.find(text)?.let { note ->
-        val noteWords = normalizedWords(note.groupValues[1])
+    noteHeader.findAll(text).lastOrNull()?.let { header ->
+        val note = text.substring(header.range.last + 1)
+        val noteWords = normalizedWords(note)
         val inputWords = normalizedWords(input).toSet()
         val dictated = noteWords.count { it in inputWords }
-        if (dictated * 2 < noteWords.size) text = text.substring(0, note.range.first)
+        val finalParagraph = "\n\n" !in note.trim()
+        if (finalParagraph && dictated * 2 < noteWords.size) text = text.substring(0, header.range.first)
     }
 
     text = text.trim()
@@ -72,7 +84,10 @@ fun stripModelArtifacts(output: String, input: String): String {
     if (wrapped != null && !quoteDictated) {
         text = text.substring(1, text.length - 1).trim()
     }
-    return if (text == output.trim()) output.trim(' ', '\t') else text
+    if (text != output.trim()) return text
+    val leadingBreak = if (leadingSpokenBreak.containsMatchIn(trimmedInput)) output.trimStart(' ', '\t').takeWhile { it == '\n' } else ""
+    val trailingBreak = if (trailingSpokenBreak.containsMatchIn(trimmedInput)) output.trimEnd(' ', '\t').takeLastWhile { it == '\n' } else ""
+    return leadingBreak + text + trailingBreak
 }
 
 /**
@@ -102,9 +117,20 @@ fun rejectCleanup(input: String, output: String, finishReason: String?, lengthCh
     }
 }
 
-fun lengthCheckFor(profile: Profile): LengthCheck = when {
-    profile.profilePrompt.isNotBlank() || profile.selectedPromptIds.isNotEmpty() -> LengthCheck.NONE
-    profile.summarizeMode != SummarizeMode.NONE -> LengthCheck.GROWTH_ONLY
+/**
+ * CleanupPlan is the system prompt for a dictation, and whether the user's own prompts
+ * apply to it, which frees the cleanup to translate or reshape the text.
+ */
+data class CleanupPlan(val systemPrompt: String, val freeform: Boolean)
+
+// hasFreeformPrompts ignores selected ids whose prompt is gone or built in: neither shows
+// in the profile editor, so the user could never clear them.
+fun hasFreeformPrompts(profile: Profile, prompts: List<PostProcessingPrompt>): Boolean =
+    profile.profilePrompt.isNotBlank() || prompts.any { !it.builtIn && it.id in profile.selectedPromptIds }
+
+fun lengthCheckFor(summarize: SummarizeMode, freeform: Boolean): LengthCheck = when {
+    freeform -> LengthCheck.NONE
+    summarize != SummarizeMode.NONE -> LengthCheck.GROWTH_ONLY
     else -> LengthCheck.FULL
 }
 

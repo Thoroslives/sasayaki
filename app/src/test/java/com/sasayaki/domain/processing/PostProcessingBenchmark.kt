@@ -66,7 +66,7 @@ class PostProcessingBenchmark {
                 }
                 // Every case also has to come back clean and pass the app's own validation,
                 // or the app would have fallen back to the raw transcript.
-                val lengthCheck = lengthCheckFor(case.profile)
+                val lengthCheck = lengthCheckFor(case.profile.summarizeMode, freeform = false)
                 results += CheckResult(
                     model, case, "no framing to strip",
                     completions.count { it.error == null && it.raw.trim() == it.text.trim() }, completions.size

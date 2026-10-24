@@ -59,6 +59,16 @@ debug: docker-image
 verify: docker-image
 	$(call gradle,test assembleDebug)
 
+# The pre-push gate (lefthook.yml): formatting, lint and unit tests.
+check: docker-image
+	$(call gradle,spotlessCheck lintDebug testDebugUnitTest)
+
+format: docker-image
+	$(call gradle,spotlessApply)
+
+hooks:
+	lefthook install
+
 # Renders the screenshot tests to app/build/screenshots for visual review.
 screenshots: docker-image
 	$(call gradle,testDebugUnitTest -Pscreenshots)

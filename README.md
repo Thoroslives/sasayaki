@@ -100,6 +100,13 @@ Run the unit tests and a debug build, which need no network and no credentials:
 make verify
 ```
 
+Before every push, [lefthook](https://github.com/evilmartians/lefthook) runs `make check`: formatting (ktlint through Spotless), Android lint and the unit tests. CI runs the same checks on every pull request. Install the hook once, and fix formatting with `make format`:
+
+```sh
+make hooks
+make format
+```
+
 There is no emulator in the build container, so screens are checked with screenshot tests rendered on the JVM. They write PNGs to `app/build/screenshots/`:
 
 ```sh

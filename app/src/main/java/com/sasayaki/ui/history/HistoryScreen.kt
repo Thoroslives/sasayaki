@@ -16,8 +16,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
 import com.sasayaki.ui.theme.SasayakiIcons
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -86,7 +84,7 @@ fun HistoryScreen(
                 verticalArrangement = Arrangement.Center
             ) {
                 EmptyStateCard(
-                    icon = SasayakiIcons.Description,
+                    icon = SasayakiIcons.History,
                     title = "No dictations yet",
                     description = "When history is enabled, your recent transcripts will appear here for quick reuse."
                 )
@@ -225,7 +223,7 @@ private fun HistoryCard(
                 }
                 IconButton(onClick = onDelete) {
                     Icon(
-                        imageVector = Icons.Default.Delete,
+                        imageVector = SasayakiIcons.Delete,
                         contentDescription = "Delete dictation",
                         tint = MaterialTheme.colorScheme.error
                     )

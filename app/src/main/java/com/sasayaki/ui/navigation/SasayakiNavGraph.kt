@@ -1,7 +1,5 @@
 package com.sasayaki.ui.navigation
 
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -33,9 +31,9 @@ private data class BottomDestination(
 )
 
 private val bottomDestinations = listOf(
-    BottomDestination(Routes.HOME, "Transcriptions", SasayakiIcons.Description),
+    BottomDestination(Routes.HOME, "Transcriptions", SasayakiIcons.History),
     BottomDestination(Routes.PROFILES, "Profiles", SasayakiIcons.Tune),
-    BottomDestination(Routes.SETTINGS, "Settings", Icons.Default.Settings)
+    BottomDestination(Routes.SETTINGS, "Settings", SasayakiIcons.Settings)
 )
 
 @Composable

@@ -15,12 +15,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.ElevatedCard
@@ -147,7 +141,7 @@ private fun ProfilesListScreen(
             ExtendedFloatingActionButton(
                 onClick = onCreate,
                 modifier = Modifier.padding(bottom = outerPadding.calculateBottomPadding()),
-                icon = { Icon(Icons.Default.Add, contentDescription = null) },
+                icon = { Icon(SasayakiIcons.Add, contentDescription = null) },
                 text = { Text("New") },
                 elevation = FloatingActionButtonDefaults.elevation()
             )
@@ -219,11 +213,11 @@ private fun ProfileCard(
                         Icon(SasayakiIcons.ContentCopy, contentDescription = "Duplicate ${profile.name}")
                     }
                     IconButtonSurface(onClick = onEdit, prominent = true) {
-                        Icon(Icons.Default.Edit, contentDescription = "Edit ${profile.name}")
+                        Icon(SasayakiIcons.Edit, contentDescription = "Edit ${profile.name}")
                     }
                     if (!profile.isActive) {
                         IconButtonSurface(onClick = onDelete) {
-                            Icon(Icons.Default.Delete, contentDescription = "Delete ${profile.name}")
+                            Icon(SasayakiIcons.Delete, contentDescription = "Delete ${profile.name}")
                         }
                     }
                 }
@@ -644,7 +638,7 @@ private fun StyleChoiceRow(
                 Box(modifier = Modifier.size(28.dp), contentAlignment = Alignment.Center) {
                     if (selected) {
                         Icon(
-                            Icons.Default.Check,
+                            SasayakiIcons.Check,
                             contentDescription = null,
                             modifier = Modifier.size(18.dp),
                             tint = MaterialTheme.colorScheme.onPrimaryContainer
@@ -669,11 +663,11 @@ private fun EditorTopBar(title: String, onBack: () -> Unit, onSave: () -> Unit) 
         verticalAlignment = Alignment.CenterVertically
     ) {
         IconButton(onClick = onBack) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+            Icon(SasayakiIcons.ArrowBack, contentDescription = "Back")
         }
         Text(title, modifier = Modifier.weight(1f), style = MaterialTheme.typography.headlineSmall)
         IconButton(onClick = onSave) {
-            Icon(Icons.Default.Check, contentDescription = "Save")
+            Icon(SasayakiIcons.Check, contentDescription = "Save")
         }
     }
 }

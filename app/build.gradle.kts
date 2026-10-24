@@ -81,6 +81,16 @@ android {
     }
 }
 
+kotlin {
+    compilerOptions {
+        // Expressive components are adopted deliberately while material3 1.5 is in beta.
+        optIn.addAll(
+            "androidx.compose.material3.ExperimentalMaterial3Api",
+            "androidx.compose.material3.ExperimentalMaterial3ExpressiveApi"
+        )
+    }
+}
+
 /**
  * The benchmark reads its endpoint, key and model list from the environment and skips
  * itself when they are absent, so ordinary builds never touch the network. Values are
@@ -119,7 +129,6 @@ dependencies {
     implementation(libs.compose.ui.graphics)
     implementation(libs.compose.ui.tooling.preview)
     implementation(libs.compose.material3)
-    implementation(libs.compose.material.icons.core)
     debugImplementation(libs.compose.ui.tooling)
 
     // Hilt

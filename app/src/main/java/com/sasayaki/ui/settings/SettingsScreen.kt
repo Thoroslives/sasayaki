@@ -13,11 +13,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExtendedFloatingActionButton
@@ -56,6 +51,7 @@ import com.sasayaki.ui.common.SasayakiScaffold
 import com.sasayaki.ui.common.SasayakiTopBar
 import com.sasayaki.ui.common.SectionCard
 import com.sasayaki.ui.common.StatusPill
+import com.sasayaki.ui.theme.SasayakiIcons
 
 private sealed interface SettingsMode {
     data object Main : SettingsMode
@@ -358,7 +354,7 @@ private fun DrillInScaffold(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    Icon(SasayakiIcons.ArrowBack, contentDescription = "Back")
                 }
                 Text(title, modifier = Modifier.weight(1f), style = MaterialTheme.typography.headlineSmall)
             }
@@ -368,7 +364,7 @@ private fun DrillInScaffold(
                 ExtendedFloatingActionButton(
                     onClick = onAdd,
                     modifier = Modifier.padding(bottom = outerPadding.calculateBottomPadding()),
-                    icon = { Icon(Icons.Default.Add, contentDescription = null) },
+                    icon = { Icon(SasayakiIcons.Add, contentDescription = null) },
                     text = { Text("Add") }
                 )
             }
@@ -401,8 +397,8 @@ private fun RuleManagementRow(rule: TextReplacementRule, onEdit: () -> Unit, onD
             Text(rule.pattern, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text("→", color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(rule.replacement.ifBlank { "(Empty)" }, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-            IconButton(onClick = onEdit) { Icon(Icons.Default.Edit, contentDescription = "Edit ${rule.name}") }
-            IconButton(onClick = onDelete) { Icon(Icons.Default.Delete, contentDescription = "Delete ${rule.name}") }
+            IconButton(onClick = onEdit) { Icon(SasayakiIcons.Edit, contentDescription = "Edit ${rule.name}") }
+            IconButton(onClick = onDelete) { Icon(SasayakiIcons.Delete, contentDescription = "Delete ${rule.name}") }
         }
     }
 }
@@ -423,8 +419,8 @@ private fun PromptManagementRow(prompt: PostProcessingPrompt, onEdit: () -> Unit
                 Text(prompt.title, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(prompt.prompt, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
-            IconButton(onClick = onEdit) { Icon(Icons.Default.Edit, contentDescription = "Edit ${prompt.title}") }
-            IconButton(onClick = onDelete) { Icon(Icons.Default.Delete, contentDescription = "Delete ${prompt.title}") }
+            IconButton(onClick = onEdit) { Icon(SasayakiIcons.Edit, contentDescription = "Edit ${prompt.title}") }
+            IconButton(onClick = onDelete) { Icon(SasayakiIcons.Delete, contentDescription = "Delete ${prompt.title}") }
         }
     }
 }

@@ -17,6 +17,9 @@ data class Provider(
         Purpose.SPEECH -> speechModel
         Purpose.CLEANUP -> cleanupModel
     }?.takeIf { it.isNotBlank() }
+
+    // Keys stay out of logs and crash reports.
+    override fun toString() = "Provider(id=$id, name=$name, baseUrl=$baseUrl, speechModel=$speechModel, cleanupModel=$cleanupModel)"
 }
 
 @Immutable
@@ -26,7 +29,9 @@ data class Endpoint(
     val baseUrl: String,
     val apiKey: String,
     val model: String
-)
+) {
+    override fun toString() = "Endpoint(providerId=$providerId, baseUrl=$baseUrl, model=$model)"
+}
 
 sealed interface Resolution {
     data class Ready(val endpoint: Endpoint) : Resolution

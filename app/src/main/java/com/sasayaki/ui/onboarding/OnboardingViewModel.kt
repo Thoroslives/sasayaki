@@ -29,8 +29,11 @@ class OnboardingViewModel @Inject constructor(
     private var savedProviderId: Long? = null
 
     /** Saves the provider and, when it offers cleanup, turns cleanup on for the active profile. */
+    private var saving = false
+
     fun saveProvider(onSaved: () -> Unit) {
-        if (!draft.validateUrl()) return
+        if (saving || !draft.validateUrl()) return
+        saving = true
         viewModelScope.launch {
             val provider = draft.toProvider().copy(id = savedProviderId ?: 0)
             savedProviderId = providerRepository.save(provider)
@@ -38,6 +41,7 @@ class OnboardingViewModel @Inject constructor(
                 val active = profileRepository.getActiveProfile()
                 profileRepository.save(active.copy(llmEnabled = true))
             }
+            saving = false
             onSaved()
         }
     }

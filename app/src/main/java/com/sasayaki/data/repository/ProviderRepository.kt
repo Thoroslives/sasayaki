@@ -69,6 +69,7 @@ class ProviderRepository @Inject constructor(
 
     suspend fun get(id: Long): Provider? = withContext(Dispatchers.IO) { providerDao.getById(id)?.toDomain() }
 
+    /** save returns the provider's id, or 0 when it no longer exists. */
     suspend fun save(provider: Provider): Long = withContext(Dispatchers.IO) {
         val entity = ProviderEntity(
             id = provider.id,
@@ -80,8 +81,9 @@ class ProviderRepository @Inject constructor(
         val id = if (provider.id == 0L) {
             providerDao.insert(entity)
         } else {
-            val existing = providerDao.getById(provider.id)
-            providerDao.update(entity.copy(createdAt = existing?.createdAt ?: entity.createdAt))
+            // A late save for a deleted provider must not bring its key back.
+            val existing = providerDao.getById(provider.id) ?: return@withContext 0L
+            providerDao.update(entity.copy(createdAt = existing.createdAt))
             provider.id
         }
         secureStore.setProviderApiKey(id, provider.apiKey.trim())

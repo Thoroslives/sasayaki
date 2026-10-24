@@ -37,6 +37,7 @@ class ProviderDraft(
     var cleanupModel by mutableStateOf<String?>(null)
         private set
     private var nameEdited = false
+    private var speechModelChosen = false
 
     private val _state = MutableStateFlow(ProviderEditorUiState(loaded = id == 0L))
     val state: StateFlow<ProviderEditorUiState> = _state.asStateFlow()
@@ -52,6 +53,7 @@ class ProviderDraft(
         apiKey = provider.apiKey
         speechModel = provider.speechModel
         cleanupModel = provider.cleanupModel
+        speechModelChosen = true
         _state.update { it.copy(loaded = true, loadingModels = true, models = repository.models.value[id].orEmpty()) }
         val models = repository.refreshModels(id)
         _state.update { it.copy(loadingModels = false, models = models) }
@@ -76,6 +78,7 @@ class ProviderDraft(
 
     fun onSpeechModel(model: String?) {
         speechModel = model
+        speechModelChosen = true
     }
 
     fun onCleanupModel(model: String?) {
@@ -88,7 +91,8 @@ class ProviderDraft(
             _state.update { it.copy(testing = true, result = null) }
             val result = repository.test(url, apiKey, speechModel, cleanupModel, id.takeIf { it != 0L })
             val models = (result as? ConnectionResult.Connected)?.models.orEmpty()
-            if (speechModel == null) speechModel = suggestSpeechModel(models)
+            // On a saved provider null means "not used for speech", which a test must not undo.
+            if (!speechModelChosen) speechModel = suggestSpeechModel(models)
             _state.update { it.copy(testing = false, result = result, models = models.ifEmpty { it.models }) }
         }
     }

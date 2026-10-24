@@ -56,8 +56,11 @@ class ProviderEditorViewModel @Inject constructor(
         }
     }
 
+    private var adding = false
+
     fun add() {
-        if (!draft.validateUrl()) return
+        if (adding || !draft.validateUrl()) return
+        adding = true
         viewModelScope.launch {
             providerRepository.save(draft.toProvider())
             draft.markFinished()
@@ -65,10 +68,9 @@ class ProviderEditorViewModel @Inject constructor(
     }
 
     fun delete() {
-        viewModelScope.launch {
-            providerRepository.delete(draft.id)
-            draft.markFinished()
-        }
+        // Finished first, so neither the autosave nor the exit flush writes it back.
+        draft.markFinished()
+        applicationScope.launch { providerRepository.delete(draft.id) }
     }
 
     override fun onCleared() {

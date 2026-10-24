@@ -20,6 +20,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sasayaki.data.preferences.BubbleSize
@@ -40,7 +41,6 @@ import com.sasayaki.ui.components.pageIntro
 import com.sasayaki.ui.components.segmentedItemColors
 import com.sasayaki.ui.theme.SasayakiIcons
 import com.sasayaki.ui.theme.Spacing
-import java.util.Locale
 
 private val retentionOptions = listOf(50, 100, 500, 1000, 5000)
 
@@ -322,12 +322,13 @@ fun PermissionsRoute(onBack: () -> Unit) {
 @Composable
 private fun SilenceItem(shapes: ListItemShapes, thresholdMs: Long, onChange: (Long) -> Unit) {
     val state = rememberSliderState(value = thresholdMs / 1000f, steps = 8, trackRange = 0.5f..5f)
+    val locale = LocalConfiguration.current.locales[0]
     SegmentedListItem(
         shapes = shapes,
         colors = segmentedItemColors(),
         leadingContent = { ItemIcon(SasayakiIcons.Timer) },
         trailingContent = {
-            Text(String.format(Locale.getDefault(), "%.1f s", state.value), style = MaterialTheme.typography.labelLarge)
+            Text(String.format(locale, "%.1f s", state.value), style = MaterialTheme.typography.labelLarge)
         },
         supportingContent = {
             Column {

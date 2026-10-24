@@ -16,6 +16,8 @@ import android.provider.Settings
 import android.util.Log
 import android.view.WindowManager
 import android.widget.Toast
+import androidx.core.app.ServiceCompat
+import androidx.core.content.ContextCompat
 import com.sasayaki.data.preferences.BubbleSize
 import com.sasayaki.data.preferences.PreferencesDataStore
 import com.sasayaki.data.repository.ProfileRepository
@@ -161,7 +163,12 @@ class BubbleService : Service() {
             }
         }
 
-        registerReceiver(stopReceiver, IntentFilter(NotificationHelper.ACTION_STOP), RECEIVER_NOT_EXPORTED)
+        ContextCompat.registerReceiver(
+            this,
+            stopReceiver,
+            IntentFilter(NotificationHelper.ACTION_STOP),
+            ContextCompat.RECEIVER_NOT_EXPORTED
+        )
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -172,7 +179,8 @@ class BubbleService : Service() {
         }
         // Idle as specialUse so the service can also be started from the boot receiver;
         // promoteToMicrophoneService() upgrades the type when recording actually starts.
-        startForeground(
+        ServiceCompat.startForeground(
+            this,
             NotificationHelper.NOTIFICATION_ID,
             notification,
             ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
@@ -270,7 +278,8 @@ class BubbleService : Service() {
     private fun promoteToMicrophoneService(): Boolean {
         val notification = notificationHelper?.buildForegroundNotification() ?: return false
         return try {
-            startForeground(
+            ServiceCompat.startForeground(
+                this,
                 NotificationHelper.NOTIFICATION_ID,
                 notification,
                 ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE or
@@ -291,7 +300,8 @@ class BubbleService : Service() {
     private fun demoteToIdleService() {
         val notification = notificationHelper?.buildForegroundNotification() ?: return
         try {
-            startForeground(
+            ServiceCompat.startForeground(
+                this,
                 NotificationHelper.NOTIFICATION_ID,
                 notification,
                 ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE

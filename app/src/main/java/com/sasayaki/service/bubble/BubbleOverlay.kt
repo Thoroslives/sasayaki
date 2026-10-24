@@ -5,7 +5,6 @@ import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.content.Context
-import android.graphics.Insets
 import android.graphics.PixelFormat
 import android.os.Build
 import android.os.SystemClock
@@ -26,6 +25,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.core.content.edit
+import androidx.core.graphics.Insets
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sasayaki.domain.model.Profile
 import kotlinx.coroutines.CoroutineScope
@@ -352,7 +352,7 @@ class BubbleOverlay(
         // The system otherwise animates every position change. When the bubble shrinks its
         // left edge moves, so the content would snap into place while the window slid after
         // it, and drags would trail the finger.
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) setCanPlayMoveAnimation(false)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) setCanPlayMoveAnimation(false)
     }
 
     private fun update(view: View, params: WindowManager.LayoutParams = bubbleParams) {
@@ -393,8 +393,9 @@ class BubbleOverlay(
 
     private fun systemBarInsets(): Insets? =
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            windowManager.currentWindowMetrics.windowInsets
+            val insets = windowManager.currentWindowMetrics.windowInsets
                 .getInsetsIgnoringVisibility(WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout())
+            Insets.toCompatInsets(insets)
         } else {
             null
         }

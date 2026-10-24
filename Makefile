@@ -8,10 +8,13 @@ GRADLE_BUILD_HOME := $(CURDIR)/.gradle-build-cache
 ANDROID_SDK_HOME := $(CURDIR)/.android-cache
 HOST_UID := $(shell id -u)
 HOST_GID := $(shell id -g)
+# Rootless podman already maps the container's root to the invoking user, and a chown to
+# that user's uid would map it onto a subordinate uid the host user cannot write.
+HAND_BACK := $(if $(findstring podman,$(shell docker --version 2>/dev/null)),true,chown -Rf $(HOST_UID):$(HOST_GID))
 
 # Gradle runs as root so it can write the mounted caches, then hands everything it
-# touched back to the invoking user; without the chown the next host-side build fails
-# on root-owned files under app/build.
+# touched back to the invoking user; without that the next host-side build fails on
+# root-owned files under app/build.
 define gradle
 	mkdir -p $(GRADLE_BUILD_HOME) $(ANDROID_SDK_HOME)
 	docker run --rm \
@@ -21,7 +24,7 @@ define gradle
 		-v $(ANDROID_SDK_HOME):/home/gradle/.android \
 		-e GRADLE_USER_HOME=/home/gradle/.gradle \
 		-w /project $(DOCKER_IMAGE) \
-		sh -c "./gradlew --no-daemon $(1) && chown -Rf $(HOST_UID):$(HOST_GID) /project/app/build /project/app/schemas /project/.gradle-build-cache /project/.android-cache"
+		sh -c "./gradlew --no-daemon $(1); status=\$$?; $(HAND_BACK) /project/app /project/build /project/.gradle-build-cache /project/.android-cache 2>/dev/null; exit \$$status"
 endef
 
 docker-image:
@@ -37,14 +40,14 @@ build: docker-image
 	fi; \
 	export SASAYAKI_KEYSTORE_PASSWORD; \
 	docker run --rm -u 0:0 -e SASAYAKI_KEYSTORE_PASSWORD -v $(CURDIR):/project -w /project $(DOCKER_IMAGE) \
-		sh -c "scripts/sign-release.sh $(UNSIGNED_APK) $(APK_OUTPUT) && chown $(HOST_UID):$(HOST_GID) $(APK_OUTPUT)"
+		sh -c "scripts/sign-release.sh $(UNSIGNED_APK) $(APK_OUTPUT) && $(HAND_BACK) $(APK_OUTPUT)"
 	@echo "APK built: $(APK_OUTPUT)"
 	@ls -lh $(APK_OUTPUT)
 
 # Creates the release key and its rotation proof from the old debug key. Run once.
 release-key: docker-image
 	docker run --rm -it -u 0:0 -v $(CURDIR):/project -w /project $(DOCKER_IMAGE) \
-		sh -c "scripts/create-release-key.sh && chown $(HOST_UID):$(HOST_GID) signing/release.jks signing/lineage"
+		sh -c "scripts/create-release-key.sh && $(HAND_BACK) signing"
 
 test: docker-image
 	$(call gradle,test)

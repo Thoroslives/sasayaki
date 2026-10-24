@@ -104,3 +104,14 @@ actionable icon has a `contentDescription`; decorative icons next to a text labe
 - Name things by what they do for the user: "Speech to text", "Cleanup", not "ASR" or "LLM".
 - Buttons are verbs: "Turn on", "Test connection", "Try again".
 - Errors say what happened and what to do next, in that order.
+
+## Logo
+
+The mark is a brush-stroke S that swells and thins like a breath, with two sound arcs fading
+to its right: a whisper being spoken. It is cream on pine.
+
+- Source of truth: `SasayakiMark` in `ui/theme/SasayakiLogo.kt`. The launcher foreground,
+  monochrome (themed icon) layer and notification icon are generated from the same paths.
+- In the app, use `SasayakiLogo` (mark on a pine circle). Keep at least a quarter of its size
+  as clear space and never recolor the arcs separately from the S.
+- The monochrome layer is what Android 13+ tints for themed icons; keep it in sync.

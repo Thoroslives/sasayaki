@@ -7,6 +7,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import com.sasayaki.MainActivity
 import com.sasayaki.R
 
@@ -23,7 +24,7 @@ class NotificationHelper(private val context: Context) {
             context.getString(R.string.bubble_notification_channel),
             NotificationManager.IMPORTANCE_LOW
         ).apply {
-            description = "Keeps dictation service running"
+            description = context.getString(R.string.bubble_notification_channel_description)
             setShowBadge(false)
         }
         val manager = context.getSystemService(NotificationManager::class.java)
@@ -46,11 +47,13 @@ class NotificationHelper(private val context: Context) {
         return NotificationCompat.Builder(context, CHANNEL_ID)
             .setContentTitle(context.getString(R.string.bubble_notification_title))
             .setContentText(context.getString(R.string.bubble_notification_text))
-            .setSmallIcon(android.R.drawable.ic_btn_speak_now)
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentIntent(openIntent)
             .addAction(android.R.drawable.ic_delete, context.getString(R.string.action_stop), stopIntent)
             .setOngoing(true)
             .setSilent(true)
+            .setColor(ContextCompat.getColor(context, R.color.ic_launcher_background))
+            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .build()
     }
 }

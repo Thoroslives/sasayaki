@@ -1,0 +1,40 @@
+package com.sasayaki.ui.navigation
+
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.navigation.NavController
+import androidx.navigation.NavDestination
+import androidx.navigation.NavDestination.Companion.hasRoute
+import androidx.navigation.NavDestination.Companion.hierarchy
+import androidx.navigation.NavGraph.Companion.findStartDestination
+import com.sasayaki.ui.theme.SasayakiIcons
+import kotlin.reflect.KClass
+
+enum class TopLevelDestination(
+    val route: Any,
+    val label: String,
+    val icon: ImageVector,
+    val selectedIcon: ImageVector
+) {
+    HOME(HomeRoute, "Home", SasayakiIcons.Home, SasayakiIcons.HomeFilled),
+    HISTORY(HistoryRoute, "History", SasayakiIcons.History, SasayakiIcons.HistoryFilled),
+    PROFILES(ProfilesRoute, "Profiles", SasayakiIcons.Tune, SasayakiIcons.TuneFilled),
+    SETTINGS(SettingsRoute, "Settings", SasayakiIcons.Settings, SasayakiIcons.SettingsFilled);
+
+    val routeClass: KClass<*> get() = route::class
+}
+
+fun NavDestination?.topLevelDestination(): TopLevelDestination? =
+    this?.let { destination ->
+        TopLevelDestination.entries.firstOrNull { destination.hasRoute(it.routeClass) }
+    }
+
+fun NavDestination?.isIn(destination: TopLevelDestination): Boolean =
+    this?.hierarchy?.any { it.hasRoute(destination.routeClass) } == true
+
+fun NavController.navigateToTopLevel(destination: TopLevelDestination) {
+    navigate(destination.route) {
+        popUpTo(graph.findStartDestination().id) { saveState = true }
+        launchSingleTop = true
+        restoreState = true
+    }
+}

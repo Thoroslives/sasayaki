@@ -34,7 +34,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sasayaki.data.db.entity.DictationSummary
 import com.sasayaki.ui.common.EmptyStateCard
@@ -49,7 +49,7 @@ import java.util.Locale
 
 @Composable
 fun HistoryScreen(
-    onBack: () -> Unit,
+    onBack: (() -> Unit)? = null,
     viewModel: HistoryViewModel = hiltViewModel()
 ) {
     val dayGroups by viewModel.dayGroups.collectAsStateWithLifecycle()

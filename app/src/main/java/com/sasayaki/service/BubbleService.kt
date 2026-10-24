@@ -127,6 +127,7 @@ class BubbleService : Service() {
     override fun onCreate() {
         super.onCreate()
         isRunning = true
+        BubbleTileService.requestRefresh(this)
         val helper = NotificationHelper(this)
         notificationHelper = helper
         hapticFeedback = HapticFeedback(this)
@@ -177,6 +178,7 @@ class BubbleService : Service() {
 
     override fun onDestroy() {
         isRunning = false
+        BubbleTileService.requestRefresh(this)
         fanMenuController?.dismiss()
         stopRecordingAndWait()
         removeBubble()

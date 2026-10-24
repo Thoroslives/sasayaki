@@ -57,7 +57,8 @@ class TextInjectionBridge @Inject constructor(
         return false
     }
 
-    // The lookup crosses into the focused app, so it stays off the main thread.
+    // focusedEditorPackage runs off the main thread because the lookup crosses into the
+    // focused app.
     suspend fun focusedEditorPackage(): String? = withContext(Dispatchers.Default) {
         TextInjectorService.instance?.focusedEditorPackage()?.takeIf(::isUsableTargetPackage)
     }

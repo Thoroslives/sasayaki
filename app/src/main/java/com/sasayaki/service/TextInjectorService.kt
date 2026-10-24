@@ -203,7 +203,7 @@ class TextInjectorService : AccessibilityService() {
         // A short window keeps a long draft from crossing processes on every dictation;
         // only the end of the previous sentence matters.
         val textBeforeCursor = connection.getSurroundingText(CURSOR_CONTEXT_CHARS, 0, 0)?.let {
-            textBeforeCursor(it.text, it.selectionStart, it.selectionEnd)
+            textBeforeSelection(it.text, it.selectionStart, it.selectionEnd)
         }
         connection.commitText(fitToCursor(textBeforeCursor, text), 1, null)
         return InjectionResult.Success

@@ -32,6 +32,8 @@ class CursorFitTest {
         assertEquals(" I think so.", fitToCursor("Well,", "I think so."))
         assertEquals(" Sie haben recht.", fitToCursor("Ja,", "Sie haben recht."))
         assertEquals(" die Lösung passt.", fitToCursor("Ich glaube,", "Die Lösung passt."))
+        assertEquals(" Van Halen is playing.", fitToCursor("Guess what,", "Van Halen is playing."))
+        assertEquals(" Ma, see you soon.", fitToCursor("Thanks,", "Ma, see you soon."))
     }
 
     @Test
@@ -58,6 +60,9 @@ class CursorFitTest {
     fun `scripts written without spaces get none`() {
         assertEquals("明日行きます。", fitToCursor("了解しました。", "明日行きます。"))
         assertEquals("好的", fitToCursor("我们", "好的"))
+        assertEquals("Hello", fitToCursor("「", "Hello"))
+        assertEquals("好", fitToCursor("abc𠀀", "好"))
+        assertEquals("Hello", fitToCursor("abc𠀀", "Hello"))
     }
 
     @Test
@@ -68,10 +73,10 @@ class CursorFitTest {
 
     @Test
     fun `surrounding text maps to the text before the cursor`() {
-        assertEquals("Hey", textBeforeCursor("Hey", 3, 3))
-        assertEquals("He", textBeforeCursor("Hey", 3, 2))
-        assertNull(textBeforeCursor("Hey", -1, -1))
-        assertNull(textBeforeCursor("Hey", 9, 9))
-        assertNull(textBeforeCursor(null, 0, 0))
+        assertEquals("Hey", textBeforeSelection("Hey", 3, 3))
+        assertEquals("He", textBeforeSelection("Hey", 3, 2))
+        assertNull(textBeforeSelection("Hey", -1, -1))
+        assertNull(textBeforeSelection("Hey", 9, 9))
+        assertNull(textBeforeSelection(null, 0, 0))
     }
 }

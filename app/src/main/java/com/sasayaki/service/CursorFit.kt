@@ -3,7 +3,7 @@ package com.sasayaki.service
 import java.lang.Character.UnicodeScript
 
 private const val CONTINUING_MARKS = ",;"
-private const val OPENING_MARKS = "([{“‘«¿¡@#/"
+private const val OPENING_MARKS = "([{“‘«¿¡@#/「『【〈《（"
 private const val SYMMETRIC_QUOTES = "\"'"
 private const val TIGHT_LEADING_MARKS = ".,;:!?)]}…%»”’"
 private const val FULLWIDTH_MARKS = "。、，．！？：；）」』】〉》"
@@ -11,7 +11,8 @@ private val unspacedScripts = setOf(UnicodeScript.HAN, UnicodeScript.HIRAGANA, U
 
 // lowercaseStarts are words that stay lowercase mid-sentence in the languages Sasayaki is
 // tuned for. Lowering only these leaves names, German nouns and "Sie" alone, none of
-// which can be told apart from a sentence-initial capital otherwise.
+// which can be told apart from a sentence-initial capital otherwise; words that double as
+// names, such as "Van" or "Jo", are left out.
 private val lowercaseStarts = setOf(
     "the", "a", "an", "and", "but", "or", "so", "then", "because", "if", "when", "while", "which", "that",
     "this", "these", "those", "it", "its", "we", "you", "he", "she", "they", "my", "your", "our", "their",
@@ -19,12 +20,12 @@ private val lowercaseStarts = setOf(
     "maybe", "please", "not", "no", "yes", "what", "how", "why", "where", "who",
     "el", "la", "los", "las", "un", "una", "y", "pero", "o", "que", "porque", "si", "cuando", "es", "yo",
     "en", "con", "de", "por", "para", "también", "pues",
-    "le", "les", "une", "et", "mais", "ou", "donc", "parce", "quand", "je", "tu", "il", "elle", "nous",
+    "le", "une", "et", "mais", "ou", "donc", "parce", "quand", "je", "tu", "il", "nous",
     "vous", "ils", "elles", "avec", "pour", "pas", "oui", "non",
-    "lo", "gli", "e", "ma", "che", "perché", "se", "io", "noi", "voi", "di", "per",
+    "gli", "e", "che", "perché", "se", "io", "noi", "voi", "per",
     "os", "as", "um", "uma", "mas", "eu", "você", "não",
-    "els", "però", "perquè", "quan", "jo", "amb",
-    "het", "een", "en", "maar", "of", "dat", "als", "ik", "wij", "zij", "met", "van", "voor", "niet",
+    "els", "però", "perquè", "quan", "amb",
+    "het", "een", "en", "maar", "of", "dat", "als", "ik", "wij", "zij", "voor", "niet",
     "und", "aber", "oder", "dass", "wenn", "weil", "ich", "wir", "der", "die", "das", "ein", "eine", "mit",
     "von", "für", "nicht"
 )
@@ -42,33 +43,34 @@ fun fitToCursor(textBeforeCursor: String?, dictated: String): String {
     // A dictated new line already separates the text and starts afresh.
     if (text.isEmpty() || text.first() == '\n') return text
 
-    val spaced = if (needsSpace(textBeforeCursor, text.first())) " $text" else text
+    val spaced = if (needsSpace(textBeforeCursor, text.codePointAt(0))) " $text" else text
     return if (continuesSentence(textBeforeCursor)) lowerFirstWord(spaced) else spaced
 }
 
 /**
- * textBeforeCursor reads an editor's surrounding text, returning null when the offsets do
- * not describe a position in it.
+ * textBeforeSelection returns null rather than an empty string when the offsets fall
+ * outside [text], so a bad offset reads as unknown instead of the start of the field.
  */
-fun textBeforeCursor(text: CharSequence?, selectionStart: Int, selectionEnd: Int): String? {
+fun textBeforeSelection(text: CharSequence?, selectionStart: Int, selectionEnd: Int): String? {
     text ?: return null
     val cursor = minOf(selectionStart, selectionEnd)
     if (cursor < 0 || cursor > text.length) return null
     return text.subSequence(0, cursor).toString()
 }
 
-private fun needsSpace(before: String, first: Char): Boolean {
+private fun needsSpace(before: String, firstCodePoint: Int): Boolean {
     val last = before.last()
+    val first = firstCodePoint.toChar()
     if (last.isWhitespace() || last in OPENING_MARKS || last in FULLWIDTH_MARKS || first in TIGHT_LEADING_MARKS) {
         return false
     }
-    if (isUnspaced(last) || isUnspaced(first)) return false
+    if (isUnspaced(before.codePointBefore(before.length)) || isUnspaced(firstCodePoint)) return false
     // A straight quote after a space opens a quotation; after a word it closes one.
     if (last in SYMMETRIC_QUOTES) return before.length > 1 && !before[before.length - 2].isWhitespace()
     return true
 }
 
-private fun isUnspaced(char: Char): Boolean = UnicodeScript.of(char.code) in unspacedScripts
+private fun isUnspaced(codePoint: Int): Boolean = UnicodeScript.of(codePoint) in unspacedScripts
 
 private fun continuesSentence(before: String): Boolean {
     val trailingSpace = before.takeLastWhile(Char::isWhitespace)

@@ -5,8 +5,10 @@ import com.google.gson.annotations.SerializedName
 data class ChatCompletionRequest(
     @SerializedName("model") val model: String,
     @SerializedName("messages") val messages: List<ChatMessage>,
-    @SerializedName("temperature") val temperature: Double = 0.3,
-    @SerializedName("max_tokens") val maxTokens: Int = 2048
+    @SerializedName("temperature") val temperature: Double? = null,
+    @SerializedName("max_tokens") val maxTokens: Int? = null,
+    @SerializedName("reasoning_effort") val reasoningEffort: String? = null,
+    @SerializedName("chat_template_kwargs") val chatTemplateKwargs: Map<String, Any>? = null
 )
 
 data class ChatMessage(

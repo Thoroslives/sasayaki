@@ -4,7 +4,7 @@ import android.util.Log
 import com.sasayaki.data.api.ApiClientFactory
 import com.sasayaki.data.api.LlmApiService
 import com.sasayaki.data.api.model.ChatCompletionRequest
-import com.sasayaki.data.api.model.ChatMessage
+import com.sasayaki.data.api.model.ChatCompletionResponse
 import com.sasayaki.data.repository.ProcessingRepository
 import com.sasayaki.data.repository.ProviderRepository
 import com.sasayaki.domain.provider.Purpose
@@ -13,6 +13,8 @@ import com.sasayaki.domain.model.AppContext
 import com.sasayaki.domain.model.Profile
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
+import retrofit2.HttpException
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -53,15 +55,9 @@ class TextProcessor @Inject constructor(
 
             val systemPrompt = processingRepository.buildSystemPrompt(profile, appContext)
 
-            val request = ChatCompletionRequest(
-                model = endpoint.model,
-                messages = listOf(
-                    ChatMessage(role = "system", content = systemPrompt),
-                    ChatMessage(role = "user", content = ruleProcessedText)
-                )
-            )
-
-            val response = service.chatCompletion(request)
+            val response = complete(service, "${endpoint.baseUrl}|${endpoint.model}") { hints ->
+                cleanupRequest(endpoint.model, systemPrompt, ruleProcessedText, profile.outputStyle, hints)
+            }
             val cleaned = stripModelArtifacts(response.text, ruleProcessedText)
             val rejection = rejectCleanup(ruleProcessedText, cleaned, response.finishReason, lengthCheckFor(profile))
             if (rejection != null) {
@@ -81,7 +77,28 @@ class TextProcessor @Inject constructor(
         }
     }
 
+    private suspend fun complete(
+        service: LlmApiService,
+        serverModel: String,
+        request: (ModelHints) -> ChatCompletionRequest
+    ): ChatCompletionResponse {
+        var rung = acceptedHints[serverModel] ?: 0
+        while (true) {
+            try {
+                return service.chatCompletion(request(ModelHints.LADDER[rung])).also { acceptedHints[serverModel] = rung }
+            } catch (e: HttpException) {
+                if (e.code() !in REJECTED_REQUEST_CODES || rung == ModelHints.LADDER.lastIndex) throw e
+                rung++
+            }
+        }
+    }
+
+    // acceptedHints remembers per server and model the first rung of [ModelHints.LADDER]
+    // that was not rejected, so only the first cleanup pays for the probing.
+    private val acceptedHints = ConcurrentHashMap<String, Int>()
+
     private companion object {
         const val TAG = "TextProcessor"
+        val REJECTED_REQUEST_CODES = setOf(400, 422)
     }
 }

@@ -7,7 +7,9 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
+import kotlinx.coroutines.CancellationException
 import retrofit2.HttpException
+import java.io.IOException
 import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -28,10 +30,7 @@ class WhisperEngine @Inject constructor(
                 audioFile.asRequestBody("audio/wav".toMediaType())
             )
             val modelPart = endpoint.model.toRequestBody("text/plain".toMediaType())
-            val languagePart = language?.let {
-                it.toRequestBody("text/plain".toMediaType())
-            }
-
+            val languagePart = language?.toRequestBody("text/plain".toMediaType())
             val promptPart = prompt?.toRequestBody("text/plain".toMediaType())
 
             val response = try {
@@ -41,7 +40,10 @@ class WhisperEngine @Inject constructor(
                 if (promptPart == null || e.code() !in REFUSED_PROMPT_CODES) throw e
                 service.transcribe(filePart, modelPart, language = languagePart)
             }
-            Result.success(response.text)
+            val text = response.text ?: throw IOException("The speech server answered without a transcript.")
+            Result.success(text)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Result.failure(e)
         }

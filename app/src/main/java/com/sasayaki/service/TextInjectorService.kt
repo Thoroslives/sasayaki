@@ -67,13 +67,19 @@ class TextInjectorService : AccessibilityService() {
         private const val TAG = "TextInjectorService"
         private const val CURSOR_CONTEXT_CHARS = 16
 
+        @Volatile
         var instance: TextInjectorService? = null
             private set
 
+        // keyboardListener outlives a restart of this service; only its owner clears it.
+        @Volatile
         var keyboardListener: KeyboardListener? = null
+
+        @Volatile
         var isKeyboardVisible: Boolean = false
             private set
 
+        @Volatile
         var focusedAppPackage: String? = null
             private set
 
@@ -128,9 +134,11 @@ class TextInjectorService : AccessibilityService() {
         instance = null
         lastFocusedPackage = null
         lastFocusedEditablePackage = null
-        isKeyboardVisible = false
-        keyboardListener = null
         focusedAppPackage = null
+        if (isKeyboardVisible) {
+            isKeyboardVisible = false
+            keyboardListener?.onKeyboardVisibilityChanged(false)
+        }
         super.onDestroy()
     }
 

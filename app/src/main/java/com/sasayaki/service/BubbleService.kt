@@ -10,8 +10,9 @@ import android.content.res.Configuration
 import android.media.AudioAttributes
 import android.media.AudioFocusRequest
 import android.media.AudioManager
-import android.os.Build
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import android.provider.Settings
 import android.util.Log
 import android.view.WindowManager
@@ -36,6 +37,7 @@ import com.sasayaki.service.bubble.WAVEFORM_BARS
 import com.sasayaki.service.bubble.toPhase
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.async
@@ -91,7 +93,14 @@ class BubbleService : Service() {
     @Inject lateinit var preferencesDataStore: PreferencesDataStore
     @Inject lateinit var profileRepository: ProfileRepository
 
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    // scope reports a failure that escapes a dictation instead of crashing the app.
+    private val scope = CoroutineScope(
+        SupervisorJob() + Dispatchers.Main + CoroutineExceptionHandler { _, error ->
+            Log.e(TAG, "Unhandled bubble failure", error)
+            mainHandler.post { showError(describe(error), null) }
+        }
+    )
+    private val mainHandler = Handler(Looper.getMainLooper())
     private var overlay: BubbleOverlay? = null
     private val uiState = MutableStateFlow(BubbleUiState())
     private val levels = MutableStateFlow<List<Float>>(emptyList())
@@ -122,7 +131,6 @@ class BubbleService : Service() {
             state is ServiceState.PostProcessing || state is ServiceState.Injecting
     @Volatile private var pcmFile: File? = null
 
-    // Keyboard-aware visibility
     private val keyboardListener = object : TextInjectorService.KeyboardListener {
         override fun onKeyboardVisibilityChanged(visible: Boolean) {
             scope.launch(Dispatchers.Main) {
@@ -195,11 +203,7 @@ class BubbleService : Service() {
         }
 
         prepareOverlay()
-
-        // Register for keyboard events
         TextInjectorService.keyboardListener = keyboardListener
-
-        // If keyboard is already visible, show immediately
         if (TextInjectorService.isKeyboardVisible) overlay?.show()
 
         return START_STICKY
@@ -208,12 +212,17 @@ class BubbleService : Service() {
     override fun onDestroy() {
         isRunning = false
         BubbleTileService.requestRefresh(this)
-        stopRecordingAndWait()
+        discardRecordingOnDestroy()
         overlay?.destroy()
         overlay = null
-        TextInjectorService.keyboardListener = null
-        try { unregisterReceiver(stopReceiver) } catch (_: Exception) {}
+        if (TextInjectorService.keyboardListener === keyboardListener) TextInjectorService.keyboardListener = null
+        try {
+            unregisterReceiver(stopReceiver)
+        } catch (e: IllegalArgumentException) {
+            Log.w(TAG, "Stop receiver was not registered", e)
+        }
         scope.cancel()
+        abandonRecordingAudioFocus()
         super.onDestroy()
     }
 
@@ -361,6 +370,8 @@ class BubbleService : Service() {
         recordingJob = scope.launch(Dispatchers.IO) {
             try {
                 recorder.record(outputFile)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.e(TAG, "Recording error", e)
             }
@@ -417,17 +428,15 @@ class BubbleService : Service() {
         }
     }
 
-    /** Stop recording without transcribing (for cleanup on destroy) */
-    private fun stopRecordingAndWait() {
+    // discardRecordingOnDestroy drops a recording in progress; the service's scope is about
+    // to be cancelled, so nothing could transcribe it.
+    private fun discardRecordingOnDestroy() {
         if (state !is ServiceState.Recording) return
         audioRecorder?.stop()
-        levelJob?.cancel()
-        timerJob?.cancel()
-        silenceCheckJob?.cancel()
-        // Don't cancel recordingJob — let it finish flushing the file
+        recordingJob?.cancel()
+        pcmFile?.delete()
     }
 
-    /** Stop recording and start transcription */
     private fun stopRecordingAndTranscribe() {
         if (state !is ServiceState.Recording) return
 
@@ -451,12 +460,11 @@ class BubbleService : Service() {
         // recording and only clears the shared fields that still point at it.
         val recording = Recording(recordingJob, pcmFile, audioRecorder, silenceDetector)
         transcriptionJob = scope.launch {
-            var currentPcmFile: File? = null
+            val currentPcmFile = recording.pcm
             var wavFile: File? = null
             try {
                 recording.job?.join()
 
-                currentPcmFile = recording.pcm
                 if (currentPcmFile == null || !currentPcmFile.exists() || currentPcmFile.length() == 0L) {
                     Log.w(TAG, "PCM file empty or missing")
                     updateState(ServiceState.Idle)
@@ -541,8 +549,6 @@ class BubbleService : Service() {
         scope.launch {
             try {
                 recording.job?.join()
-            } catch (e: Exception) {
-                Log.w(TAG, "Recording cleanup interrupted", e)
             } finally {
                 withContext(Dispatchers.IO) { recording.pcm?.delete() }
                 release(recording)
@@ -665,31 +671,21 @@ class BubbleService : Service() {
 
     private fun requestRecordingAudioFocus() {
         val manager = audioManager ?: return
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val request = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
-                .setAudioAttributes(
-                    AudioAttributes.Builder()
-                        .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
-                        .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
-                        .build()
-                )
-                .build()
-            audioFocusRequest = request
-            manager.requestAudioFocus(request)
-        } else {
-            @Suppress("DEPRECATION")
-            manager.requestAudioFocus(null, AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
-        }
+        val request = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
+            .setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                    .build()
+            )
+            .build()
+        audioFocusRequest = request
+        manager.requestAudioFocus(request)
     }
 
     private fun abandonRecordingAudioFocus() {
         val manager = audioManager ?: return
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            audioFocusRequest?.let(manager::abandonAudioFocusRequest)
-            audioFocusRequest = null
-        } else {
-            @Suppress("DEPRECATION")
-            manager.abandonAudioFocus(null)
-        }
+        audioFocusRequest?.let(manager::abandonAudioFocusRequest)
+        audioFocusRequest = null
     }
 }

@@ -18,6 +18,7 @@ import androidx.compose.ui.text.font.FontStyle
 import com.sasayaki.domain.model.OutputStyle
 import com.sasayaki.domain.model.RewriteMode
 import com.sasayaki.domain.model.SummarizeMode
+import com.sasayaki.domain.processing.applyPunctuationStyle
 import com.sasayaki.ui.theme.Spacing
 
 const val SAMPLE_DICTATION =
@@ -51,11 +52,7 @@ private val sampleTexts: Map<Pair<RewriteMode, SummarizeMode>, String> = mapOf(
 
 fun styleSample(style: OutputStyle, rewrite: RewriteMode, summarize: SummarizeMode, emoji: Boolean): String {
     val text = sampleTexts.getValue(rewrite to summarize)
-    val punctuated = when (style) {
-        OutputStyle.STANDARD -> text
-        OutputStyle.RELAXED -> text.replace(",", "").removeSuffix(".")
-        OutputStyle.MINIMAL -> text.lowercase().filter { it.isLetterOrDigit() || it.isWhitespace() || it == '\'' }
-    }
+    val punctuated = applyPunctuationStyle(text, style)
     return if (emoji && rewrite != RewriteMode.POLISH) punctuated + SAMPLE_EMOJI else punctuated
 }
 

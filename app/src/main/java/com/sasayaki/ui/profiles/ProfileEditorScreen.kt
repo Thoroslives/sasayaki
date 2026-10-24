@@ -28,6 +28,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -41,6 +42,7 @@ import com.sasayaki.domain.provider.Provider
 import com.sasayaki.domain.provider.Purpose
 import com.sasayaki.domain.provider.suitableFor
 import com.sasayaki.ui.components.ConnectedChoice
+import com.sasayaki.ui.components.ItemIcon
 import com.sasayaki.ui.components.ModelPickerSheet
 import com.sasayaki.ui.components.NavigationItem
 import com.sasayaki.ui.components.Pill
@@ -220,13 +222,14 @@ fun ProfileEditorScreen(
                     title = "Writing style",
                     items = listOf(
                         { shapes ->
-                            StyleItem(shapes, "Punctuation", OutputStyle.entries, profile.outputStyle, ::styleLabel, ::styleDescription) { value ->
+                            StyleItem(shapes, SasayakiIcons.FormatQuote, "Punctuation", OutputStyle.entries, profile.outputStyle, ::styleLabel, ::styleDescription) { value ->
                                 onUpdate { it.copy(outputStyle = value) }
                             }
                         },
                         { shapes ->
                             StyleItem(
                                 shapes,
+                                SasayakiIcons.AutoFixHigh,
                                 "Rewriting",
                                 listOf(RewriteMode.NONE, RewriteMode.FIX, RewriteMode.POLISH),
                                 profile.rewriteMode,
@@ -235,7 +238,7 @@ fun ProfileEditorScreen(
                             ) { value -> onUpdate { it.copy(rewriteMode = value) } }
                         },
                         { shapes ->
-                            StyleItem(shapes, "Shorten", SummarizeMode.entries, profile.summarizeMode, ::summarizeLabel, ::summarizeDescription) { value ->
+                            StyleItem(shapes, SasayakiIcons.Compress, "Shorten", SummarizeMode.entries, profile.summarizeMode, ::summarizeLabel, ::summarizeDescription) { value ->
                                 onUpdate { it.copy(summarizeMode = value) }
                             }
                         },
@@ -244,6 +247,7 @@ fun ProfileEditorScreen(
                                 shapes = shapes,
                                 headline = "Emoji",
                                 supporting = "Allow emoji where they fit the message",
+                                icon = SasayakiIcons.Mood,
                                 checked = profile.emojiAllowed,
                                 onCheckedChange = { allowed -> onUpdate { it.copy(emojiAllowed = allowed) } }
                             )
@@ -457,6 +461,7 @@ private fun ProfileMenu(canDelete: Boolean, onDuplicate: () -> Unit, onDelete: (
 @Composable
 private fun <T> StyleItem(
     shapes: ListItemShapes,
+    icon: ImageVector,
     title: String,
     options: List<T>,
     selected: T,
@@ -467,6 +472,7 @@ private fun <T> StyleItem(
     SegmentedListItem(
         shapes = shapes,
         colors = segmentedItemColors(),
+        leadingContent = { ItemIcon(icon) },
         supportingContent = {
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.s), modifier = Modifier.padding(top = Spacing.s)) {
                 ConnectedChoice(options = options, selected = selected, onSelect = onSelect, label = label)

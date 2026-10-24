@@ -17,9 +17,9 @@ import androidx.navigation.NavBackStackEntry
 
 private typealias Scope = AnimatedContentTransitionScope<NavBackStackEntry>
 
-// NavTransitions fade through between tabs and slide on a shared X axis into and out of
-// detail screens. Slides use the non-bouncy effects springs: a whole screen overshooting
-// its edge reads as a glitch, not as expressive motion.
+// NavTransitions fade through when switching tabs and slide everywhere else; going back
+// always slides, following the back gesture. Slides use the non-bouncy effects springs:
+// a whole screen overshooting its edge reads as a glitch, not as expressive motion.
 @Immutable
 class NavTransitions(
     private val fade: FiniteAnimationSpec<Float>,
@@ -28,22 +28,20 @@ class NavTransitions(
 ) {
     val enter: Scope.() -> EnterTransition = {
         if (isBetweenTabs()) fadeIn(fade) + scaleIn(fade, initialScale = 0.96f)
-        else slideIntoContainer(SlideDirection.Start, slide) + fadeIn(fade)
+        else slideIntoContainer(SlideDirection.Start, slide)
     }
 
     val exit: Scope.() -> ExitTransition = {
         if (isBetweenTabs()) fadeOut(fastFade)
-        else slideOutOfContainer(SlideDirection.Start, slide) { it / 4 } + fadeOut(fastFade)
+        else slideOutOfContainer(SlideDirection.Start, slide) { it / 4 }
     }
 
     val popEnter: Scope.() -> EnterTransition = {
-        if (isBetweenTabs()) fadeIn(fade) + scaleIn(fade, initialScale = 0.96f)
-        else slideIntoContainer(SlideDirection.End, slide) { it / 4 } + fadeIn(fade)
+        slideIntoContainer(SlideDirection.End, slide) { it / 4 }
     }
 
     val popExit: Scope.() -> ExitTransition = {
-        if (isBetweenTabs()) fadeOut(fastFade)
-        else slideOutOfContainer(SlideDirection.End, slide) + fadeOut(fastFade)
+        slideOutOfContainer(SlideDirection.End, slide)
     }
 
     private fun Scope.isBetweenTabs(): Boolean =

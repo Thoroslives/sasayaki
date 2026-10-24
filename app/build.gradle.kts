@@ -80,6 +80,10 @@ android {
     room {
         schemaDirectory("$projectDir/schemas")
     }
+
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
+    }
 }
 
 kotlin {
@@ -113,6 +117,15 @@ tasks.withType<Test>().configureEach {
     // history on disk, so force re-execution instead whenever the benchmark is wired up.
     if (providers.environmentVariable("OPENAI_ENDPOINT").isPresent) {
         outputs.upToDateWhen { false }
+    }
+
+    // Screenshot tests render through Robolectric and take far longer than the rest of
+    // the suite, so they only run when asked for (make screenshots).
+    if (providers.gradleProperty("screenshots").isPresent) {
+        filter.includeTestsMatching("*ScreenshotTest")
+        outputs.upToDateWhen { false }
+    } else {
+        exclude("**/*ScreenshotTest*")
     }
 }
 
@@ -159,4 +172,9 @@ dependencies {
     // Test
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.test.junit)
+    testImplementation(platform(libs.compose.bom))
+    testImplementation(libs.compose.ui.test.junit4)
+    debugImplementation(libs.compose.ui.test.manifest)
 }

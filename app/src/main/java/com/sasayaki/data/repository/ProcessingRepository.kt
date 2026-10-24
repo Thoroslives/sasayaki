@@ -9,6 +9,7 @@ import com.sasayaki.domain.model.AppContext
 import com.sasayaki.domain.model.PostProcessingPrompt
 import com.sasayaki.domain.model.Profile
 import com.sasayaki.domain.model.TextReplacementRule
+import com.sasayaki.domain.processing.applyReplacementRules
 import com.sasayaki.domain.processing.SystemPromptBuilder
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -51,17 +52,10 @@ class ProcessingRepository @Inject constructor(
 
     suspend fun applySelectedRules(text: String, selectedRuleIds: Set<Long>): String {
         if (selectedRuleIds.isEmpty()) return text
-        return ruleDao.getAll()
+        val selected = ruleDao.getAll()
             .map(TextReplacementRuleEntity::toDomain)
-            .filter { it.id in selectedRuleIds && it.pattern.isNotBlank() }
-            .fold(text) { current, rule ->
-                if (rule.isRegex) {
-                    runCatching { Regex(rule.pattern).replace(current, rule.replacement) }
-                        .getOrElse { current }
-                } else {
-                    current.replace(rule.pattern, rule.replacement)
-                }
-            }
+            .filter { it.id in selectedRuleIds }
+        return applyReplacementRules(text, selected)
     }
 
     /**

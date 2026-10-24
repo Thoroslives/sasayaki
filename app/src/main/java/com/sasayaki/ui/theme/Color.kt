@@ -2,8 +2,8 @@ package com.sasayaki.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Tonal palettes for the Sasayaki brand. The number is the perceptual tone (CIE L*),
-// so equal numbers across palettes have equal lightness and contrast.
+// Palette tokens are named by perceptual tone (CIE L*), so equal numbers across
+// palettes have equal lightness and contrast.
 
 val Pine10 = Color(0xFF00201A)
 val Pine20 = Color(0xFF00382E)

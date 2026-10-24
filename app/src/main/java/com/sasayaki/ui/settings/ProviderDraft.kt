@@ -18,8 +18,8 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /**
- * The editable state of one provider, shared by the provider editor and onboarding.
- * Fields are snapshot state so text fields bound to them never lag a flow.
+ * ProviderDraft holds one provider while it is edited. Its fields are snapshot state so
+ * text fields bound to them never lag a flow.
  */
 class ProviderDraft(
     private val repository: ProviderRepository,
@@ -44,7 +44,7 @@ class ProviderDraft(
 
     val form: ProviderForm get() = ProviderForm(name, url, apiKey, speechModel, cleanupModel)
 
-    /** Loads the saved provider; false when it no longer exists. */
+    /** load fills the draft from the saved provider and returns false when it no longer exists. */
     suspend fun load(): Boolean {
         val provider = repository.get(id) ?: return false
         name = provider.name

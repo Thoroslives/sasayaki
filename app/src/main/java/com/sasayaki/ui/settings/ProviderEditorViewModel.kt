@@ -32,7 +32,7 @@ data class ProviderEditorUiState(
     val finished: Boolean = false
 )
 
-/** Edits one provider. Existing providers save as they change; new ones on [add]. */
+/** ProviderEditorViewModel saves an existing provider as it changes, and a new one on [add]. */
 @OptIn(FlowPreview::class)
 @HiltViewModel
 class ProviderEditorViewModel @Inject constructor(

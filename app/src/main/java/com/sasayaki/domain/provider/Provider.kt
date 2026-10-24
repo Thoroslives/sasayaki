@@ -40,7 +40,7 @@ sealed interface Resolution {
 }
 
 /**
- * Picks the provider and model a profile uses for [purpose]: the profile's chosen
+ * resolveEndpoint picks the provider and model a profile uses for [purpose]: the profile's chosen
  * provider if it still exists, otherwise the first provider with a default model for
  * that purpose; then the profile's model override, otherwise the provider default.
  */

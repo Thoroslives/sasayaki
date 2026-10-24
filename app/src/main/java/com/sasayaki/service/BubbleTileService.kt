@@ -64,7 +64,7 @@ class BubbleTileService : TileService() {
     companion object {
         private const val TAG = "BubbleTileService"
 
-        /** Asks the system to refresh the tile after the bubble starts or stops elsewhere. */
+        /** requestRefresh asks the system to redraw the tile after the bubble starts or stops. */
         fun requestRefresh(context: Context) {
             requestListeningState(context, ComponentName(context, BubbleTileService::class.java))
         }

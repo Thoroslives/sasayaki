@@ -9,7 +9,7 @@ data class LegacyMigrationPlan(
 )
 
 /**
- * Turns the old single speech and cleanup endpoints into providers. One server used
+ * planLegacyMigration turns the old single speech and cleanup endpoints into providers. One server used
  * for both becomes one provider with both default models.
  */
 fun planLegacyMigration(speech: LegacyEndpoint?, cleanup: LegacyEndpoint?): LegacyMigrationPlan {

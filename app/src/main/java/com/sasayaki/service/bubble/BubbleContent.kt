@@ -69,7 +69,7 @@ class BubbleActions(
     val onDismissError: () -> Unit
 )
 
-/** Which shape the bubble takes; content within a mode changes without a size morph. */
+/** BubbleMode is the shape the bubble takes; content within a mode changes without a size morph. */
 private enum class BubbleMode { IDLE, RECORDING, PROCESSING, FAILED }
 
 private val BubblePhase.mode: BubbleMode

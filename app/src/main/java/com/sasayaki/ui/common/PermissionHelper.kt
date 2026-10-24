@@ -53,10 +53,10 @@ fun checkAccessibilityPermission(context: Context): Boolean {
 }
 
 /**
- * Whether Android 13+ probably blocks accessibility for this app ("restricted
- * settings"). Apps cannot read the block itself (its app-op is privileged), so this
- * infers it from the app having been installed from a file, which is when Android
- * applies it.
+ * isRestrictedSettingsLikely reports whether Android 13+ probably blocks accessibility
+ * for this app ("restricted settings"). Apps cannot read the block itself (its app-op is
+ * privileged), so this infers it from the app having been installed from a file, which
+ * is when Android applies it.
  */
 fun isRestrictedSettingsLikely(context: Context): Boolean {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return false

@@ -5,7 +5,7 @@ import com.sasayaki.domain.model.TextReplacementRule
 fun applyReplacementRules(text: String, rules: List<TextReplacementRule>): String =
     rules.filter { it.pattern.isNotBlank() }.fold(text) { current, rule -> rule.applyTo(current) }
 
-/** An invalid regex leaves the text untouched rather than failing the whole dictation. */
+/** applyTo leaves the text untouched for an invalid regex rather than failing the whole dictation. */
 fun TextReplacementRule.applyTo(text: String): String =
     if (isRegex) {
         runCatching { Regex(pattern).replace(text, replacement) }.getOrElse { text }

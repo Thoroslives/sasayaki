@@ -36,7 +36,7 @@ import kotlin.math.hypot
 import kotlin.math.roundToInt
 
 /**
- * Owns the overlay windows: the bubble itself, the drag-to-remove target shown while
+ * BubbleOverlay owns the overlay windows: the bubble itself, the drag-to-remove target shown while
  * dragging, and the profile menu. The bubble docks to the nearest screen edge, anchored
  * by gravity on that side so it grows away from the edge as it expands.
  */

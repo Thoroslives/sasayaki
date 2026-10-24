@@ -46,7 +46,7 @@ data class ProfileEditorUiState(
     val loadingModels: Set<Long> = emptySet()
 )
 
-/** Edits one profile and saves each change shortly after it is made. */
+/** ProfileEditorViewModel saves each change to its profile shortly after it is made. */
 @OptIn(FlowPreview::class)
 @HiltViewModel
 class ProfileEditorViewModel @Inject constructor(

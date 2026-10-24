@@ -14,7 +14,7 @@ data object HistoryDestination
 @Serializable
 data object ProfilesDestination
 
-/** [id] is an existing profile; new profiles are created before the editor opens. */
+/** ProfileEditorDestination always points at a saved profile; new ones are created first. */
 @Serializable
 data class ProfileEditorDestination(val id: Long)
 
@@ -24,7 +24,7 @@ data object SettingsDestination
 @Serializable
 data object ProvidersDestination
 
-/** [id] 0 opens the editor for a new provider. */
+/** ProviderEditorDestination with [id] 0 opens the editor for a new provider. */
 @Serializable
 data class ProviderEditorDestination(val id: Long)
 

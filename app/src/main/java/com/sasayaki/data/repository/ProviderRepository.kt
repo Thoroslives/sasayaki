@@ -44,7 +44,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 sealed interface ConnectionResult {
-    /** [models] is empty when the server works but does not publish a model list. */
+    /** Connected.models is empty when the server works but does not publish a model list. */
     data class Connected(val models: List<ModelInfo>) : ConnectionResult
     data class Failed(val message: String) : ConnectionResult
 }
@@ -64,7 +64,7 @@ class ProviderRepository @Inject constructor(
 
     private val _models = MutableStateFlow<Map<Long, List<ModelInfo>>>(emptyMap())
 
-    /** Model lists fetched this session, by provider id. */
+    /** models holds the model lists fetched this session, by provider id. */
     val models: StateFlow<Map<Long, List<ModelInfo>>> = _models.asStateFlow()
 
     suspend fun getAll(): List<Provider> = withContext(Dispatchers.IO) { providerDao.getAll().map { it.toDomain() } }
@@ -98,7 +98,7 @@ class ProviderRepository @Inject constructor(
         return resolveEndpoint(getAll(), purpose, chosen, override)
     }
 
-    /** Refreshes the cached model list of a saved provider; an empty list when unavailable. */
+    /** refreshModels updates the cached model list of a saved provider; empty when unavailable. */
     suspend fun refreshModels(providerId: Long): List<ModelInfo> {
         val provider = get(providerId) ?: return emptyList()
         val models = try {
@@ -113,8 +113,8 @@ class ProviderRepository @Inject constructor(
     }
 
     /**
-     * Checks that [baseUrl] answers with [apiKey]. Servers without /v1/models are probed
-     * with a minimal request to the endpoint the given model would use instead.
+     * test checks that [baseUrl] answers with [apiKey]. Servers without /v1/models are
+     * probed with a minimal request to the endpoint the given model would use instead.
      */
     suspend fun test(
         baseUrl: String,
@@ -237,7 +237,7 @@ class ProviderRepository @Inject constructor(
         val WAV = "audio/wav".toMediaType()
         val TEXT = "text/plain".toMediaType()
 
-        /** A tenth of a second of 16 kHz mono silence: the smallest upload servers accept. */
+        /** silentWav is a tenth of a second of 16 kHz mono silence: the smallest upload servers accept. */
         fun silentWav(): ByteArray {
             val sampleRate = 16_000
             val dataSize = sampleRate / 10 * 2

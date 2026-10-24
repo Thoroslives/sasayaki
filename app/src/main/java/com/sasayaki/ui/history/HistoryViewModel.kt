@@ -61,7 +61,7 @@ class HistoryViewModel @Inject constructor(
         query.value = value
     }
 
-    /** Hides [id] immediately; it is only erased by [commitDelete], so [undoDelete] can restore it. */
+    /** requestDelete hides [id] at once; it is only erased by [commitDelete], so [undoDelete] can restore it. */
     fun requestDelete(id: Long) {
         pendingDeletion.update { it + id }
     }

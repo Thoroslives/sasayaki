@@ -15,7 +15,7 @@ private val knownHosts = mapOf(
     "api.together.xyz" to "Together"
 )
 
-/** A readable default name for a provider at [baseUrl], or null if the address is unusable. */
+/** suggestProviderName returns a readable default name for [baseUrl], or null if the address is unusable. */
 fun suggestProviderName(baseUrl: String): String? {
     val host = baseUrl.trim().toHttpUrlOrNull()?.host ?: return null
     knownHosts[host]?.let { return it }

@@ -32,8 +32,8 @@ class MainViewModel @Inject constructor(
     startupMigrations: StartupMigrations
 ) : ViewModel() {
     /**
-     * Decided once per launch, so finishing onboarding does not swap the graph under
-     * the user. Installs that already had a server configured skip onboarding.
+     * startDestination is decided once per launch, so finishing onboarding does not swap
+     * the graph under the user. Installs that already had a server configured skip it.
      */
     val startDestination: StateFlow<Any?> = flow {
         startupMigrations.await()

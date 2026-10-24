@@ -85,8 +85,8 @@ class PreferencesDataStore @Inject constructor(
     .flowOn(Dispatchers.IO)
 
     /**
-     * The single speech and cleanup endpoints from before providers existed, or null
-     * once they have been moved into the providers table.
+     * legacyEndpoints returns the single speech and cleanup endpoints from before
+     * providers existed, or null once they have been moved into the providers table.
      */
     suspend fun legacyEndpoints(): Pair<LegacyEndpoint?, LegacyEndpoint?>? {
         val prefs = context.dataStore.data.first()

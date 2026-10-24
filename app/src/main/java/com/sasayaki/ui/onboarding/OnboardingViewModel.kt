@@ -28,7 +28,7 @@ class OnboardingViewModel @Inject constructor(
     val serviceRunning: StateFlow<Boolean> = serviceController.running
     private var savedProviderId: Long? = null
 
-    /** Saves the provider and, when it offers cleanup, turns cleanup on for the active profile. */
+    /** saveProvider saves the provider and turns cleanup on for the active profile when the provider offers it. */
     private var saving = false
 
     fun saveProvider(onSaved: () -> Unit) {

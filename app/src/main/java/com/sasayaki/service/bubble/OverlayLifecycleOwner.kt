@@ -9,7 +9,7 @@ import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 
-/** Gives Compose views added straight to the WindowManager the owners an Activity would. */
+/** OverlayLifecycleOwner gives Compose views added straight to the WindowManager the owners an Activity would. */
 internal class OverlayLifecycleOwner : SavedStateRegistryOwner {
     private val registry = LifecycleRegistry(this)
     private val savedState = SavedStateRegistryController.create(this)

@@ -140,9 +140,9 @@ object DatabaseModule {
     }
 
     /**
-     * Endpoints move from single settings values into a providers table. Existing
-     * endpoints are copied in at startup by ProviderRepository, because their API keys
-     * live in encrypted preferences that SQL cannot reach.
+     * migration7To8 adds the providers table. Existing endpoints are copied into it at
+     * startup rather than here, because their API keys live in encrypted preferences
+     * that SQL cannot reach.
      */
     private val migration7To8 = object : Migration(7, 8) {
         override fun migrate(db: SupportSQLiteDatabase) {

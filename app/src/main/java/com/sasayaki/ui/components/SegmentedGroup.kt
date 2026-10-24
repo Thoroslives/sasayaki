@@ -62,8 +62,8 @@ fun SectionLabel(text: String, modifier: Modifier = Modifier) {
 }
 
 /**
- * Segmented rows sit on surfaceBright. Checked switch rows keep that color unless
- * [highlightSelection]: a toggle being on is not the row being selected.
+ * segmentedItemColors puts rows on surfaceBright. Checked switch rows keep that color
+ * unless [highlightSelection]: a toggle being on is not the row being selected.
  */
 @Composable
 fun segmentedItemColors(highlightSelection: Boolean = false): ListItemColors {

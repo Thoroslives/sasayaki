@@ -3,7 +3,7 @@ package com.sasayaki.ui.common
 import java.util.Locale
 import kotlin.math.roundToInt
 
-// Typical touch-keyboard speed; time saved is measured against typing the same words.
+// TYPING_WORDS_PER_MINUTE is a typical touch-keyboard speed; time saved compares against it.
 private const val TYPING_WORDS_PER_MINUTE = 40.0
 private const val MAX_APP_LABEL_LENGTH = 24
 

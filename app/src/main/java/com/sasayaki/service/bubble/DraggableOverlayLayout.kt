@@ -8,7 +8,7 @@ import android.widget.FrameLayout
 import kotlin.math.hypot
 
 /**
- * Lets taps reach the Compose content and takes over once a finger moves past the touch
+ * DraggableOverlayLayout lets taps reach the Compose content and takes over once a finger moves past the touch
  * slop, reporting the drag in raw screen coordinates. Local coordinates would shift as
  * the window follows the finger and feed back into the drag.
  */

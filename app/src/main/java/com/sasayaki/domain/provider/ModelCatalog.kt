@@ -16,8 +16,8 @@ private val otherHints = listOf(
 )
 
 /**
- * OpenAI-compatible /v1/models carries no capability field, so this guesses from the
- * id. [task] is honoured when a server provides one (speaches does).
+ * classifyModel guesses a model's kind from its id, since OpenAI-compatible /v1/models
+ * carries no capability field. [task] is honoured when a server provides one (speaches does).
  */
 fun classifyModel(id: String, task: String? = null): ModelKind {
     task?.lowercase()?.let { hint ->
@@ -34,7 +34,7 @@ fun classifyModel(id: String, task: String? = null): ModelKind {
     }
 }
 
-/** Models suited to [purpose]; every model when none look suitable, so nothing is hidden by a bad guess. */
+/** suitableFor returns the models suited to [purpose], or all of them when none look suitable, so a bad guess hides nothing. */
 fun List<ModelInfo>.suitableFor(purpose: Purpose): List<String> {
     val wanted = if (purpose == Purpose.SPEECH) ModelKind.SPEECH else ModelKind.CHAT
     return filter { it.kind == wanted }.map(ModelInfo::id).ifEmpty { map(ModelInfo::id) }

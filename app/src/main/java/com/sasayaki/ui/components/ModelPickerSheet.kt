@@ -44,8 +44,8 @@ import com.sasayaki.ui.theme.Spacing
 private const val SEARCH_THRESHOLD = 8
 
 /**
- * Picks a model. [selected] null means the [noneLabel] option, which is either "not
- * used" or "provider default" depending on the caller.
+ * ModelPickerSheet picks a model. A null [selected] stands for the [noneLabel] option,
+ * which means either "not used" or "provider default".
  */
 @Composable
 fun ModelPickerSheet(

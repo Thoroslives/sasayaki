@@ -37,7 +37,7 @@ interface ProviderDao {
     @Query("UPDATE profiles SET cleanupProviderId = NULL, llmModel = '' WHERE cleanupProviderId = :id")
     suspend fun detachCleanupProfiles(id: Long)
 
-    /** Profiles fall back to another provider instead of pointing at a deleted one. */
+    /** delete detaches profiles first, so they fall back to another provider instead of pointing at a deleted one. */
     @Transaction
     suspend fun delete(id: Long) {
         detachSpeechProfiles(id)

@@ -32,3 +32,6 @@ output/
 *.md
 !README.md
 !docs/*.md
+
+# Local leftovers from the retired fine-tuning recipe
+/fine-tuning/

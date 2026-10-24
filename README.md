@@ -36,13 +36,22 @@ Sasayaki does the same job as [WisprFlow](https://wisprflow.ai), except it costs
 
 <table>
   <tr>
+    <td><img src="/assets/screenshot02.png" width="400"></td>
+    <td><img src="/assets/screenshot04.png" width="400"></td>
+  </tr>
+  <tr>
+    <td align="center"><i>Recording in a chat</i></td>
+    <td align="center"><i>Done: the text is in the field</i></td>
+  </tr>
+</table>
+
+<table>
+  <tr>
     <td><img src="/assets/screenshot01.png" width="250"></td>
-    <td><img src="/assets/screenshot02.png" width="250"></td>
     <td><img src="/assets/screenshot03.png" width="250"></td>
   </tr>
   <tr>
     <td align="center"><i>Home</i></td>
-    <td align="center"><i>Floating bubble recording in-chat</i></td>
     <td align="center"><i>A profile's writing style</i></td>
   </tr>
 </table>

@@ -16,13 +16,17 @@ Sasayaki does the same job as [WisprFlow](https://wisprflow.ai), except it costs
   - While you speak it becomes a pill with a live waveform, a timer, pause, discard and stop.
   - Drag it anywhere; it docks to the nearest edge. Drop it on the target at the top to turn it off.
   - Long-press it to switch profile. Toggle it from a Quick Settings tile.
-  - Recordings with no speech are dropped on the phone instead of being sent. A larger bubble is one setting away.
+  - Recordings with no speech are dropped on the phone instead of being sent.
+  - Make it larger, see-through or monochrome from Appearance.
 - **Providers**: add any number of OpenAI-compatible servers, each with a default speech and cleanup model picked from its own model list. Keys are optional for self-hosted servers.
-- **Profiles** bundle a language, a speech model, an optional cleanup model and a writing style. Switch the active one from the bubble.
+- **Profiles** bundle a language, a speech model, an optional cleanup model and a writing style. Switch the active one from the bubble, and Sasayaki remembers your pick for each app.
 - **Post-processing**: a small model turns what you said into a clean written message.
   - "Uh... Yeah, let's meet at 8.. No sorry, at 9!" → "Let's meet at 9."
-  - Per profile, set the punctuation and casing, how far the model may rewrite you, how much it should condense, and whether emoji are allowed.
-  - Sasayaki passes the app you are dictating into as context, so mail comes out in a different tone from a chat.
+  - Per profile, set the punctuation and casing, how far the model may rewrite you, how much it should condense, and whether emoji are allowed. A sample sentence shows the effect as you change them.
+  - Sasayaki passes the app you are dictating into as context, so mail comes out in a different tone from a chat. Dictations into AI assistants skip cleanup.
+  - Dictated questions and commands are cleaned, never answered. Reasoning blocks, labels and runaway answers are caught, and the plain transcript is used instead.
+  - Text added mid-sentence gets the spacing it needs.
+- **Vocabulary**: names and jargon reach both the speech model and the cleanup model, so they come out spelled your way.
 - Replacement rules fix the words your ASR keeps mangling. Plain text or regex, and each profile chooses which ones apply.
 - Write your own post-processing prompts and switch them on per profile, alongside the built-in ones.
 - History keeps past dictations, up to a limit you choose, and can be switched off. Word and time totals keep counting either way.

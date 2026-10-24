@@ -26,6 +26,7 @@ Built from three brand palettes plus a neutral. Tones are perceptual lightness (
 | Clay | terracotta | `tertiary`: live recording, attention that is not an error |
 | Ember | red | `error`: failures only |
 | Ink / Mist | green-tinted greys | surfaces, text, outlines |
+| Graphite | true greys | the monochrome bubble only |
 
 Rules:
 
@@ -137,6 +138,10 @@ The bubble is the product; everything else is configuration.
   after, so the overlay never chases the animation.
 - The bubble size setting scales density inside the bubble (1, 1.15 and 1.3x), so every
   dimension and touch target grows together.
+- `BubbleTheme` is always dark. See-through draws the pills at 80% opacity and drops their
+  shadow, which would show through as a smudge; the border alone outlines them.
+  Monochrome swaps the brand colors for the Graphite grays but keeps the error colors, so a
+  failure still stands out.
 
 ## Haptics
 

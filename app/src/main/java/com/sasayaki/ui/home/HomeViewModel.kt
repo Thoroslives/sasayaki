@@ -10,7 +10,9 @@ import com.sasayaki.data.db.entity.DictationSummary
 import com.sasayaki.data.preferences.PreferencesDataStore
 import com.sasayaki.data.repository.HistoryRepository
 import com.sasayaki.data.repository.ProfileRepository
+import com.sasayaki.data.repository.ProviderRepository
 import com.sasayaki.domain.model.Profile
+import com.sasayaki.domain.provider.Purpose
 import com.sasayaki.service.BubbleServiceController
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -54,6 +56,7 @@ class HomeViewModel @Inject constructor(
     preferencesDataStore: PreferencesDataStore,
     historyRepository: HistoryRepository,
     private val profileRepository: ProfileRepository,
+    providerRepository: ProviderRepository,
     private val serviceController: BubbleServiceController
 ) : ViewModel() {
     private val zone = ZoneId.systemDefault()
@@ -75,12 +78,13 @@ class HomeViewModel @Inject constructor(
         preferencesDataStore.preferences,
         serviceController.running,
         profileRepository.profiles,
+        providerRepository.providers,
         stats
-    ) { prefs, running, profiles, (today, lifetime, recent) ->
+    ) { prefs, running, profiles, providers, (today, lifetime, recent) ->
         HomeUiState(
             loaded = true,
             serviceRunning = running,
-            speechProviderConfigured = prefs.asrBaseUrl.isNotBlank(),
+            speechProviderConfigured = providers.any { it.defaultModel(Purpose.SPEECH) != null },
             historyEnabled = prefs.historyEnabled,
             profiles = profiles,
             today = today,

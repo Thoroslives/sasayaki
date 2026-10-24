@@ -5,8 +5,10 @@ import com.sasayaki.data.api.ApiClientFactory
 import com.sasayaki.data.api.LlmApiService
 import com.sasayaki.data.api.model.ChatCompletionRequest
 import com.sasayaki.data.api.model.ChatMessage
-import com.sasayaki.data.preferences.PreferencesDataStore
 import com.sasayaki.data.repository.ProcessingRepository
+import com.sasayaki.data.repository.ProviderRepository
+import com.sasayaki.domain.provider.Purpose
+import com.sasayaki.domain.provider.Resolution
 import com.sasayaki.domain.model.AppContext
 import com.sasayaki.domain.model.Profile
 import kotlinx.coroutines.CancellationException
@@ -17,7 +19,7 @@ import javax.inject.Singleton
 @Singleton
 class TextProcessor @Inject constructor(
     private val apiClientFactory: ApiClientFactory,
-    private val preferencesDataStore: PreferencesDataStore,
+    private val providerRepository: ProviderRepository,
     private val processingRepository: ProcessingRepository
 ) {
     /**
@@ -40,23 +42,18 @@ class TextProcessor @Inject constructor(
         }
 
         return try {
-            val prefs = preferencesDataStore.preferences.first()
-            if (!profile.llmEnabled || prefs.llmBaseUrl.isBlank()) {
-                return ruleProcessedText
-            }
+            if (!profile.llmEnabled) return ruleProcessedText
+            val endpoint = (providerRepository.resolve(profile, Purpose.CLEANUP) as? Resolution.Ready)?.endpoint
+                ?: return ruleProcessedText
 
             onPostProcessing?.invoke()
 
-            val service = apiClientFactory.create(
-                LlmApiService::class.java,
-                prefs.llmBaseUrl,
-                prefs.llmApiKey
-            )
+            val service = apiClientFactory.create(LlmApiService::class.java, endpoint.baseUrl, endpoint.apiKey)
 
             val systemPrompt = processingRepository.buildSystemPrompt(profile, appContext)
 
             val request = ChatCompletionRequest(
-                model = profile.llmModel,
+                model = endpoint.model,
                 messages = listOf(
                     ChatMessage(role = "system", content = systemPrompt),
                     ChatMessage(role = "user", content = ruleProcessedText)

@@ -35,10 +35,7 @@ class ProfileRepository @Inject constructor(
                 ProfileEntity(
                     name = "Default",
                     isActive = true,
-                    asrModel = prefs.asrModel,
-                    language = prefs.activeLanguage,
-                    llmEnabled = prefs.llmEnabled,
-                    llmModel = prefs.llmModel
+                    language = prefs.activeLanguage
                 )
             )
         } else if (profileDao.activeCount() == 0) {

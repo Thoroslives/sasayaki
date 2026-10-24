@@ -7,6 +7,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import com.sasayaki.data.db.SasayakiDatabase
 import com.sasayaki.data.db.dao.DictationDao
 import com.sasayaki.data.db.dao.LifetimeStatsDao
+import com.sasayaki.data.db.dao.ProviderDao
 import com.sasayaki.data.db.dao.PostProcessingPromptDao
 import com.sasayaki.data.db.dao.ProfileDao
 import com.sasayaki.data.db.dao.TextReplacementRuleDao
@@ -138,6 +139,33 @@ object DatabaseModule {
         }
     }
 
+    /**
+     * Endpoints move from single settings values into a providers table. Existing
+     * endpoints are copied in at startup by ProviderRepository, because their API keys
+     * live in encrypted preferences that SQL cannot reach.
+     */
+    private val migration7To8 = object : Migration(7, 8) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS `providers` (
+                    `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    `name` TEXT NOT NULL,
+                    `baseUrl` TEXT NOT NULL,
+                    `speechModel` TEXT,
+                    `cleanupModel` TEXT,
+                    `createdAt` INTEGER NOT NULL
+                )
+                """.trimIndent()
+            )
+            db.execSQL("ALTER TABLE `profiles` ADD COLUMN `speechProviderId` INTEGER")
+            db.execSQL("ALTER TABLE `profiles` ADD COLUMN `cleanupProviderId` INTEGER")
+        }
+    }
+
+    val migrations: Array<Migration>
+        get() = arrayOf(migration1To2, migration2To3, migration3To4, migration4To5, migration5To6, migration6To7, migration7To8)
+
     @Provides
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): SasayakiDatabase {
@@ -145,14 +173,7 @@ object DatabaseModule {
             context,
             SasayakiDatabase::class.java,
             "sasayaki.db"
-        ).addMigrations(
-            migration1To2,
-            migration2To3,
-            migration3To4,
-            migration4To5,
-            migration5To6,
-            migration6To7
-        )
+        ).addMigrations(*migrations)
             .fallbackToDestructiveMigrationOnDowngrade(dropAllTables = true)
             .build()
     }
@@ -171,4 +192,7 @@ object DatabaseModule {
 
     @Provides
     fun provideLifetimeStatsDao(db: SasayakiDatabase): LifetimeStatsDao = db.lifetimeStatsDao()
+
+    @Provides
+    fun provideProviderDao(db: SasayakiDatabase): ProviderDao = db.providerDao()
 }

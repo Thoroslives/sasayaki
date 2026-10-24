@@ -26,6 +26,9 @@ interface ProfileDao {
     @Query("SELECT * FROM profiles WHERE isActive = 1 LIMIT 1")
     suspend fun getActiveProfile(): ProfileEntity?
 
+    @Query("SELECT * FROM profiles")
+    suspend fun getAll(): List<ProfileEntity>
+
     @Query("SELECT * FROM profiles WHERE id = :id")
     suspend fun getProfile(id: Long): ProfileEntity?
 

@@ -3,6 +3,7 @@ package com.sasayaki
 import android.app.Application
 import com.sasayaki.data.preferences.PreferencesDataStore
 import com.sasayaki.data.repository.ProfileRepository
+import com.sasayaki.data.repository.ProviderRepository
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -14,6 +15,7 @@ import javax.inject.Inject
 class SasayakiApp : Application() {
     @Inject lateinit var preferencesDataStore: PreferencesDataStore
     @Inject lateinit var profileRepository: ProfileRepository
+    @Inject lateinit var providerRepository: ProviderRepository
 
     private val startupScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -22,6 +24,7 @@ class SasayakiApp : Application() {
         startupScope.launch {
             preferencesDataStore.runStartupMigrations()
             profileRepository.ensureDefaults()
+            providerRepository.migrateLegacyEndpoints()
         }
     }
 }

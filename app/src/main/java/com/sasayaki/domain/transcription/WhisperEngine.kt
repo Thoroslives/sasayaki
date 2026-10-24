@@ -2,8 +2,7 @@ package com.sasayaki.domain.transcription
 
 import com.sasayaki.data.api.ApiClientFactory
 import com.sasayaki.data.api.AsrApiService
-import com.sasayaki.data.preferences.PreferencesDataStore
-import kotlinx.coroutines.flow.first
+import com.sasayaki.domain.provider.Endpoint
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.asRequestBody
@@ -15,25 +14,19 @@ import javax.inject.Singleton
 @Singleton
 class WhisperEngine @Inject constructor(
     private val apiClientFactory: ApiClientFactory,
-    private val preferencesDataStore: PreferencesDataStore,
     private val networkMonitor: NetworkMonitor
 ) : TranscriptionEngine {
 
-    override suspend fun transcribe(audioFile: File, model: String, language: String?): Result<String> {
+    override suspend fun transcribe(audioFile: File, endpoint: Endpoint, language: String?): Result<String> {
         return try {
-            val prefs = preferencesDataStore.preferences.first()
-            val service = apiClientFactory.create(
-                AsrApiService::class.java,
-                prefs.asrBaseUrl,
-                prefs.asrApiKey
-            )
+            val service = apiClientFactory.create(AsrApiService::class.java, endpoint.baseUrl, endpoint.apiKey)
 
             val filePart = MultipartBody.Part.createFormData(
                 "file",
                 audioFile.name,
                 audioFile.asRequestBody("audio/wav".toMediaType())
             )
-            val modelPart = model.toRequestBody("text/plain".toMediaType())
+            val modelPart = endpoint.model.toRequestBody("text/plain".toMediaType())
             val languagePart = language?.let {
                 it.toRequestBody("text/plain".toMediaType())
             }

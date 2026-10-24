@@ -7,5 +7,6 @@ data class ModelsResponse(
 )
 
 data class ModelEntry(
-    @SerializedName("id") val id: String?
+    @SerializedName("id") val id: String?,
+    @SerializedName("task") val task: String?
 )

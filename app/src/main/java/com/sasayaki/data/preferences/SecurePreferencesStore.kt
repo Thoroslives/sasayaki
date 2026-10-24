@@ -41,4 +41,19 @@ class SecurePreferencesStore @Inject constructor(
     fun updateLlmApiKey(apiKey: String) {
         sharedPreferences.edit().putString(LLM_API_KEY, apiKey).apply()
     }
+
+    fun clearLegacyApiKeys() {
+        sharedPreferences.edit().remove(ASR_API_KEY).remove(LLM_API_KEY).apply()
+    }
+
+    fun getProviderApiKey(providerId: Long): String =
+        sharedPreferences.getString(providerKey(providerId), "") ?: ""
+
+    fun setProviderApiKey(providerId: Long, apiKey: String) {
+        sharedPreferences.edit().apply {
+            if (apiKey.isEmpty()) remove(providerKey(providerId)) else putString(providerKey(providerId), apiKey)
+        }.apply()
+    }
+
+    private fun providerKey(providerId: Long) = "provider_api_key_$providerId"
 }

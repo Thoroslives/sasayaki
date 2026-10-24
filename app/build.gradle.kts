@@ -84,6 +84,10 @@ android {
     testOptions {
         unitTests.isIncludeAndroidResources = true
     }
+
+    // Robolectric only sees the app's merged assets, so the exported Room schemas ride
+    // along in debug builds for the migration tests; release builds never include them.
+    sourceSets.getByName("debug").assets.directories.add("$projectDir/schemas")
 }
 
 kotlin {
@@ -173,6 +177,7 @@ dependencies {
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.robolectric)
+    testImplementation(libs.room.testing)
     testImplementation(libs.androidx.test.junit)
     testImplementation(platform(libs.compose.bom))
     testImplementation(libs.compose.ui.test.junit4)

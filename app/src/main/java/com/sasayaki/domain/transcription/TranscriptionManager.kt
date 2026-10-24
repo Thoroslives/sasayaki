@@ -7,6 +7,9 @@ import com.sasayaki.data.db.dao.LifetimeStatsDao
 import com.sasayaki.data.db.entity.Dictation
 import com.sasayaki.data.preferences.PreferencesDataStore
 import com.sasayaki.data.repository.ProfileRepository
+import com.sasayaki.data.repository.ProviderRepository
+import com.sasayaki.domain.provider.Purpose
+import com.sasayaki.domain.provider.Resolution
 import com.sasayaki.domain.model.AppContext
 import com.sasayaki.domain.model.DictationStatus
 import com.sasayaki.domain.model.Profile
@@ -26,7 +29,8 @@ class TranscriptionManager @Inject constructor(
     private val dictationDao: DictationDao,
     private val lifetimeStatsDao: LifetimeStatsDao,
     private val preferencesDataStore: PreferencesDataStore,
-    private val profileRepository: ProfileRepository
+    private val profileRepository: ProfileRepository,
+    private val providerRepository: ProviderRepository
 ) {
     companion object {
         private const val TAG = "TranscriptionManager"
@@ -76,20 +80,28 @@ class TranscriptionManager @Inject constructor(
         onPostProcessing: (() -> Unit)? = null
     ): Result<String> {
         val prefs = preferencesDataStore.preferences.first()
-        if (prefs.asrBaseUrl.isBlank()) {
-            val error = Exception("Speech to text is not set up. Add your server in Settings.")
-            persistFailure(audioFile, durationMs, appContext, profile, prefs.historyEnabled, error, retryEntryId)
-            return Result.failure(error)
+        val endpoint = when (val speech = providerRepository.resolve(profile, Purpose.SPEECH)) {
+            is Resolution.Ready -> speech.endpoint
+            Resolution.NoProvider -> {
+                val error = Exception("Speech to text is not set up. Add a provider in Settings.")
+                persistFailure(audioFile, durationMs, appContext, profile, prefs.historyEnabled, error, retryEntryId)
+                return Result.failure(error)
+            }
+            is Resolution.NoModel -> {
+                val error = Exception("Choose a speech model for ${speech.provider.name} in Settings.")
+                persistFailure(audioFile, durationMs, appContext, profile, prefs.historyEnabled, error, retryEntryId)
+                return Result.failure(error)
+            }
         }
 
         if (!whisperEngine.isAvailable()) {
-            val error = Exception("No network connection. Cannot reach ASR server.")
+            val error = Exception("No network connection.")
             persistFailure(audioFile, durationMs, appContext, profile, prefs.historyEnabled, error, retryEntryId)
             return Result.failure(error)
         }
 
-        Log.d(TAG, "Sending ${audioFile.length()} bytes to Whisper API (model=${profile.asrModel})")
-        val rawResult = whisperEngine.transcribe(audioFile, profile.asrModel, profile.language)
+        Log.d(TAG, "Sending ${audioFile.length()} bytes for transcription (model=${endpoint.model})")
+        val rawResult = whisperEngine.transcribe(audioFile, endpoint, profile.language)
         val rawText = rawResult.getOrElse { error ->
             Log.e(TAG, "Whisper API error", error)
             persistFailure(audioFile, durationMs, appContext, profile, prefs.historyEnabled, error, retryEntryId)

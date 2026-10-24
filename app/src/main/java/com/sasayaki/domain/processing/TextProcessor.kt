@@ -11,7 +11,6 @@ import com.sasayaki.domain.provider.Purpose
 import com.sasayaki.domain.provider.Resolution
 import com.sasayaki.domain.model.AppContext
 import com.sasayaki.domain.model.Profile
-import com.sasayaki.domain.model.SummarizeMode
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 import javax.inject.Inject
@@ -64,8 +63,7 @@ class TextProcessor @Inject constructor(
 
             val response = service.chatCompletion(request)
             val cleaned = stripModelArtifacts(response.text, ruleProcessedText)
-            val condensing = profile.summarizeMode != SummarizeMode.NONE
-            val rejection = rejectCleanup(ruleProcessedText, cleaned, response.finishReason, condensing)
+            val rejection = rejectCleanup(ruleProcessedText, cleaned, response.finishReason, lengthCheckFor(profile))
             if (rejection != null) {
                 Log.w(TAG, "Cleanup output rejected ($rejection); using rule-processed text")
                 ruleProcessedText

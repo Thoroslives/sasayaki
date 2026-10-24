@@ -16,6 +16,7 @@ import android.provider.Settings
 import android.util.Log
 import android.view.WindowManager
 import android.widget.Toast
+import com.sasayaki.data.preferences.BubbleSize
 import com.sasayaki.data.preferences.PreferencesDataStore
 import com.sasayaki.data.repository.ProfileRepository
 import com.sasayaki.domain.model.AppContext
@@ -197,6 +198,9 @@ class BubbleService : Service() {
             wallpaperColors = preferencesDataStore.preferences
                 .map { it.wallpaperColors }
                 .stateIn(scope, SharingStarted.Eagerly, false),
+            bubbleScale = preferencesDataStore.preferences
+                .map { it.bubbleSize.scale }
+                .stateIn(scope, SharingStarted.Eagerly, BubbleSize.STANDARD.scale),
             actions = BubbleActions(
                 onStart = ::onBubbleTap,
                 onStop = ::stopRecordingAndTranscribe,

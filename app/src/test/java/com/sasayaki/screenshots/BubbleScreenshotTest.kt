@@ -2,6 +2,9 @@ package com.sasayaki.screenshots
 
 import android.app.Application
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -20,6 +23,8 @@ import com.sasayaki.service.bubble.BubblePhase
 import com.sasayaki.service.bubble.BubbleUiState
 import com.sasayaki.service.bubble.DismissTarget
 import com.sasayaki.service.bubble.ProfileMenu
+import com.sasayaki.service.bubble.mode
+import com.sasayaki.data.preferences.BubbleSize
 import com.sasayaki.ui.theme.SasayakiTheme
 import org.junit.Rule
 import org.junit.Test
@@ -31,7 +36,7 @@ import kotlin.math.sin
 
 @RunWith(AndroidJUnit4::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
-@Config(sdk = [35], qualifiers = PHONE, application = Application::class)
+@Config(sdk = [35], qualifiers = TALL_PHONE, application = Application::class)
 class BubbleScreenshotTest {
     @get:Rule
     val compose = createComposeRule()
@@ -58,13 +63,27 @@ class BubbleScreenshotTest {
                     BubbleUiState(BubblePhase.Processing(cleaningUp = false)),
                     BubbleUiState(BubblePhase.Processing(cleaningUp = true)),
                     BubbleUiState(BubblePhase.Failed("The server rejected the API key.", canRetry = true))
-                ).forEach { state -> BubbleContent(state, { levels }, actions, {}) }
+                ).forEach { state -> Window(state) }
+                Window(BubbleUiState(BubblePhase.Recording(paused = false), elapsedSeconds = 3, profileName = "Chat"), scale = BubbleSize.LARGER.scale)
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
                     ProfileMenu(listOf(Profile(1, "Chat", isActive = true), Profile(2, "Email"), Profile(3, "Raw notes"))) {}
                     DismissTarget(armed = false)
                     DismissTarget(armed = true)
                 }
             }
+        }
+    }
+
+    // Window draws a state inside the overlay window size the service gives it.
+    @Composable
+    private fun Window(state: BubbleUiState, scale: Float = 1f) {
+        val mode = state.phase.mode
+        Box(
+            modifier = Modifier
+                .size(mode.windowWidth * scale, mode.windowHeight * scale)
+                .border(1.dp, Color(0x55FF00FF))
+        ) {
+            BubbleContent(state, { levels }, actions, {}, scale = scale)
         }
     }
 

@@ -1,6 +1,7 @@
 package com.sasayaki.ui.settings
 
 import android.os.Build
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
@@ -21,6 +22,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.sasayaki.data.preferences.BubbleSize
 import com.sasayaki.data.preferences.ThemeMode
 import com.sasayaki.ui.common.rememberPermissionItems
 import com.sasayaki.ui.common.rememberRestrictedSettingsLikely
@@ -153,6 +155,7 @@ fun AppearanceSettingsRoute(onBack: () -> Unit, viewModel: SettingsViewModel = h
         item(key = "appearance") {
             val items = buildList<SegmentedItem> {
                 add { shapes -> ThemeItem(shapes, prefs.themeMode, viewModel::setThemeMode) }
+                add { shapes -> BubbleSizeItem(shapes, prefs.bubbleSize, viewModel::setBubbleSize) }
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                     add { shapes ->
                         SwitchItem(
@@ -238,6 +241,34 @@ private fun RetentionItem(shapes: ListItemShapes, limit: Int, enabled: Boolean, 
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun BubbleSizeItem(shapes: ListItemShapes, size: BubbleSize, onSelect: (BubbleSize) -> Unit) {
+    SegmentedListItem(
+        shapes = shapes,
+        colors = segmentedItemColors(),
+        leadingContent = { ItemIcon(SasayakiIcons.ChatBubble) },
+        supportingContent = {
+            Column(verticalArrangement = Arrangement.spacedBy(Spacing.s), modifier = Modifier.padding(top = Spacing.xs)) {
+                Text("Bigger bubbles have bigger buttons, easier to hit with gloves or on the move.")
+                ConnectedChoice(
+                    options = BubbleSize.entries,
+                    selected = size,
+                    onSelect = onSelect,
+                    label = {
+                        when (it) {
+                            BubbleSize.STANDARD -> "Standard"
+                            BubbleSize.LARGE -> "Large"
+                            BubbleSize.LARGER -> "Larger"
+                        }
+                    }
+                )
+            }
+        }
+    ) {
+        Text("Bubble size")
     }
 }
 

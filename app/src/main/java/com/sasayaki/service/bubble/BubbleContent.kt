@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -34,6 +35,7 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -46,6 +48,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import com.sasayaki.domain.model.Profile
@@ -69,10 +74,19 @@ class BubbleActions(
     val onDismissError: () -> Unit
 )
 
-/** BubbleMode is the shape the bubble takes; content within a mode changes without a size morph. */
-private enum class BubbleMode { IDLE, RECORDING, PROCESSING, FAILED }
+/**
+ * BubbleMode is the shape the bubble takes; content within a mode changes without a size
+ * morph. Each mode's window size is fixed and generous enough for its content, so the
+ * overlay window never has to chase the content's animated size frame by frame.
+ */
+enum class BubbleMode(val windowWidth: Dp, val windowHeight: Dp) {
+    IDLE(68.dp, 68.dp),
+    RECORDING(284.dp, 72.dp),
+    PROCESSING(224.dp, 72.dp),
+    FAILED(332.dp, 72.dp)
+}
 
-private val BubblePhase.mode: BubbleMode
+val BubblePhase.mode: BubbleMode
     get() = when (this) {
         BubblePhase.Idle -> BubbleMode.IDLE
         is BubblePhase.Recording -> BubbleMode.RECORDING
@@ -81,24 +95,41 @@ private val BubblePhase.mode: BubbleMode
     }
 
 @Composable
-fun BubbleContent(state: BubbleUiState, levels: () -> List<Float>, actions: BubbleActions, onShowProfiles: () -> Unit) {
+fun BubbleContent(
+    state: BubbleUiState,
+    levels: () -> List<Float>,
+    actions: BubbleActions,
+    onShowProfiles: () -> Unit,
+    alignment: Alignment = Alignment.CenterEnd,
+    scale: Float = 1f
+) {
     val spatial = MaterialTheme.motionScheme.defaultSpatialSpec<IntSize>()
     val fade = MaterialTheme.motionScheme.fastEffectsSpec<Float>()
-    // Padding leaves room for the shadow inside the overlay window's bounds.
-    Box(modifier = Modifier.padding(Spacing.s)) {
-        AnimatedContent(
-            targetState = state.phase.mode,
-            transitionSpec = {
-                (fadeIn(fade) + scaleIn(fade, initialScale = 0.9f)) togetherWith fadeOut(fade) using
-                    SizeTransform(clip = false) { _, _ -> spatial }
-            },
-            label = "bubble"
-        ) { mode ->
-            when (mode) {
-                BubbleMode.IDLE -> IdleBubble(state.justInserted, actions.onStart, onShowProfiles)
-                BubbleMode.RECORDING -> RecordingPill(state, levels, actions, onShowProfiles)
-                BubbleMode.PROCESSING -> ProcessingPill((state.phase as? BubblePhase.Processing)?.cleaningUp == true, actions)
-                BubbleMode.FAILED -> (state.phase as? BubblePhase.Failed)?.let { FailedPill(it, actions) }
+    val density = LocalDensity.current
+    // Scaling density grows every dimension of the bubble together, touch targets included.
+    CompositionLocalProvider(LocalDensity provides Density(density.density * scale, density.fontScale)) {
+        // Padding leaves room for the shadow inside the overlay window's bounds.
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(Spacing.s),
+            contentAlignment = alignment
+        ) {
+            AnimatedContent(
+                targetState = state.phase.mode,
+                contentAlignment = alignment,
+                transitionSpec = {
+                    (fadeIn(fade) + scaleIn(fade, initialScale = 0.9f)) togetherWith fadeOut(fade) using
+                        SizeTransform(clip = false) { _, _ -> spatial }
+                },
+                label = "bubble"
+            ) { mode ->
+                when (mode) {
+                    BubbleMode.IDLE -> IdleBubble(state.justInserted, actions.onStart, onShowProfiles)
+                    BubbleMode.RECORDING -> RecordingPill(state, levels, actions, onShowProfiles)
+                    BubbleMode.PROCESSING -> ProcessingPill((state.phase as? BubblePhase.Processing)?.cleaningUp == true, actions)
+                    BubbleMode.FAILED -> (state.phase as? BubblePhase.Failed)?.let { FailedPill(it, actions) }
+                }
             }
         }
     }

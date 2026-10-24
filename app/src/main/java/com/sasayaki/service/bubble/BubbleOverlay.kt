@@ -21,6 +21,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.core.content.edit
@@ -31,6 +33,10 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlin.math.hypot
 import kotlin.math.roundToInt
@@ -48,6 +54,7 @@ class BubbleOverlay(
     private val levels: StateFlow<List<Float>>,
     private val profiles: StateFlow<List<Profile>>,
     private val wallpaperColors: StateFlow<Boolean>,
+    private val bubbleScale: StateFlow<Float>,
     private val actions: BubbleActions,
     private val onSelectProfile: (Long) -> Unit,
     private val onRemove: () -> Unit
@@ -60,10 +67,12 @@ class BubbleOverlay(
     private val positions = context.getSharedPreferences(POSITION_PREFS, Context.MODE_PRIVATE)
     private val lifecycleOwner = OverlayLifecycleOwner()
 
-    private var side = if (positions.getBoolean(KEY_START_SIDE, false)) Side.START else Side.END
+    private var side by mutableStateOf(if (positions.getBoolean(KEY_START_SIDE, false)) Side.START else Side.END)
     private var bubbleRoot: DraggableOverlayLayout? = null
     private var bubbleShown = false
     private val bubbleParams = overlayParams().apply {
+        width = windowPx(BubbleMode.IDLE.windowWidth)
+        height = windowPx(BubbleMode.IDLE.windowHeight)
         gravity = Gravity.TOP or side.gravity
         y = positions.getInt(KEY_Y, (screenHeight() * 0.4f).roundToInt())
     }
@@ -76,6 +85,7 @@ class BubbleOverlay(
     private var dragStartX = 0
     private var dragStartY = 0
     private var snapAnimator: ValueAnimator? = null
+    private var windowSizeJob: Job? = null
 
     // A tap on the bubble that closes the profile menu must not also start a recording.
     private val bubbleActions = BubbleActions(
@@ -93,11 +103,32 @@ class BubbleOverlay(
         val compose = composeView {
             val state by uiState.collectAsStateWithLifecycle()
             val levelState = levels.collectAsStateWithLifecycle()
-            BubbleContent(state = state, levels = { levelState.value }, actions = bubbleActions, onShowProfiles = ::showProfileMenu)
+            val scale by bubbleScale.collectAsStateWithLifecycle()
+            BubbleContent(
+                state = state,
+                levels = { levelState.value },
+                actions = bubbleActions,
+                onShowProfiles = ::showProfileMenu,
+                alignment = if (side == Side.END) Alignment.CenterEnd else Alignment.CenterStart,
+                scale = scale
+            )
         }
         bubbleRoot = DraggableOverlayLayout(context, ::onDragStart, ::onDrag, ::onDragEnd).apply {
             lifecycleOwner.attachTo(this)
             addView(compose)
+        }
+        windowSizeJob = scope.launch {
+            combine(uiState.map { it.phase.mode }.distinctUntilChanged(), bubbleScale, ::Pair)
+                .collectLatest { (mode, _) ->
+                    val width = windowPx(mode.windowWidth).coerceAtMost(screenWidth() - 2 * edgeMargin)
+                    val height = windowPx(mode.windowHeight)
+                    // Grow the window before the content morphs; shrink it only once the
+                    // content has finished shrinking, so neither is ever clipped.
+                    if (width < bubbleParams.width || height < bubbleParams.height) delay(SHRINK_DELAY_MS)
+                    bubbleParams.width = width
+                    bubbleParams.height = height
+                    bubbleRoot?.let(::update)
+                }
         }
     }
 
@@ -105,7 +136,7 @@ class BubbleOverlay(
         val root = bubbleRoot ?: return
         if (bubbleShown) return
         bubbleParams.x = dockedX()
-        bubbleParams.y = clampY(bubbleParams.y, BUBBLE_ESTIMATED_HEIGHT_DP)
+        bubbleParams.y = clampY(bubbleParams.y, bubbleParams.height)
         try {
             windowManager.addView(root, bubbleParams)
             bubbleShown = true
@@ -129,12 +160,13 @@ class BubbleOverlay(
         val root = bubbleRoot ?: return
         snapAnimator?.cancel()
         bubbleParams.x = dockedX()
-        bubbleParams.y = clampY(bubbleParams.y, (root.height / density).roundToInt())
+        bubbleParams.y = clampY(bubbleParams.y, bubbleParams.height)
         update(root)
     }
 
     fun destroy() {
         snapAnimator?.cancel()
+        windowSizeJob?.cancel()
         hide()
         lifecycleOwner.destroy()
         bubbleRoot = null
@@ -165,7 +197,7 @@ class BubbleOverlay(
     private fun onDrag(dx: Float, dy: Float) {
         val root = bubbleRoot ?: return
         bubbleParams.x = dragStartX + dx.roundToInt()
-        bubbleParams.y = clampY(dragStartY + dy.roundToInt(), (root.height / density).roundToInt())
+        bubbleParams.y = clampY(dragStartY + dy.roundToInt(), root.height)
         update(root)
         val armed = distanceToTarget(root) < removeRadius
         if (armed != targetArmed) {
@@ -338,9 +370,11 @@ class BubbleOverlay(
         }
     }
 
-    private fun clampY(y: Int, heightDp: Int): Int {
+    private fun windowPx(size: Dp): Int = (size.value * bubbleScale.value * density).roundToInt()
+
+    private fun clampY(y: Int, height: Int): Int {
         val min = topInset()
-        val max = screenHeight() - bottomInset() - (heightDp * density).roundToInt()
+        val max = screenHeight() - bottomInset() - height
         return y.coerceIn(min, max.coerceAtLeast(min))
     }
 
@@ -381,7 +415,7 @@ class BubbleOverlay(
         const val SNAP_DURATION_MS = 280L
         const val MENU_TIMEOUT_MS = 6000L
         const val OUTSIDE_TAP_GRACE_MS = 400L
-        const val BUBBLE_ESTIMATED_HEIGHT_DP = 68
+        const val SHRINK_DELAY_MS = 450L
         const val TARGET_OFFSET_DP = 24
         const val TARGET_SIZE_DP = 96
     }

@@ -13,11 +13,18 @@ data class UserPreferences(
     val startOnBoot: Boolean = true,
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val wallpaperColors: Boolean = false,
-    val onboardingCompleted: Boolean = false
+    val onboardingCompleted: Boolean = false,
+    val bubbleSize: BubbleSize = BubbleSize.STANDARD
 )
 
 enum class ThemeMode {
     SYSTEM,
     LIGHT,
     DARK
+}
+
+enum class BubbleSize(val scale: Float) {
+    STANDARD(1f),
+    LARGE(1.15f),
+    LARGER(1.3f)
 }

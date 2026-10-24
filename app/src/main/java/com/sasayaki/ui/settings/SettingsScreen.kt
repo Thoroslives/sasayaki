@@ -11,6 +11,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sasayaki.BuildConfig
+import com.sasayaki.data.preferences.BubbleSize
 import com.sasayaki.data.preferences.ThemeMode
 import com.sasayaki.ui.common.rememberPermissionItems
 import com.sasayaki.ui.components.ItemIcon
@@ -141,7 +142,8 @@ fun SettingsScreen(
                             headline = "Appearance",
                             supporting = listOfNotNull(
                                 prefs.themeMode.label(),
-                                "wallpaper colors".takeIf { prefs.wallpaperColors }
+                                "wallpaper colors".takeIf { prefs.wallpaperColors },
+                                "${prefs.bubbleSize.name.lowercase()} bubble".takeIf { prefs.bubbleSize != BubbleSize.STANDARD }
                             ).joinToString(" · "),
                             icon = SasayakiIcons.Palette,
                             onClick = destinations.onAppearance

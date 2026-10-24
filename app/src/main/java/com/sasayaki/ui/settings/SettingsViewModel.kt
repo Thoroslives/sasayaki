@@ -3,6 +3,7 @@ package com.sasayaki.ui.settings
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.sasayaki.data.preferences.BubbleSize
 import com.sasayaki.data.preferences.PreferencesDataStore
 import com.sasayaki.data.preferences.ThemeMode
 import com.sasayaki.data.preferences.UserPreferences
@@ -66,6 +67,8 @@ class SettingsViewModel @Inject constructor(
     fun setThemeMode(mode: ThemeMode) = persist { preferencesDataStore.setThemeMode(mode) }
 
     fun setWallpaperColors(enabled: Boolean) = persist { preferencesDataStore.setWallpaperColors(enabled) }
+
+    fun setBubbleSize(size: BubbleSize) = persist { preferencesDataStore.setBubbleSize(size) }
 
     private fun persist(block: suspend () -> Unit) {
         viewModelScope.launch { block() }

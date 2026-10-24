@@ -53,6 +53,7 @@ class PreferencesDataStore @Inject constructor(
         val THEME_MODE = stringPreferencesKey("theme_mode")
         val WALLPAPER_COLORS = booleanPreferencesKey("wallpaper_colors")
         val ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
+        val BUBBLE_SIZE = stringPreferencesKey("bubble_size")
     }
 
     val preferences: Flow<UserPreferences> = context.dataStore.data
@@ -78,7 +79,8 @@ class PreferencesDataStore @Inject constructor(
             startOnBoot = prefs[Keys.START_ON_BOOT] ?: true,
             themeMode = ThemeMode.entries.firstOrNull { it.name == prefs[Keys.THEME_MODE] } ?: ThemeMode.SYSTEM,
             wallpaperColors = prefs[Keys.WALLPAPER_COLORS] ?: false,
-            onboardingCompleted = prefs[Keys.ONBOARDING_COMPLETED] ?: false
+            onboardingCompleted = prefs[Keys.ONBOARDING_COMPLETED] ?: false,
+            bubbleSize = BubbleSize.entries.firstOrNull { it.name == prefs[Keys.BUBBLE_SIZE] } ?: BubbleSize.STANDARD
         )
     }
     .distinctUntilChanged()
@@ -131,6 +133,8 @@ class PreferencesDataStore @Inject constructor(
     suspend fun setWallpaperColors(enabled: Boolean) = set(Keys.WALLPAPER_COLORS, enabled)
 
     suspend fun setOnboardingCompleted() = set(Keys.ONBOARDING_COMPLETED, true)
+
+    suspend fun setBubbleSize(size: BubbleSize) = set(Keys.BUBBLE_SIZE, size.name)
 
     private suspend fun <T> set(key: Preferences.Key<T>, value: T) {
         context.dataStore.edit { prefs -> prefs[key] = value }

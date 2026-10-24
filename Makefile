@@ -1,4 +1,4 @@
-.PHONY: build test debug clean docker-image
+.PHONY: build test debug verify clean docker-image
 
 DOCKER_IMAGE := sasayaki-build
 APK_OUTPUT := sasayaki-release.apk
@@ -37,6 +37,9 @@ test: docker-image
 
 debug: docker-image
 	$(call gradle,assembleDebug)
+
+verify: docker-image
+	$(call gradle,test assembleDebug)
 
 clean:
 	rm -rf app/build build .gradle .gradle-cache .gradle-build-cache .android-cache $(APK_OUTPUT)

@@ -29,8 +29,9 @@ output/
 /signing/*.jks
 /signing/*.keystore
 
-# Credentials for the post-processing benchmark
+# Credentials for the post-processing benchmark and local shells
 .env
+.envrc
 .env.*
 !.env.example
 *.md

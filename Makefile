@@ -1,4 +1,4 @@
-.PHONY: build test debug verify screenshots clean docker-image
+.PHONY: build test unit debug verify screenshots clean docker-image
 
 DOCKER_IMAGE := sasayaki-build
 APK_OUTPUT := sasayaki-release.apk
@@ -34,6 +34,10 @@ build: docker-image
 
 test: docker-image
 	$(call gradle,test)
+
+# Runs the debug unit tests matching TESTS, e.g. make unit TESTS='*SpeechDetector*'.
+unit: docker-image
+	$(call gradle,testDebugUnitTest --tests '$(TESTS)')
 
 debug: docker-image
 	$(call gradle,assembleDebug)

@@ -107,6 +107,7 @@ class BubbleService : Service() {
     private var audioManager: AudioManager? = null
     private var audioFocusRequest: AudioFocusRequest? = null
     private var profileJob: Job? = null
+    private var startJob: Job? = null
 
     private var state: ServiceState = ServiceState.Idle
     private var recordingStartTime: Long = 0
@@ -259,7 +260,7 @@ class BubbleService : Service() {
 
     private fun onBubbleTap() {
         when (val current = state) {
-            is ServiceState.Idle, ServiceState.NoSpeech -> startRecording()
+            is ServiceState.Idle, ServiceState.NoSpeech -> requestRecording()
             is ServiceState.Recording -> stopRecordingAndTranscribe()
             is ServiceState.Transcribing, is ServiceState.PostProcessing -> cancelProcessing()
             // Injection is already underway and cannot be meaningfully undone.
@@ -309,6 +310,23 @@ class BubbleService : Service() {
             )
         } catch (e: Exception) {
             Log.w(TAG, "Could not drop microphone foreground service type", e)
+        }
+    }
+
+    /**
+     * requestRecording checks the focused field first: the lookup crosses into the focused
+     * app, so it runs off the main thread, and taps that land meanwhile are ignored.
+     */
+    private fun requestRecording() {
+        if (startJob?.isActive == true) return
+        startJob = scope.launch {
+            val sensitive = textInjectionBridge.isFocusedFieldSensitive()
+            if (state !is ServiceState.Idle && state !is ServiceState.NoSpeech) return@launch
+            if (sensitive) {
+                showError("Dictation is off in password and banking fields.", null)
+            } else {
+                startRecording()
+            }
         }
     }
 

@@ -63,11 +63,9 @@ class TextInjectionBridge @Inject constructor(
         TextInjectorService.instance?.focusedEditorPackage()?.takeIf(::isUsableTargetPackage)
     }
 
-    val isAccessibilityServiceActive: Boolean
-        get() = TextInjectorService.instance != null
-
-    val focusedAppName: String?
-        get() = currentAppContext?.displayName
+    suspend fun isFocusedFieldSensitive(): Boolean = withContext(Dispatchers.Default) {
+        TextInjectorService.instance?.isFocusedFieldSensitive() == true
+    }
 
     val currentAppContext: AppContext?
         get() {

@@ -165,6 +165,17 @@ class TextInjectorService : AccessibilityService() {
         return findCurrentFocusedEditable()?.packageName?.toString()
     }
 
+    /** isFocusedFieldSensitive applies the same password and banking checks as [injectText]. */
+    fun isFocusedFieldSensitive(): Boolean {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val editorInfo = inputMethod?.takeIf { it.currentInputStarted }?.currentInputEditorInfo
+            if (editorInfo != null && (isSensitiveInputType(editorInfo.inputType) || isBankingPackage(editorInfo.packageName))) {
+                return true
+            }
+        }
+        return findCurrentFocusedEditable()?.let(::isSensitiveField) ?: false
+    }
+
     fun injectText(text: String): InjectionResult {
         val node = findCurrentFocusedEditable() ?: return InjectionResult.NoFocusedNode
         try {
@@ -267,7 +278,7 @@ class TextInjectorService : AccessibilityService() {
     }
 
     private fun isSensitiveField(node: AccessibilityNodeInfo): Boolean =
-        node.isPassword || isBankingPackage(node.packageName?.toString())
+        node.isPassword || isSensitiveInputType(node.inputType) || isBankingPackage(node.packageName?.toString())
 
     private fun isBankingPackage(packageName: CharSequence?): Boolean {
         val normalized = packageName?.toString()?.lowercase() ?: return false

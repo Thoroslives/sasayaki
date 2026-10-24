@@ -72,7 +72,7 @@ import com.sasayaki.ui.common.formatDuration
 import com.sasayaki.ui.common.SetupItem
 import com.sasayaki.ui.common.minutesSaved
 import com.sasayaki.ui.common.rememberPermissionItems
-import com.sasayaki.ui.common.rememberRestrictedSettingsBlocked
+import com.sasayaki.ui.common.rememberRestrictedSettingsLikely
 import com.sasayaki.ui.common.wordsPerMinute
 import com.sasayaki.ui.components.EmptyState
 import com.sasayaki.ui.components.SectionLabel
@@ -108,7 +108,7 @@ fun HomeRoute(
         onAction = onOpenProviders
     )
     val steps = listOf(providerItem) + rememberPermissionItems()
-    val restricted = rememberRestrictedSettingsBlocked()
+    val restricted = rememberRestrictedSettingsLikely()
 
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -116,7 +116,7 @@ fun HomeRoute(
     HomeScreen(
         state = state,
         setupSteps = steps,
-        restrictedSettingsBlocked = restricted,
+        restrictedSettingsLikely = restricted,
         snackbarHostState = snackbarHostState,
         onStartService = viewModel::startService,
         onStopService = viewModel::stopService,
@@ -135,7 +135,7 @@ fun HomeRoute(
 fun HomeScreen(
     state: HomeUiState,
     setupSteps: List<SetupItem>,
-    restrictedSettingsBlocked: Boolean,
+    restrictedSettingsLikely: Boolean,
     snackbarHostState: SnackbarHostState,
     onStartService: () -> Unit,
     onStopService: () -> Unit,
@@ -179,7 +179,7 @@ fun HomeScreen(
             }
             if (state.loaded && pendingSteps.isNotEmpty()) {
                 item(key = "setup") {
-                    SetupGroup(items = pendingSteps, restrictedSettingsBlocked = restrictedSettingsBlocked, title = "Setup")
+                    SetupGroup(items = pendingSteps, restrictedSettingsLikely = restrictedSettingsLikely, title = "Setup")
                 }
             }
             if (state.lifetime.count > 0 || state.today.count > 0) {
@@ -571,7 +571,7 @@ private fun HomeScreenPreview() {
                 )
             ),
             setupSteps = emptyList(),
-            restrictedSettingsBlocked = false,
+            restrictedSettingsLikely = false,
             snackbarHostState = SnackbarHostState(),
             onStartService = {},
             onStopService = {},

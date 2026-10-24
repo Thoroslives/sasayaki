@@ -122,7 +122,7 @@ class SettingsScreenshotTest {
                         SetupItem("accessibility", "Text insertion", "Types the result into the field you are using.", SasayakiIcons.Keyboard, false, true, "Allow") {},
                         SetupItem("notifications", "Notifications", "Keeps the bubble running reliably.", SasayakiIcons.Notifications, false, false, "Allow") {}
                     ),
-                    restrictedSettingsBlocked = true
+                    restrictedSettingsLikely = true
                 )
             }
         }

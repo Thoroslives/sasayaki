@@ -28,7 +28,7 @@ import com.sasayaki.ui.theme.Spacing
 @Composable
 fun SetupGroup(
     items: List<SetupItem>,
-    restrictedSettingsBlocked: Boolean,
+    restrictedSettingsLikely: Boolean,
     modifier: Modifier = Modifier,
     title: String? = null
 ) {
@@ -38,8 +38,8 @@ fun SetupGroup(
             add { shapes -> SetupRow(item, shapes) }
             if (item.key == ACCESSIBILITY_KEY && !item.done) {
                 when {
-                    restrictedSettingsBlocked -> add { shapes -> RestrictedSettingsRow(shapes) { openAppInfo(context) } }
-                    // Detection can miss on unusual builds, so sideload-capable versions still get a hint.
+                    restrictedSettingsLikely -> add { shapes -> RestrictedSettingsRow(shapes) { openAppInfo(context) } }
+                    // Installs from a store or another installer can still be blocked, so they get a hint.
                     Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU -> add { shapes ->
                         RestrictedSettingsHint(shapes) { openAppInfo(context) }
                     }
@@ -106,7 +106,7 @@ private fun RestrictedSettingsRow(shapes: ListItemShapes, onOpenAppInfo: () -> U
         },
         supportingContent = {
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
-                Text("Android blocks this for apps installed outside an app store. To allow it:")
+                Text("Android blocks this for apps installed from a file until you allow it. If the switch is greyed out:")
                 Text("1. Open App info\n2. Tap ⋮ in the top corner\n3. Tap Allow restricted settings and confirm\n4. Come back and allow Text insertion")
                 Button(onClick = onOpenAppInfo, contentPadding = PaddingValues(horizontal = Spacing.l)) {
                     Text("Open App info")

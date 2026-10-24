@@ -23,7 +23,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sasayaki.data.preferences.ThemeMode
 import com.sasayaki.ui.common.rememberPermissionItems
-import com.sasayaki.ui.common.rememberRestrictedSettingsBlocked
+import com.sasayaki.ui.common.rememberRestrictedSettingsLikely
 import com.sasayaki.ui.components.ConnectedChoice
 import com.sasayaki.ui.components.ItemIcon
 import com.sasayaki.ui.components.NavigationItem
@@ -174,11 +174,11 @@ fun AppearanceSettingsRoute(onBack: () -> Unit, viewModel: SettingsViewModel = h
 @Composable
 fun PermissionsRoute(onBack: () -> Unit) {
     val items = rememberPermissionItems()
-    val restricted = rememberRestrictedSettingsBlocked()
+    val restricted = rememberRestrictedSettingsLikely()
     SettingsPage(title = "Permissions", onBack = onBack) {
         pageIntro("Sasayaki needs these to listen when you ask and type the result where you are.")
         item(key = "permissions") {
-            SetupGroup(items = items, restrictedSettingsBlocked = restricted)
+            SetupGroup(items = items, restrictedSettingsLikely = restricted)
         }
     }
 }

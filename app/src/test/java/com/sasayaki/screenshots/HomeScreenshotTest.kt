@@ -53,7 +53,7 @@ class HomeScreenshotTest {
     private fun home(state: HomeUiState, steps: List<SetupItem> = emptyList(), restricted: Boolean = false) = HomeScreen(
         state = state,
         setupSteps = steps,
-        restrictedSettingsBlocked = restricted,
+        restrictedSettingsLikely = restricted,
         snackbarHostState = SnackbarHostState(),
         onStartService = {},
         onStopService = {},

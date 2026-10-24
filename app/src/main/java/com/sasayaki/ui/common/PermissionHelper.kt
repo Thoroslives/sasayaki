@@ -1,13 +1,12 @@
 package com.sasayaki.ui.common
 
 import android.Manifest
-import android.app.AppOpsManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageInstaller
 import android.net.Uri
 import android.os.Build
-import android.os.Process
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -54,25 +53,25 @@ fun checkAccessibilityPermission(context: Context): Boolean {
 }
 
 /**
- * Whether Android is blocking accessibility for this app because it was sideloaded
- * (Android 13+ "restricted settings"). The app-op has no public constant, so an
- * unknown op on an unusual build reads as not blocked.
+ * Whether Android 13+ probably blocks accessibility for this app ("restricted
+ * settings"). Apps cannot read the block itself (its app-op is privileged), so this
+ * infers it from the app having been installed from a file, which is when Android
+ * applies it.
  */
-fun isRestrictedSettingsBlocked(context: Context): Boolean {
+fun isRestrictedSettingsLikely(context: Context): Boolean {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return false
-    val appOps = context.getSystemService(AppOpsManager::class.java) ?: return false
-    return try {
-        val mode = appOps.checkOpNoThrow(OP_ACCESS_RESTRICTED_SETTINGS, Process.myUid(), context.packageName)
-        mode == AppOpsManager.MODE_ERRORED || mode == AppOpsManager.MODE_IGNORED
-    } catch (_: IllegalArgumentException) {
-        false
+    val source = try {
+        context.packageManager.getInstallSourceInfo(context.packageName).packageSource
+    } catch (_: Exception) {
+        // A guess must never take the screen down with it.
+        return false
     }
+    return source == PackageInstaller.PACKAGE_SOURCE_LOCAL_FILE ||
+        source == PackageInstaller.PACKAGE_SOURCE_DOWNLOADED_FILE
 }
 
-private const val OP_ACCESS_RESTRICTED_SETTINGS = "android:access_restricted_settings"
-
 @Composable
-fun rememberRestrictedSettingsBlocked(): Boolean = rememberCheckedOnResume { isRestrictedSettingsBlocked(it) }
+fun rememberRestrictedSettingsLikely(): Boolean = rememberCheckedOnResume { isRestrictedSettingsLikely(it) }
 
 fun openAppInfo(context: Context) {
     val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}"))

@@ -38,7 +38,7 @@ class OnboardingScreenshotTest {
 
     @Composable
     private fun onboarding(step: OnboardingStep, form: ProviderForm = ProviderForm("", "", "", null, null), state: ProviderEditorUiState = ProviderEditorUiState(loaded = true)) =
-        OnboardingScreen(step, form, state, actions, permissions, restrictedSettingsBlocked = false, bubbleRunning = false, onStep = {}, onSaveProvider = {}, onFinish = {})
+        OnboardingScreen(step, form, state, actions, permissions, restrictedSettingsLikely = false, bubbleRunning = false, onStep = {}, onSaveProvider = {}, onFinish = {})
 
     @Test
     fun welcome() = compose.screenshot("onboarding_welcome_light") { onboarding(OnboardingStep.WELCOME) }

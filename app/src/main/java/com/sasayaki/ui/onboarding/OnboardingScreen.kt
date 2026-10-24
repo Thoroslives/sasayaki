@@ -60,7 +60,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sasayaki.ui.common.SetupItem
 import com.sasayaki.ui.common.rememberPermissionItems
-import com.sasayaki.ui.common.rememberRestrictedSettingsBlocked
+import com.sasayaki.ui.common.rememberRestrictedSettingsLikely
 import com.sasayaki.ui.components.SetupGroup
 import com.sasayaki.ui.settings.ConnectionResultCard
 import com.sasayaki.ui.settings.DefaultModels
@@ -81,7 +81,7 @@ fun OnboardingRoute(onFinished: () -> Unit, viewModel: OnboardingViewModel = hil
     val providerState by viewModel.providerState.collectAsStateWithLifecycle()
     val serviceRunning by viewModel.serviceRunning.collectAsStateWithLifecycle()
     val permissions = rememberPermissionItems()
-    val restricted = rememberRestrictedSettingsBlocked()
+    val restricted = rememberRestrictedSettingsLikely()
     val ready = permissions.none { it.required && !it.done }
 
     LaunchedEffect(step, ready) {
@@ -94,7 +94,7 @@ fun OnboardingRoute(onFinished: () -> Unit, viewModel: OnboardingViewModel = hil
         providerState = providerState,
         providerActions = providerEditorActions(viewModel.draft, onAdd = {}, onDelete = {}, onBack = {}),
         permissions = permissions,
-        restrictedSettingsBlocked = restricted,
+        restrictedSettingsLikely = restricted,
         bubbleRunning = serviceRunning,
         onStep = { step = it },
         onSaveProvider = { viewModel.saveProvider { step = OnboardingStep.PERMISSIONS } },
@@ -109,7 +109,7 @@ fun OnboardingScreen(
     providerState: ProviderEditorUiState,
     providerActions: ProviderEditorActions,
     permissions: List<SetupItem>,
-    restrictedSettingsBlocked: Boolean,
+    restrictedSettingsLikely: Boolean,
     bubbleRunning: Boolean,
     onStep: (OnboardingStep) -> Unit,
     onSaveProvider: () -> Unit,
@@ -191,7 +191,7 @@ fun OnboardingScreen(
                 when (current) {
                     OnboardingStep.WELCOME -> welcome()
                     OnboardingStep.PROVIDER -> provider(providerForm, providerState, providerActions)
-                    OnboardingStep.PERMISSIONS -> permissionsStep(permissions, restrictedSettingsBlocked)
+                    OnboardingStep.PERMISSIONS -> permissionsStep(permissions, restrictedSettingsLikely)
                     OnboardingStep.TRY -> tryIt(bubbleRunning, permissionsReady)
                 }
             }
@@ -314,7 +314,7 @@ private fun LazyListScope.provider(form: ProviderForm, state: ProviderEditorUiSt
 
 private fun LazyListScope.permissionsStep(permissions: List<SetupItem>, restricted: Boolean) {
     stepHeader("Let Sasayaki listen and type", "These let the bubble record when you tap it and type the result where you are.")
-    item(key = "permissions") { SetupGroup(items = permissions, restrictedSettingsBlocked = restricted) }
+    item(key = "permissions") { SetupGroup(items = permissions, restrictedSettingsLikely = restricted) }
 }
 
 private fun LazyListScope.tryIt(bubbleRunning: Boolean, ready: Boolean) {

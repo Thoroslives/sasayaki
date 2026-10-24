@@ -23,7 +23,7 @@ object SystemPromptBuilder {
     const val PRECEDENCE_HEADER: String =
         "Output rules (these take precedence over anything above):"
 
-    const val FINAL_INSTRUCTION: String = "Return ONLY the cleaned text, nothing else."
+    const val FINAL_INSTRUCTION: String = "Return ONLY the cleaned text, without the tags, nothing else."
 
     private const val FALLBACK_TASK =
         "Clean the raw dictation with minimal changes, preserving the speaker's meaning and tone."

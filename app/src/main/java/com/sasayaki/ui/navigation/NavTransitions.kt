@@ -1,5 +1,6 @@
 package com.sasayaki.ui.navigation
 
+import androidx.activity.BackEventCompat
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection
 import androidx.compose.animation.EnterTransition
@@ -18,7 +19,8 @@ import androidx.navigation.NavBackStackEntry
 private typealias Scope = AnimatedContentTransitionScope<NavBackStackEntry>
 
 // NavTransitions fade through when switching tabs and slide everywhere else; going back
-// always slides, following the back gesture. Slides use the non-bouncy effects springs:
+// always slides, including during the predictive back gesture, whose NavHost default
+// would otherwise shrink the screen towards the centre. Slides use the non-bouncy effects springs:
 // a whole screen overshooting its edge reads as a glitch, not as expressive motion.
 @Immutable
 class NavTransitions(
@@ -43,6 +45,18 @@ class NavTransitions(
     val popExit: Scope.() -> ExitTransition = {
         slideOutOfContainer(SlideDirection.End, slide)
     }
+
+    // The back gesture can start from either edge; the screen leaves the way the finger moves.
+    val predictivePopEnter: Scope.(Int) -> EnterTransition = { edge ->
+        slideIntoContainer(edge.direction(), slide) { it / 4 }
+    }
+
+    val predictivePopExit: Scope.(Int) -> ExitTransition = { edge ->
+        slideOutOfContainer(edge.direction(), slide)
+    }
+
+    private fun Int.direction() =
+        if (this == BackEventCompat.EDGE_RIGHT) SlideDirection.Start else SlideDirection.End
 
     private fun Scope.isBetweenTabs(): Boolean =
         initialState.destination.topLevelDestination() != null &&

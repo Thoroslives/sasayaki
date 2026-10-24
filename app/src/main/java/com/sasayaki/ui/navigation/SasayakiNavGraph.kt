@@ -81,7 +81,9 @@ fun SasayakiNavGraph(startDestination: Any) {
             enterTransition = transitions.enter,
             exitTransition = transitions.exit,
             popEnterTransition = transitions.popEnter,
-            popExitTransition = transitions.popExit
+            popExitTransition = transitions.popExit,
+            predictivePopEnterTransition = transitions.predictivePopEnter,
+            predictivePopExitTransition = transitions.predictivePopExit
         ) {
             composable<OnboardingDestination> {
                 OnboardingRoute(

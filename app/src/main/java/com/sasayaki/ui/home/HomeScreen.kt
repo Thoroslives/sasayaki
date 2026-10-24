@@ -292,7 +292,7 @@ private fun StatusHero(
                 }
                 when (heroMode) {
                     HeroMode.LOADING -> HeroText("Sasayaki", "Getting things ready…")
-                    HeroMode.ON -> HeroText("Ready when you are", "The bubble appears when your keyboard opens. Tap it and speak.")
+                    HeroMode.ON -> HeroText("Speak, don’t type", "Tap the bubble in any text field.")
                     HeroMode.OFF -> HeroText("The bubble is off", "Turn it on to dictate into any app.")
                     HeroMode.SETUP -> {
                         val required = setupSteps.filter(SetupItem::required)

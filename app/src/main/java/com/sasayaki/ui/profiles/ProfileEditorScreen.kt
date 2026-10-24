@@ -222,6 +222,9 @@ fun ProfileEditorScreen(
                     title = "Writing style",
                     items = listOf(
                         { shapes ->
+                            StylePreview(shapes, profile.outputStyle, profile.rewriteMode, profile.summarizeMode, profile.emojiAllowed)
+                        },
+                        { shapes ->
                             StyleItem(shapes, SasayakiIcons.FormatQuote, "Punctuation", OutputStyle.entries, profile.outputStyle, ::styleLabel, ::styleDescription) { value ->
                                 onUpdate { it.copy(outputStyle = value) }
                             }

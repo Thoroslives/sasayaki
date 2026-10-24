@@ -128,10 +128,11 @@ fun sasayakiColorScheme(darkTheme: Boolean, wallpaperColors: Boolean): ColorSche
 fun SasayakiTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     wallpaperColors: Boolean = false,
+    colorScheme: ColorScheme = sasayakiColorScheme(darkTheme, wallpaperColors),
     content: @Composable () -> Unit
 ) {
     MaterialExpressiveTheme(
-        colorScheme = sasayakiColorScheme(darkTheme, wallpaperColors),
+        colorScheme = colorScheme,
         motionScheme = MotionScheme.expressive(),
         shapes = SasayakiShapes,
         typography = SasayakiTypography,

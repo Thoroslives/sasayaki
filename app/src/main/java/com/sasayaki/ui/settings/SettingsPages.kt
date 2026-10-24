@@ -25,6 +25,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sasayaki.data.preferences.BubbleSize
 import com.sasayaki.data.preferences.ThemeMode
 import com.sasayaki.data.preferences.UserPreferences
+import com.sasayaki.service.bubble.BubbleAppearance
 import com.sasayaki.ui.common.rememberPermissionItems
 import com.sasayaki.ui.common.rememberRestrictedSettingsLikely
 import com.sasayaki.ui.components.ConnectedChoice
@@ -229,13 +230,35 @@ fun HistorySettingsRoute(onBack: () -> Unit, viewModel: SettingsViewModel = hilt
 @Composable
 fun AppearanceSettingsRoute(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewModel()) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    val prefs = state.preferences
+    AppearanceSettingsScreen(
+        loaded = state.loaded,
+        prefs = state.preferences,
+        actions = AppearanceActions(
+            onThemeMode = viewModel::setThemeMode,
+            onWallpaperColors = viewModel::setWallpaperColors,
+            onBubbleSize = viewModel::setBubbleSize,
+            onBubbleTranslucent = viewModel::setBubbleTranslucent,
+            onBubbleMonochrome = viewModel::setBubbleMonochrome
+        ),
+        onBack = onBack
+    )
+}
+
+class AppearanceActions(
+    val onThemeMode: (ThemeMode) -> Unit,
+    val onWallpaperColors: (Boolean) -> Unit,
+    val onBubbleSize: (BubbleSize) -> Unit,
+    val onBubbleTranslucent: (Boolean) -> Unit,
+    val onBubbleMonochrome: (Boolean) -> Unit
+)
+
+@Composable
+fun AppearanceSettingsScreen(loaded: Boolean, prefs: UserPreferences, actions: AppearanceActions, onBack: () -> Unit) {
     SettingsPage(title = "Appearance", onBack = onBack) {
-        if (!state.loaded) return@SettingsPage
-        item(key = "appearance") {
+        if (!loaded) return@SettingsPage
+        item(key = "app") {
             val items = buildList<SegmentedItem> {
-                add { shapes -> ThemeItem(shapes, prefs.themeMode, viewModel::setThemeMode) }
-                add { shapes -> BubbleSizeItem(shapes, prefs.bubbleSize, viewModel::setBubbleSize) }
+                add { shapes -> ThemeItem(shapes, prefs.themeMode, actions.onThemeMode) }
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                     add { shapes ->
                         SwitchItem(
@@ -244,12 +267,42 @@ fun AppearanceSettingsRoute(onBack: () -> Unit, viewModel: SettingsViewModel = h
                             supporting = "Match your wallpaper instead of Sasayaki green",
                             icon = SasayakiIcons.Wallpaper,
                             checked = prefs.wallpaperColors,
-                            onCheckedChange = viewModel::setWallpaperColors
+                            onCheckedChange = actions.onWallpaperColors
                         )
                     }
                 }
             }
-            SegmentedGroup(items = items)
+            SegmentedGroup(title = "App", items = items)
+        }
+        item(key = "bubble") {
+            val appearance = BubbleAppearance(prefs.wallpaperColors, prefs.bubbleTranslucent, prefs.bubbleMonochrome)
+            SegmentedGroup(
+                title = "Bubble",
+                items = listOf(
+                    { shapes -> BubblePreview(shapes, appearance, prefs.bubbleSize.scale) },
+                    { shapes -> BubbleSizeItem(shapes, prefs.bubbleSize, actions.onBubbleSize) },
+                    { shapes ->
+                        SwitchItem(
+                            shapes = shapes,
+                            headline = "See-through",
+                            supporting = "Let what is underneath show through the bubble",
+                            icon = SasayakiIcons.Opacity,
+                            checked = prefs.bubbleTranslucent,
+                            onCheckedChange = actions.onBubbleTranslucent
+                        )
+                    },
+                    { shapes ->
+                        SwitchItem(
+                            shapes = shapes,
+                            headline = "Monochrome",
+                            supporting = "Gray instead of color, so it stands out less",
+                            icon = SasayakiIcons.FilterBAndW,
+                            checked = prefs.bubbleMonochrome,
+                            onCheckedChange = actions.onBubbleMonochrome
+                        )
+                    }
+                )
+            )
         }
     }
 }

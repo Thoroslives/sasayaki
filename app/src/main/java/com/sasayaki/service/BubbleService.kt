@@ -25,6 +25,7 @@ import com.sasayaki.domain.transcription.AudioConverter
 import com.sasayaki.domain.transcription.SpeechDetector
 import com.sasayaki.domain.transcription.TranscriptionManager
 import com.sasayaki.service.bubble.BubbleActions
+import com.sasayaki.service.bubble.BubbleAppearance
 import com.sasayaki.service.bubble.BubbleOverlay
 import com.sasayaki.service.bubble.BubbleUiState
 import com.sasayaki.service.bubble.WAVEFORM_BARS
@@ -202,9 +203,9 @@ class BubbleService : Service() {
             uiState = uiState,
             levels = levels,
             profiles = profileRepository.profiles.stateIn(scope, SharingStarted.Eagerly, emptyList()),
-            wallpaperColors = preferencesDataStore.preferences
-                .map { it.wallpaperColors }
-                .stateIn(scope, SharingStarted.Eagerly, false),
+            appearance = preferencesDataStore.preferences
+                .map { BubbleAppearance(it.wallpaperColors, it.bubbleTranslucent, it.bubbleMonochrome) }
+                .stateIn(scope, SharingStarted.Eagerly, BubbleAppearance()),
             bubbleScale = preferencesDataStore.preferences
                 .map { it.bubbleSize.scale }
                 .stateIn(scope, SharingStarted.Eagerly, BubbleSize.STANDARD.scale),

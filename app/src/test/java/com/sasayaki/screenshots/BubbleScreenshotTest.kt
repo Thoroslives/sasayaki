@@ -18,6 +18,8 @@ import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.sasayaki.domain.model.Profile
 import com.sasayaki.service.bubble.BubbleActions
+import com.sasayaki.service.bubble.BubbleAppearance
+import com.sasayaki.service.bubble.BubbleTheme
 import com.sasayaki.service.bubble.BubbleContent
 import com.sasayaki.service.bubble.BubblePhase
 import com.sasayaki.service.bubble.BubbleUiState
@@ -25,7 +27,6 @@ import com.sasayaki.service.bubble.DismissTarget
 import com.sasayaki.service.bubble.ProfileMenu
 import com.sasayaki.service.bubble.mode
 import com.sasayaki.data.preferences.BubbleSize
-import com.sasayaki.ui.theme.SasayakiTheme
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -45,9 +46,8 @@ class BubbleScreenshotTest {
     private val levels = List(24) { abs(sin(it * 0.7f)) * (0.3f + (it % 5) * 0.15f) }
 
     @Composable
-    private fun gallery(background: Color) {
-        // The overlay always renders dark, whatever the app underneath looks like.
-        SasayakiTheme(darkTheme = true) {
+    private fun gallery(background: Color, appearance: BubbleAppearance = BubbleAppearance()) {
+        BubbleTheme(appearance) {
             Column(
                 modifier = Modifier
                     .background(background)
@@ -93,4 +93,12 @@ class BubbleScreenshotTest {
 
     @Test
     fun overDarkApp() = compose.screenshot("bubble_over_dark") { gallery(Color(0xFF101418)) }
+
+    @Test
+    fun translucentOverLightApp() =
+        compose.screenshot("bubble_translucent_over_light") { gallery(Color(0xFFF7F7F7), BubbleAppearance(translucent = true)) }
+
+    @Test
+    fun monochromeOverDarkApp() =
+        compose.screenshot("bubble_monochrome_over_dark") { gallery(Color(0xFF101418), BubbleAppearance(monochrome = true)) }
 }

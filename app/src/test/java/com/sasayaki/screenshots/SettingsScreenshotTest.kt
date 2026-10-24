@@ -12,6 +12,8 @@ import com.sasayaki.domain.provider.Provider
 import com.sasayaki.ui.common.SetupItem
 import com.sasayaki.ui.components.SettingsPage
 import com.sasayaki.ui.components.SetupGroup
+import com.sasayaki.ui.settings.AppearanceActions
+import com.sasayaki.ui.settings.AppearanceSettingsScreen
 import com.sasayaki.ui.settings.AppsSettingsScreen
 import com.sasayaki.ui.settings.ProviderEditorActions
 import com.sasayaki.ui.settings.ProviderEditorScreen
@@ -74,6 +76,16 @@ class SettingsScreenshotTest {
             onRememberProfilesChange = {},
             onForgetApps = {},
             onSkipAiChatsChange = {},
+            onBack = {}
+        )
+    }
+
+    @Test
+    fun appearance() = compose.screenshot("settings_appearance_dark", dark = true) {
+        AppearanceSettingsScreen(
+            loaded = true,
+            prefs = UserPreferences(bubbleTranslucent = true),
+            actions = AppearanceActions({}, {}, {}, {}, {}),
             onBack = {}
         )
     }

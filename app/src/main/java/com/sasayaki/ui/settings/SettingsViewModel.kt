@@ -70,6 +70,10 @@ class SettingsViewModel @Inject constructor(
 
     fun setBubbleSize(size: BubbleSize) = persist { preferencesDataStore.setBubbleSize(size) }
 
+    fun setBubbleTranslucent(enabled: Boolean) = persist { preferencesDataStore.setBubbleTranslucent(enabled) }
+
+    fun setBubbleMonochrome(enabled: Boolean) = persist { preferencesDataStore.setBubbleMonochrome(enabled) }
+
     fun setRememberProfilePerApp(enabled: Boolean) = persist { preferencesDataStore.setRememberProfilePerApp(enabled) }
 
     fun setSkipCleanupInAiChats(enabled: Boolean) = persist { preferencesDataStore.setSkipCleanupInAiChats(enabled) }

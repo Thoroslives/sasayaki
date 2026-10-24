@@ -153,7 +153,9 @@ fun SettingsScreen(
                             supporting = listOfNotNull(
                                 prefs.themeMode.label(),
                                 "wallpaper colors".takeIf { prefs.wallpaperColors },
-                                "${prefs.bubbleSize.name.lowercase()} bubble".takeIf { prefs.bubbleSize != BubbleSize.STANDARD }
+                                "${prefs.bubbleSize.name.lowercase()} bubble".takeIf { prefs.bubbleSize != BubbleSize.STANDARD },
+                                "see-through".takeIf { prefs.bubbleTranslucent },
+                                "monochrome".takeIf { prefs.bubbleMonochrome }
                             ).joinToString(" · "),
                             icon = SasayakiIcons.Palette,
                             onClick = destinations.onAppearance

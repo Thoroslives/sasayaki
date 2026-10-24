@@ -63,6 +63,7 @@ private val BubbleSize = 52.dp
 private val PillHeight = 56.dp
 /** WAVEFORM_BARS is how many recent audio levels the recording pill draws. */
 const val WAVEFORM_BARS = 18
+private const val TRANSLUCENT_ALPHA = 0.8f
 
 class BubbleActions(
     val onStart: () -> Unit,
@@ -147,11 +148,14 @@ private fun PillSurface(
     contentColor: Color = MaterialTheme.colorScheme.onSurface,
     content: @Composable () -> Unit
 ) {
+    // A shadow would show through a see-through pill as a dark smudge, so the border
+    // alone outlines it.
+    val translucent = LocalBubbleTranslucent.current
     Surface(
         shape = CircleShape,
-        color = color,
+        color = if (translucent) color.copy(alpha = TRANSLUCENT_ALPHA) else color,
         contentColor = contentColor,
-        shadowElevation = 6.dp,
+        shadowElevation = if (translucent) 0.dp else 6.dp,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
         content = content
     )

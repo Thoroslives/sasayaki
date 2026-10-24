@@ -55,6 +55,8 @@ class PreferencesDataStore @Inject constructor(
         val WALLPAPER_COLORS = booleanPreferencesKey("wallpaper_colors")
         val ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
         val BUBBLE_SIZE = stringPreferencesKey("bubble_size")
+        val BUBBLE_TRANSLUCENT = booleanPreferencesKey("bubble_translucent")
+        val BUBBLE_MONOCHROME = booleanPreferencesKey("bubble_monochrome")
         val REMEMBER_PROFILE_PER_APP = booleanPreferencesKey("remember_profile_per_app")
         val SKIP_CLEANUP_IN_AI_CHATS = booleanPreferencesKey("skip_cleanup_in_ai_chats")
         val APP_PROFILES = stringSetPreferencesKey("app_profiles")
@@ -85,6 +87,8 @@ class PreferencesDataStore @Inject constructor(
             wallpaperColors = prefs[Keys.WALLPAPER_COLORS] ?: false,
             onboardingCompleted = prefs[Keys.ONBOARDING_COMPLETED] ?: false,
             bubbleSize = BubbleSize.entries.firstOrNull { it.name == prefs[Keys.BUBBLE_SIZE] } ?: BubbleSize.STANDARD,
+            bubbleTranslucent = prefs[Keys.BUBBLE_TRANSLUCENT] ?: false,
+            bubbleMonochrome = prefs[Keys.BUBBLE_MONOCHROME] ?: false,
             rememberProfilePerApp = prefs[Keys.REMEMBER_PROFILE_PER_APP] ?: true,
             skipCleanupInAiChats = prefs[Keys.SKIP_CLEANUP_IN_AI_CHATS] ?: true,
             appProfiles = decodeAppProfiles(prefs[Keys.APP_PROFILES].orEmpty())
@@ -142,6 +146,10 @@ class PreferencesDataStore @Inject constructor(
     suspend fun setOnboardingCompleted() = set(Keys.ONBOARDING_COMPLETED, true)
 
     suspend fun setBubbleSize(size: BubbleSize) = set(Keys.BUBBLE_SIZE, size.name)
+
+    suspend fun setBubbleTranslucent(enabled: Boolean) = set(Keys.BUBBLE_TRANSLUCENT, enabled)
+
+    suspend fun setBubbleMonochrome(enabled: Boolean) = set(Keys.BUBBLE_MONOCHROME, enabled)
 
     suspend fun setRememberProfilePerApp(enabled: Boolean) = set(Keys.REMEMBER_PROFILE_PER_APP, enabled)
 

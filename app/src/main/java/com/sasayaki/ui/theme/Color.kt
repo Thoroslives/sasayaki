@@ -60,3 +60,11 @@ val Ember30 = Color(0xFF93000A)
 val Ember40 = Color(0xFFBA1A1A)
 val Ember80 = Color(0xFFFFB4AB)
 val Ember90 = Color(0xFFFFDAD6)
+
+// Graphite is true gray, for surfaces that should carry no brand color at all.
+val Graphite10 = Color(0xFF1B1B1B)
+val Graphite17 = Color(0xFF292929)
+val Graphite24 = Color(0xFF393939)
+val Graphite30 = Color(0xFF474747)
+val Graphite80 = Color(0xFFC6C6C6)
+val Graphite90 = Color(0xFFE2E2E2)

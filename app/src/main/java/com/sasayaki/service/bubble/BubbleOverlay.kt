@@ -28,7 +28,6 @@ import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.core.content.edit
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sasayaki.domain.model.Profile
-import com.sasayaki.ui.theme.SasayakiTheme
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -53,7 +52,7 @@ class BubbleOverlay(
     private val uiState: StateFlow<BubbleUiState>,
     private val levels: StateFlow<List<Float>>,
     private val profiles: StateFlow<List<Profile>>,
-    private val wallpaperColors: StateFlow<Boolean>,
+    private val appearance: StateFlow<BubbleAppearance>,
     private val bubbleScale: StateFlow<Float>,
     private val actions: BubbleActions,
     private val onSelectProfile: (Long) -> Unit,
@@ -332,9 +331,8 @@ class BubbleOverlay(
     private fun composeView(content: @Composable () -> Unit) = ComposeView(context).apply {
         setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindowOrReleasedFromPool)
         setContent {
-            val wallpaper by wallpaperColors.collectAsStateWithLifecycle()
-            // The bubble floats over other apps, so it keeps one dark look everywhere.
-            SasayakiTheme(darkTheme = true, wallpaperColors = wallpaper, content = content)
+            val look by appearance.collectAsStateWithLifecycle()
+            BubbleTheme(look, content)
         }
     }
 

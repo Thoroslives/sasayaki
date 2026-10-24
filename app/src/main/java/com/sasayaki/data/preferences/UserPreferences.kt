@@ -15,6 +15,8 @@ data class UserPreferences(
     val wallpaperColors: Boolean = false,
     val onboardingCompleted: Boolean = false,
     val bubbleSize: BubbleSize = BubbleSize.STANDARD,
+    val bubbleTranslucent: Boolean = false,
+    val bubbleMonochrome: Boolean = false,
     val rememberProfilePerApp: Boolean = true,
     val skipCleanupInAiChats: Boolean = true,
     val appProfiles: Map<String, Long> = emptyMap() // package name to profile id

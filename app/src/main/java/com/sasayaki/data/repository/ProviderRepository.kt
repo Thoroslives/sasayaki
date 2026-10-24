@@ -29,6 +29,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MultipartBody
@@ -58,6 +60,7 @@ class ProviderRepository @Inject constructor(
         .flowOn(Dispatchers.IO)
 
     private val _models = MutableStateFlow<Map<Long, List<ModelInfo>>>(emptyMap())
+    private val migrationLock = Mutex()
 
     /** Model lists fetched this session, by provider id. */
     val models: StateFlow<Map<Long, List<ModelInfo>>> = _models.asStateFlow()
@@ -134,9 +137,17 @@ class ProviderRepository @Inject constructor(
         ConnectionResult.Failed(describeConnectionError(e))
     }
 
-    /** Moves the endpoints configured before providers existed into providers, once. */
-    suspend fun migrateLegacyEndpoints() = withContext(Dispatchers.IO) {
-        val (speech, cleanup) = preferencesDataStore.legacyEndpoints() ?: return@withContext
+    /**
+     * Moves the endpoints configured before providers existed into providers, once.
+     * Startup and the first screen both await it, so the lock keeps them from each
+     * inserting the same providers.
+     */
+    suspend fun migrateLegacyEndpoints() = migrationLock.withLock {
+        withContext(Dispatchers.IO) { migrateLegacyEndpointsLocked() }
+    }
+
+    private suspend fun migrateLegacyEndpointsLocked() {
+        val (speech, cleanup) = preferencesDataStore.legacyEndpoints() ?: return
         if (providerDao.count() == 0) {
             val plan = planLegacyMigration(speech, cleanup)
             val ids = plan.providers.map { save(it) }

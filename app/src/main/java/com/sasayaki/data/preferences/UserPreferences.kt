@@ -12,7 +12,8 @@ data class UserPreferences(
     val historyRetentionLimit: Int = 500,
     val startOnBoot: Boolean = true,
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
-    val wallpaperColors: Boolean = false
+    val wallpaperColors: Boolean = false,
+    val onboardingCompleted: Boolean = false
 )
 
 enum class ThemeMode {

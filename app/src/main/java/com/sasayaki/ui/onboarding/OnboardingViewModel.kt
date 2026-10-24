@@ -1,0 +1,51 @@
+package com.sasayaki.ui.onboarding
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.sasayaki.data.preferences.PreferencesDataStore
+import com.sasayaki.data.repository.ProfileRepository
+import com.sasayaki.data.repository.ProviderRepository
+import com.sasayaki.di.ApplicationScope
+import com.sasayaki.service.BubbleServiceController
+import com.sasayaki.ui.settings.ProviderDraft
+import com.sasayaki.ui.settings.ProviderEditorUiState
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
+import javax.inject.Inject
+
+@HiltViewModel
+class OnboardingViewModel @Inject constructor(
+    private val providerRepository: ProviderRepository,
+    private val profileRepository: ProfileRepository,
+    private val preferencesDataStore: PreferencesDataStore,
+    private val serviceController: BubbleServiceController,
+    @ApplicationScope private val applicationScope: CoroutineScope
+) : ViewModel() {
+    val draft = ProviderDraft(providerRepository, viewModelScope)
+    val providerState: StateFlow<ProviderEditorUiState> = draft.state
+    val serviceRunning: StateFlow<Boolean> = serviceController.running
+    private var savedProviderId: Long? = null
+
+    /** Saves the provider and, when it offers cleanup, turns cleanup on for the active profile. */
+    fun saveProvider(onSaved: () -> Unit) {
+        if (!draft.validateUrl()) return
+        viewModelScope.launch {
+            val provider = draft.toProvider().copy(id = savedProviderId ?: 0)
+            savedProviderId = providerRepository.save(provider)
+            if (provider.cleanupModel != null) {
+                val active = profileRepository.getActiveProfile()
+                profileRepository.save(active.copy(llmEnabled = true))
+            }
+            onSaved()
+        }
+    }
+
+    fun startBubble() = serviceController.start()
+
+    fun complete(onDone: () -> Unit) {
+        applicationScope.launch { preferencesDataStore.setOnboardingCompleted() }
+        onDone()
+    }
+}

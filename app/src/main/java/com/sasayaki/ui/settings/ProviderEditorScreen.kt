@@ -67,27 +67,23 @@ fun ProviderEditorRoute(onDone: () -> Unit, viewModel: ProviderEditorViewModel =
     }
     ProviderEditorScreen(
         isNew = viewModel.isNew,
-        form = ProviderForm(
-            name = viewModel.name,
-            url = viewModel.url,
-            apiKey = viewModel.apiKey,
-            speechModel = viewModel.speechModel,
-            cleanupModel = viewModel.cleanupModel
-        ),
+        form = viewModel.draft.form,
         state = state,
-        actions = ProviderEditorActions(
-            onNameChange = viewModel::onNameChange,
-            onUrlChange = viewModel::onUrlChange,
-            onApiKeyChange = viewModel::onApiKeyChange,
-            onSpeechModel = viewModel::onSpeechModel,
-            onCleanupModel = viewModel::onCleanupModel,
-            onTest = viewModel::test,
-            onAdd = viewModel::add,
-            onDelete = viewModel::delete,
-            onBack = onDone
-        )
+        actions = providerEditorActions(viewModel.draft, onAdd = viewModel::add, onDelete = viewModel::delete, onBack = onDone)
     )
 }
+
+fun providerEditorActions(draft: ProviderDraft, onAdd: () -> Unit, onDelete: () -> Unit, onBack: () -> Unit) = ProviderEditorActions(
+    onNameChange = draft::onNameChange,
+    onUrlChange = draft::onUrlChange,
+    onApiKeyChange = draft::onApiKeyChange,
+    onSpeechModel = draft::onSpeechModel,
+    onCleanupModel = draft::onCleanupModel,
+    onTest = draft::test,
+    onAdd = onAdd,
+    onDelete = onDelete,
+    onBack = onBack
+)
 
 data class ProviderForm(
     val name: String,
@@ -194,7 +190,7 @@ fun ProviderEditorScreen(isNew: Boolean, form: ProviderForm, state: ProviderEdit
 }
 
 @Composable
-private fun ProviderConnectionForm(form: ProviderForm, state: ProviderEditorUiState, actions: ProviderEditorActions) {
+internal fun ProviderConnectionForm(form: ProviderForm, state: ProviderEditorUiState, actions: ProviderEditorActions) {
     var revealKey by rememberSaveable { mutableStateOf(false) }
     Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceBright) {
         Column(modifier = Modifier.padding(Spacing.l), verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
@@ -245,7 +241,7 @@ private fun ProviderConnectionForm(form: ProviderForm, state: ProviderEditorUiSt
 }
 
 @Composable
-private fun DefaultModels(form: ProviderForm, state: ProviderEditorUiState, actions: ProviderEditorActions) {
+internal fun DefaultModels(form: ProviderForm, state: ProviderEditorUiState, actions: ProviderEditorActions) {
     var picking by rememberSaveable { mutableStateOf<Purpose?>(null) }
     SegmentedGroup(
         title = "Default models",
@@ -301,7 +297,7 @@ private fun DefaultModels(form: ProviderForm, state: ProviderEditorUiState, acti
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ConnectionResultCard(result: ConnectionResult) {
+internal fun ConnectionResultCard(result: ConnectionResult) {
     val connected = result is ConnectionResult.Connected
     Surface(
         modifier = Modifier.fillMaxWidth(),

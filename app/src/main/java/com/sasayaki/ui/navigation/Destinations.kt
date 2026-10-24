@@ -3,6 +3,9 @@ package com.sasayaki.ui.navigation
 import kotlinx.serialization.Serializable
 
 @Serializable
+data object OnboardingDestination
+
+@Serializable
 data object HomeDestination
 
 @Serializable

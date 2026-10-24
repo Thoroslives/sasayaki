@@ -22,6 +22,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.sasayaki.ui.history.HistoryRoute
 import com.sasayaki.ui.home.HomeRoute
+import com.sasayaki.ui.onboarding.OnboardingRoute
 import com.sasayaki.ui.profiles.ProfileEditorNavigation
 import com.sasayaki.ui.profiles.ProfileEditorRoute
 import com.sasayaki.ui.profiles.ProfilesRoute
@@ -37,7 +38,7 @@ import com.sasayaki.ui.settings.SettingsDestinations
 import com.sasayaki.ui.settings.SettingsRoute
 
 @Composable
-fun SasayakiNavGraph() {
+fun SasayakiNavGraph(startDestination: Any) {
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = backStackEntry?.destination
@@ -73,7 +74,7 @@ fun SasayakiNavGraph() {
     ) { padding ->
         NavHost(
             navController = navController,
-            startDestination = HomeDestination,
+            startDestination = startDestination,
             modifier = Modifier
                 .padding(padding)
                 .consumeWindowInsets(padding),
@@ -82,7 +83,16 @@ fun SasayakiNavGraph() {
             popEnterTransition = transitions.popEnter,
             popExitTransition = transitions.popExit
         ) {
-            composable<HomeDestination> {
+            composable<OnboardingDestination> {
+                OnboardingRoute(
+                    onFinished = {
+                        navController.navigate(HomeDestination) {
+                            popUpTo<OnboardingDestination> { inclusive = true }
+                        }
+                    }
+                )
+            }
+                        composable<HomeDestination> {
                 HomeRoute(
                     onOpenHistory = { navController.navigateToTopLevel(TopLevelDestination.HISTORY) },
                     onOpenProfiles = { navController.navigateToTopLevel(TopLevelDestination.PROFILES) },

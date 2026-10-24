@@ -52,6 +52,7 @@ class PreferencesDataStore @Inject constructor(
         val START_ON_BOOT = booleanPreferencesKey("start_on_boot")
         val THEME_MODE = stringPreferencesKey("theme_mode")
         val WALLPAPER_COLORS = booleanPreferencesKey("wallpaper_colors")
+        val ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
     }
 
     val preferences: Flow<UserPreferences> = context.dataStore.data
@@ -76,7 +77,8 @@ class PreferencesDataStore @Inject constructor(
             historyRetentionLimit = (prefs[Keys.HISTORY_RETENTION_LIMIT] ?: 500).coerceIn(1, 5000),
             startOnBoot = prefs[Keys.START_ON_BOOT] ?: true,
             themeMode = ThemeMode.entries.firstOrNull { it.name == prefs[Keys.THEME_MODE] } ?: ThemeMode.SYSTEM,
-            wallpaperColors = prefs[Keys.WALLPAPER_COLORS] ?: false
+            wallpaperColors = prefs[Keys.WALLPAPER_COLORS] ?: false,
+            onboardingCompleted = prefs[Keys.ONBOARDING_COMPLETED] ?: false
         )
     }
     .distinctUntilChanged()
@@ -123,6 +125,8 @@ class PreferencesDataStore @Inject constructor(
     suspend fun setThemeMode(mode: ThemeMode) = set(Keys.THEME_MODE, mode.name)
 
     suspend fun setWallpaperColors(enabled: Boolean) = set(Keys.WALLPAPER_COLORS, enabled)
+
+    suspend fun setOnboardingCompleted() = set(Keys.ONBOARDING_COMPLETED, true)
 
     private suspend fun <T> set(key: Preferences.Key<T>, value: T) {
         context.dataStore.edit { prefs -> prefs[key] = value }

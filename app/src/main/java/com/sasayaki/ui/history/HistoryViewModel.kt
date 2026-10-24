@@ -1,90 +1,110 @@
 package com.sasayaki.ui.history
 
+import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.sasayaki.data.preferences.PreferencesDataStore
 import com.sasayaki.data.repository.HistoryRepository
-import com.sasayaki.data.db.entity.DictationSummary
+import com.sasayaki.di.ApplicationScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-import java.util.Locale
-import androidx.compose.runtime.Immutable
 import javax.inject.Inject
 
 @Immutable
-data class DayGroup(
-    val key: String,
-    val date: String,
-    val totalWords: Int,
-    val dictations: List<DictationSummary>
+data class HistoryUiState(
+    val loaded: Boolean = false,
+    val historyEnabled: Boolean = true,
+    val hasHistory: Boolean = false,
+    val query: String = "",
+    val groups: List<DayGroup> = emptyList(),
+    val retryingIds: Set<Long> = emptySet()
 )
 
 @HiltViewModel
 class HistoryViewModel @Inject constructor(
-    private val historyRepository: HistoryRepository
+    private val historyRepository: HistoryRepository,
+    private val preferencesDataStore: PreferencesDataStore,
+    @ApplicationScope private val applicationScope: CoroutineScope
 ) : ViewModel() {
-    private val zoneId: ZoneId = ZoneId.systemDefault()
-    private val displayFormat: DateTimeFormatter = DateTimeFormatter.ofPattern("EEEE, MMM d", Locale.getDefault())
+    private val zone = ZoneId.systemDefault()
+    private val query = MutableStateFlow("")
+    private val pendingDeletion = MutableStateFlow<Set<Long>>(emptySet())
+    private val retryingIds = MutableStateFlow<Set<Long>>(emptySet())
 
-    val dayGroups: StateFlow<List<DayGroup>> = historyRepository.recent().map { dictations ->
-        dictations
-            .groupBy { Instant.ofEpochMilli(it.timestamp).atZone(zoneId).toLocalDate() }
-            .entries
-            .sortedByDescending { it.key }
-            .map { (date, items) ->
-                DayGroup(
-                    key = date.toString(),
-                    date = formatDate(date),
-                    totalWords = items.sumOf { it.wordCount },
-                    dictations = items
-                )
-            }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    val uiState: StateFlow<HistoryUiState> = combine(
+        historyRepository.recent(),
+        preferencesDataStore.preferences,
+        query,
+        pendingDeletion,
+        retryingIds
+    ) { dictations, prefs, query, pending, retrying ->
+        HistoryUiState(
+            loaded = true,
+            historyEnabled = prefs.historyEnabled,
+            hasHistory = dictations.any { it.id !in pending },
+            query = query,
+            groups = groupByDay(dictations, zone, LocalDate.now(zone), query, pending),
+            retryingIds = retrying
+        )
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), HistoryUiState())
 
-    private val _retryingIds = MutableStateFlow<Set<Long>>(emptySet())
-    val retryingIds: StateFlow<Set<Long>> = _retryingIds.asStateFlow()
+    fun onQueryChange(value: String) {
+        query.value = value
+    }
 
-    fun removeFromHistory(id: Long) {
-        viewModelScope.launch {
+    /** Hides [id] immediately; it is only erased by [commitDelete], so [undoDelete] can restore it. */
+    fun requestDelete(id: Long) {
+        pendingDeletion.update { it + id }
+    }
+
+    fun undoDelete(id: Long) {
+        pendingDeletion.update { it - id }
+    }
+
+    fun commitDelete(id: Long) {
+        if (id !in pendingDeletion.value) return
+        applicationScope.launch {
             historyRepository.removeFromHistory(id)
+            pendingDeletion.update { it - id }
         }
     }
 
-    fun removeAllFromHistory() {
-        viewModelScope.launch {
-            historyRepository.removeAllFromHistory()
-        }
+    fun clearAll() {
+        applicationScope.launch { historyRepository.removeAllFromHistory() }
+    }
+
+    fun enableHistory() {
+        viewModelScope.launch { preferencesDataStore.setHistoryEnabled(true) }
     }
 
     fun retry(id: Long) {
         viewModelScope.launch {
-            _retryingIds.update { it + id }
+            retryingIds.update { it + id }
             try {
                 historyRepository.retry(id)
             } finally {
-                _retryingIds.update { it - id }
+                retryingIds.update { it - id }
             }
         }
     }
 
-    suspend fun getRawText(id: Long): String? {
-        return historyRepository.getRawText(id)
-    }
+    suspend fun rawText(id: Long): String? = historyRepository.getRawText(id)
 
-    private fun formatDate(date: LocalDate): String {
-        val today = LocalDate.now(zoneId)
-        if (date == today) return "Today"
-        if (date == today.minusDays(1)) return "Yesterday"
-        return displayFormat.format(date)
+    override fun onCleared() {
+        // A delete whose undo snackbar was still showing when the screen closed.
+        val pending = pendingDeletion.value
+        if (pending.isNotEmpty()) {
+            applicationScope.launch { pending.forEach { historyRepository.removeFromHistory(it) } }
+        }
+        super.onCleared()
     }
 }

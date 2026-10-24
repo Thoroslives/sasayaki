@@ -5,10 +5,8 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBars
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -22,8 +20,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.sasayaki.ui.history.HistoryScreen
-import com.sasayaki.ui.home.HomeScreen
+import com.sasayaki.ui.history.HistoryRoute
+import com.sasayaki.ui.home.HomeRoute
 import com.sasayaki.ui.profiles.ProfilesScreen
 import com.sasayaki.ui.settings.SettingsScreen
 
@@ -74,10 +72,14 @@ fun SasayakiNavGraph() {
             popExitTransition = transitions.popExit
         ) {
             composable<HomeRoute> {
-                HomeScreen(outerPadding = WindowInsets.statusBars.asPaddingValues())
+                HomeRoute(
+                    onOpenHistory = { navController.navigateToTopLevel(TopLevelDestination.HISTORY) },
+                    onOpenProfiles = { navController.navigateToTopLevel(TopLevelDestination.PROFILES) },
+                    onOpenSpeechProvider = { navController.navigateToTopLevel(TopLevelDestination.SETTINGS) }
+                )
             }
             composable<HistoryRoute> {
-                HistoryScreen()
+                HistoryRoute()
             }
             composable<ProfilesRoute> {
                 ProfilesScreen(outerPadding = PaddingValues())

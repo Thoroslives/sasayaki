@@ -2,7 +2,9 @@ package com.sasayaki.ui.theme
 
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ColorScheme
+import androidx.compose.material3.MaterialExpressiveTheme
+import androidx.compose.material3.MotionScheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
@@ -11,72 +13,128 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 
-private val DarkColorScheme = darkColorScheme(
-    primary = Pine80,
-    onPrimary = Pine110,
-    primaryContainer = Pine100,
-    onPrimaryContainer = Pine50,
-    secondary = Sand90,
-    onSecondary = Sand110,
-    secondaryContainer = Sand100,
-    onSecondaryContainer = Sand50,
-    tertiary = Clay80,
-    onTertiary = Clay110,
-    tertiaryContainer = Clay100,
-    onTertiaryContainer = Clay50,
-    background = Ink100,
-    onBackground = Ink10,
-    surface = Slate110,
-    onSurface = Ink10,
-    surfaceVariant = Slate100,
-    onSurfaceVariant = Slate80,
-    surfaceContainer = Color(0xFF212826),
-    surfaceContainerHigh = Color(0xFF2A322F)
-)
-
-private val LightColorScheme = lightColorScheme(
-    primary = Pine100,
+private val LightColors = lightColorScheme(
+    primary = Pine40,
     onPrimary = Color.White,
     primaryContainer = Pine90,
-    onPrimaryContainer = Pine110,
-    secondary = Sand100,
+    onPrimaryContainer = Pine30,
+    inversePrimary = Pine80,
+    secondary = Sand40,
     onSecondary = Color.White,
-    secondaryContainer = Sand70,
-    onSecondaryContainer = Sand110,
-    tertiary = Clay100,
+    secondaryContainer = Sand90,
+    onSecondaryContainer = Sand30,
+    tertiary = Clay40,
     onTertiary = Color.White,
     tertiaryContainer = Clay90,
-    onTertiaryContainer = Clay110,
-    background = Ink10,
-    onBackground = Ink90,
-    surface = Color.White,
-    onSurface = Ink90,
-    surfaceVariant = Ink20,
-    onSurfaceVariant = Ink40,
-    surfaceContainer = Color(0xFFF0F1EE),
-    surfaceContainerHigh = Color(0xFFE8EAE6)
+    onTertiaryContainer = Clay30,
+    error = Ember40,
+    onError = Color.White,
+    errorContainer = Ember90,
+    onErrorContainer = Ember30,
+    background = Ink98,
+    onBackground = Ink10,
+    surface = Ink98,
+    onSurface = Ink10,
+    surfaceVariant = Mist90,
+    onSurfaceVariant = Mist30,
+    surfaceTint = Pine40,
+    inverseSurface = Ink20,
+    inverseOnSurface = Ink95,
+    outline = Mist50,
+    outlineVariant = Mist80,
+    scrim = Color.Black,
+    surfaceBright = Ink98,
+    surfaceDim = Ink87,
+    surfaceContainerLowest = Color.White,
+    surfaceContainerLow = Ink96,
+    surfaceContainer = Ink94,
+    surfaceContainerHigh = Ink92,
+    surfaceContainerHighest = Ink90,
+    primaryFixed = Pine90,
+    primaryFixedDim = Pine80,
+    onPrimaryFixed = Pine10,
+    onPrimaryFixedVariant = Pine30,
+    secondaryFixed = Sand90,
+    secondaryFixedDim = Sand80,
+    onSecondaryFixed = Sand10,
+    onSecondaryFixedVariant = Sand30,
+    tertiaryFixed = Clay90,
+    tertiaryFixedDim = Clay80,
+    onTertiaryFixed = Clay10,
+    onTertiaryFixedVariant = Clay30
 )
+
+private val DarkColors = darkColorScheme(
+    primary = Pine80,
+    onPrimary = Pine20,
+    primaryContainer = Pine30,
+    onPrimaryContainer = Pine90,
+    inversePrimary = Pine40,
+    secondary = Sand80,
+    onSecondary = Sand20,
+    secondaryContainer = Sand30,
+    onSecondaryContainer = Sand90,
+    tertiary = Clay80,
+    onTertiary = Clay20,
+    tertiaryContainer = Clay30,
+    onTertiaryContainer = Clay90,
+    error = Ember80,
+    onError = Ember20,
+    errorContainer = Ember30,
+    onErrorContainer = Ember90,
+    background = Ink6,
+    onBackground = Ink90,
+    surface = Ink6,
+    onSurface = Ink90,
+    surfaceVariant = Mist30,
+    onSurfaceVariant = Mist80,
+    surfaceTint = Pine80,
+    inverseSurface = Ink90,
+    inverseOnSurface = Ink20,
+    outline = Mist60,
+    outlineVariant = Mist30,
+    scrim = Color.Black,
+    surfaceBright = Ink24,
+    surfaceDim = Ink6,
+    surfaceContainerLowest = Ink4,
+    surfaceContainerLow = Ink10,
+    surfaceContainer = Ink12,
+    surfaceContainerHigh = Ink17,
+    surfaceContainerHighest = Ink22,
+    primaryFixed = Pine90,
+    primaryFixedDim = Pine80,
+    onPrimaryFixed = Pine10,
+    onPrimaryFixedVariant = Pine30,
+    secondaryFixed = Sand90,
+    secondaryFixedDim = Sand80,
+    onSecondaryFixed = Sand10,
+    onSecondaryFixedVariant = Sand30,
+    tertiaryFixed = Clay90,
+    tertiaryFixedDim = Clay80,
+    onTertiaryFixed = Clay10,
+    onTertiaryFixedVariant = Clay30
+)
+
+@Composable
+fun sasayakiColorScheme(darkTheme: Boolean, wallpaperColors: Boolean): ColorScheme {
+    if (wallpaperColors && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        val context = LocalContext.current
+        return if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+    }
+    return if (darkTheme) DarkColors else LightColors
+}
 
 @Composable
 fun SasayakiTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = false,
+    wallpaperColors: Boolean = false,
     content: @Composable () -> Unit
 ) {
-    val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context)
-            else dynamicLightColorScheme(context)
-        }
-        darkTheme -> DarkColorScheme
-        else -> LightColorScheme
-    }
-
-    MaterialTheme(
-        colorScheme = colorScheme,
-        typography = Typography,
-        shapes = Shapes,
+    MaterialExpressiveTheme(
+        colorScheme = sasayakiColorScheme(darkTheme, wallpaperColors),
+        motionScheme = MotionScheme.expressive(),
+        shapes = SasayakiShapes,
+        typography = SasayakiTypography,
         content = content
     )
 }

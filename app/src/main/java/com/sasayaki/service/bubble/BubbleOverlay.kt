@@ -351,6 +351,10 @@ class BubbleOverlay(
         // Positions are computed against the whole display, so the window must not be
         // shifted inside the system bars.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) fitInsetsTypes = 0
+        // The system otherwise animates every position change. When the bubble shrinks its
+        // left edge moves, so the content would snap into place while the window slid after
+        // it, and drags would trail the finger.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) setCanPlayMoveAnimation(false)
     }
 
     private fun update(view: View, params: WindowManager.LayoutParams = bubbleParams) {

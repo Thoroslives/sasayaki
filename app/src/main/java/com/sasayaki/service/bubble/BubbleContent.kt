@@ -117,21 +117,24 @@ fun BubbleContent(
                 .padding(Spacing.s),
             contentAlignment = alignment
         ) {
+            // Keyed by mode but rendering the state it was given, so an outgoing pill fades out
+            // showing what it showed rather than the next state's values.
             AnimatedContent(
-                targetState = state.phase.mode,
+                targetState = state,
+                contentKey = { it.phase.mode },
                 contentAlignment = alignment,
                 transitionSpec = {
                     (fadeIn(fade) + scaleIn(fade, initialScale = 0.9f)) togetherWith fadeOut(fade) using
                         SizeTransform(clip = false) { _, _ -> spatial }
                 },
                 label = "bubble"
-            ) { mode ->
-                when (mode) {
-                    BubbleMode.IDLE -> IdleBubble(state.justInserted, actions.onStart, onShowProfiles)
-                    BubbleMode.RECORDING -> RecordingPill(state, levels, actions, onShowProfiles)
-                    BubbleMode.PROCESSING -> ProcessingPill((state.phase as? BubblePhase.Processing)?.cleaningUp == true, actions)
-                    BubbleMode.FAILED -> (state.phase as? BubblePhase.Failed)?.let { FailedPill(it, actions) }
-                    BubbleMode.NO_SPEECH -> NoSpeechPill(actions.onStart)
+            ) { shown ->
+                when (val phase = shown.phase) {
+                    BubblePhase.Idle -> IdleBubble(shown.justInserted, actions.onStart, onShowProfiles)
+                    is BubblePhase.Recording -> RecordingPill(shown, levels, actions, onShowProfiles)
+                    is BubblePhase.Processing -> ProcessingPill(phase.cleaningUp, actions)
+                    is BubblePhase.Failed -> FailedPill(phase, actions)
+                    BubblePhase.NoSpeech -> NoSpeechPill(actions.onStart)
                 }
             }
         }

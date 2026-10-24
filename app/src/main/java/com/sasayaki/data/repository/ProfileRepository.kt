@@ -2,6 +2,7 @@ package com.sasayaki.data.repository
 
 import com.sasayaki.data.db.dao.PostProcessingPromptDao
 import com.sasayaki.data.db.dao.ProfileDao
+import com.sasayaki.data.db.dao.ProviderDao
 import com.sasayaki.data.db.entity.PostProcessingPromptEntity
 import com.sasayaki.data.db.entity.ProfileEntity
 import com.sasayaki.data.db.entity.toEntity
@@ -18,6 +19,7 @@ import javax.inject.Singleton
 @Singleton
 class ProfileRepository @Inject constructor(
     private val profileDao: ProfileDao,
+    private val providerDao: ProviderDao,
     private val promptDao: PostProcessingPromptDao,
     private val preferencesDataStore: PreferencesDataStore
 ) {
@@ -52,7 +54,7 @@ class ProfileRepository @Inject constructor(
     suspend fun getProfile(id: Long): Profile? = profileDao.getProfile(id)?.toDomain()
 
     suspend fun save(profile: Profile): Long {
-        val cleanProfile = profile.copy(name = profile.name.trim().ifBlank { "Untitled profile" })
+        val cleanProfile = withExistingProviders(profile.copy(name = profile.name.trim().ifBlank { "Untitled profile" }))
         return if (cleanProfile.id == 0L) {
             profileDao.insert(cleanProfile.toEntity())
         } else {
@@ -66,6 +68,15 @@ class ProfileRepository @Inject constructor(
             )
             cleanProfile.id
         }
+    }
+
+    /** withExistingProviders drops references to deleted providers, with their model overrides. */
+    private suspend fun withExistingProviders(profile: Profile): Profile {
+        suspend fun gone(id: Long?) = id != null && providerDao.getById(id) == null
+        var result = profile
+        if (gone(profile.speechProviderId)) result = result.copy(speechProviderId = null, asrModel = "")
+        if (gone(profile.cleanupProviderId)) result = result.copy(cleanupProviderId = null, llmModel = "")
+        return result
     }
 
     suspend fun activate(id: Long) {

@@ -27,8 +27,9 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
-import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -61,6 +62,10 @@ class ProfileEditorViewModel @Inject constructor(
     var profile by mutableStateOf<Profile?>(null)
         private set
 
+    // synced is the last version known to match the database; the draft differs from it
+    // only while the user has unsaved edits.
+    private var synced: Profile? = null
+
     private val loadingModels = MutableStateFlow<Set<Long>>(emptySet())
     private val _finished = MutableStateFlow(false)
     val finished: StateFlow<Boolean> = _finished
@@ -84,15 +89,33 @@ class ProfileEditorViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            profile = profileRepository.getProfile(profileId) ?: run {
+            val loaded = profileRepository.getProfile(profileId) ?: run {
                 _finished.value = true
                 return@launch
             }
+            synced = loaded
+            profile = loaded
+            launch {
+                // Changes made elsewhere (a deleted provider, an edit from another screen)
+                // replace the draft when it has nothing unsaved.
+                profileRepository.profiles
+                    .map { list -> list.firstOrNull { it.id == profileId } }
+                    .filterNotNull()
+                    .collect { stored ->
+                        if (profile == synced) {
+                            synced = stored
+                            profile = stored
+                        }
+                    }
+            }
             snapshotFlow { profile }
                 .filterNotNull()
-                .drop(1)
+                .filter { it != synced }
                 .debounce(SAVE_DELAY_MS)
-                .collect { profileRepository.save(it) }
+                .collect { draft ->
+                    profileRepository.save(draft)
+                    synced = draft
+                }
         }
     }
 
@@ -131,7 +154,7 @@ class ProfileEditorViewModel @Inject constructor(
     override fun onCleared() {
         // Flush an edit made within the debounce window before the editor closed.
         val pending = profile
-        if (pending != null && !_finished.value) applicationScope.launch { profileRepository.save(pending) }
+        if (pending != null && pending != synced && !_finished.value) applicationScope.launch { profileRepository.save(pending) }
         super.onCleared()
     }
 

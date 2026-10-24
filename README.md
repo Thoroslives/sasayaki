@@ -12,10 +12,12 @@ Sasayaki does the same job as [WisprFlow](https://wisprflow.ai), except it costs
 
 ## Features
 
-- A floating dot appears when the keyboard opens. Tap it to dictate, and it stops when you go quiet.
-  - While you speak it widens into a timer with pause, cancel and profile buttons.
-  - Tap the bubble while it is processing to drop the dictation.
-- **Profiles** bundle a language, an ASR model, an LLM model and a writing style. Switch the active one from the bubble.
+- A floating bubble appears when the keyboard opens. Tap it to dictate, and it stops when you go quiet.
+  - While you speak it becomes a pill with a live waveform, a timer, pause, discard and stop.
+  - Drag it anywhere; it docks to the nearest edge. Drop it on the target at the top to turn it off.
+  - Long-press it to switch profile. Toggle it from a Quick Settings tile.
+- **Providers**: add any number of OpenAI-compatible servers, each with a default speech and cleanup model picked from its own model list. Keys are optional for self-hosted servers.
+- **Profiles** bundle a language, a speech model, an optional cleanup model and a writing style. Switch the active one from the bubble.
 - **Post-processing**: a small model turns what you said into a clean written message.
   - "Uh... Yeah, let's meet at 8.. No sorry, at 9!" → "Let's meet at 9."
   - Per profile, set the punctuation and casing, how far the model may rewrite you, how much it should condense, and whether emoji are allowed.
@@ -83,11 +85,19 @@ Build the release APK in Docker, which avoids installing an Android SDK or a mat
 make build      # writes sasayaki-release.apk
 ```
 
-Run the prompt tests, which need no network and no credentials:
+Run the unit tests and a debug build, which need no network and no credentials:
 
 ```sh
-./gradlew testDebugUnitTest
+make verify
 ```
+
+There is no emulator in the build container, so screens are checked with screenshot tests rendered on the JVM. They write PNGs to `app/build/screenshots/`:
+
+```sh
+make screenshots
+```
+
+The design rules the UI follows are in [docs/design-system.md](docs/design-system.md).
 
 Two further suites measure the post-processing prompts against real models. They skip themselves unless `OPENAI_ENDPOINT` and `OPENAI_API_KEY` are set, so they never run by accident:
 

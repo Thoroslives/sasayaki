@@ -89,6 +89,50 @@ Material Symbols Rounded, weight 400, 24 dp, inlined in `SasayakiIcons`. Filled 
 (`*Filled`) only mark the selected navigation destination and the dictation controls. Every
 actionable icon has a `contentDescription`; decorative icons next to a text label pass `null`.
 
+## Surfaces
+
+Screens sit on `surfaceContainer`; grouped rows and cards sit on `surfaceBright`, which reads
+as raised in both themes. The floating bubble is the exception: it always uses the dark scheme
+so it looks the same over any app.
+
+## Components
+
+All in `ui/components`. Reach for these before building a one-off.
+
+| Component | Use it for |
+| --- | --- |
+| `SettingsPage` | Any list screen with a large collapsing title (settings, providers, profiles). |
+| `SegmentedGroup` + `NavigationItem` / `SwitchItem` | Grouped rows. Summaries show the current value; `needsAttention` turns it red. |
+| `ConnectedChoice` | Two to four mutually exclusive options shown inline (theme, writing style). |
+| `ModelPickerSheet` | Choosing a model from a provider's list, with search and manual entry. |
+| `SetupGroup` | Permission and setup rows, including the restricted-settings walkthrough. |
+| `EmptyState` | Empty lists: a Material shape, one line of title, one of body, optional action. |
+| `Pill` | Small metadata and status labels. |
+
+Rules:
+
+- Settings save as they change. Only creating something new (a provider, a rule) has a button.
+- Lists of things the user owns use a FAB to add; the FAB hides while the list is empty and the
+  empty state offers the same action instead.
+- Destructive actions confirm in a dialog unless they can be undone from a snackbar.
+
+## Floating bubble
+
+The bubble is the product; everything else is configuration.
+
+| State | Shape | Content |
+| --- | --- | --- |
+| Ready | 52 dp circle, `primaryContainer` | The mark. Flashes a check after text is inserted. |
+| Recording | Pill | Discard · live waveform with timer and profile · pause · stop (clay) |
+| Processing | Pill | Morphing loading indicator, "Transcribing" or "Cleaning up" (clay), cancel |
+| Failed | Pill, `errorContainer` | The reason, retry when the audio was kept, dismiss |
+
+- It docks to the nearest screen edge after a drag and grows away from that edge.
+- Dragging shows a remove target at the top (overlays draw below the keyboard); dropping on it
+  turns the bubble off.
+- Long-press the bubble, or tap the waveform while recording, to switch profile.
+- Shape changes use the spatial spring, so the bubble visibly morphs instead of jumping.
+
 ## Haptics
 
 | Moment | Pattern |

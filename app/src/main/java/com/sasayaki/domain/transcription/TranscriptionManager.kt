@@ -1,46 +1,39 @@
 package com.sasayaki.domain.transcription
 
-import android.content.Context
 import android.util.Log
-import com.sasayaki.data.db.dao.DictationDao
-import com.sasayaki.data.db.dao.LifetimeStatsDao
 import com.sasayaki.data.db.entity.Dictation
 import com.sasayaki.data.preferences.PreferencesDataStore
+import com.sasayaki.data.repository.DictationRecord
+import com.sasayaki.data.repository.HistoryRepository
 import com.sasayaki.data.repository.ProfileRepository
 import com.sasayaki.data.repository.ProviderRepository
-import com.sasayaki.domain.provider.Purpose
-import com.sasayaki.domain.provider.Resolution
 import com.sasayaki.domain.model.AppContext
-import com.sasayaki.domain.model.DictationStatus
 import com.sasayaki.domain.model.Profile
 import com.sasayaki.domain.processing.AppCategory
 import com.sasayaki.domain.processing.TextProcessor
 import com.sasayaki.domain.processing.appCategoryOf
 import com.sasayaki.domain.processing.speechPrompt
 import com.sasayaki.domain.processing.withoutRecitedGlossary
-import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.coroutines.CancellationException
+import com.sasayaki.domain.provider.Purpose
+import com.sasayaki.domain.provider.Resolution
 import kotlinx.coroutines.flow.first
 import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/** DictationFailure carries the history entry a failed dictation can be retried from, if one was kept. */
+class DictationFailure(override val cause: Throwable, val retryEntryId: Long?) : Exception(cause.message, cause)
+
 @Singleton
 class TranscriptionManager @Inject constructor(
-    @ApplicationContext private val context: Context,
-    private val whisperEngine: WhisperEngine,
+    private val engine: TranscriptionEngine,
     private val textProcessor: TextProcessor,
-    private val dictationDao: DictationDao,
-    private val lifetimeStatsDao: LifetimeStatsDao,
+    private val historyRepository: HistoryRepository,
     private val preferencesDataStore: PreferencesDataStore,
     private val profileRepository: ProfileRepository,
     private val providerRepository: ProviderRepository
 ) {
-    companion object {
-        private const val TAG = "TranscriptionManager"
-        private const val RETAINED_AUDIO_DIR = "retained_audio"
-    }
-
+    /** transcribe fails only with [DictationFailure]. */
     suspend fun transcribe(
         audioFile: File,
         durationMs: Long,
@@ -48,250 +41,71 @@ class TranscriptionManager @Inject constructor(
         profile: Profile? = null,
         onPostProcessing: (() -> Unit)? = null
     ): Result<String> {
-        return transcribeWithProfile(
-            audioFile,
-            durationMs,
-            appContext,
-            profile ?: profileRepository.getActiveProfile(),
-            retryEntryId = null,
-            onPostProcessing = onPostProcessing
+        val dictation = DictationRecord(
+            audio = audioFile,
+            durationMs = durationMs,
+            appContext = appContext,
+            profile = profile ?: profileRepository.getActiveProfile()
         )
+        return process(dictation, onPostProcessing)
     }
 
-    suspend fun retry(dictationId: Long): Result<String> {
-        val entry = dictationDao.getById(dictationId)
-            ?: return Result.failure(IllegalArgumentException("History entry not found."))
-        val audioPath = entry.audioPath
-            ?: return Result.failure(IllegalStateException("No saved audio is available for retry."))
-        val audioFile = File(audioPath)
-        if (!audioFile.exists()) {
-            return Result.failure(IllegalStateException("Saved audio file is missing."))
-        }
-
+    /** retry fails only with [DictationFailure]. */
+    suspend fun retry(dictationId: Long, onPostProcessing: (() -> Unit)? = null): Result<String> {
+        val entry = historyRepository.entry(dictationId)
+            ?: return unretriable("History entry not found.")
+        val audioFile = entry.audioPath?.let(::File)?.takeIf { it.exists() }
+            ?: return unretriable("The saved audio for this dictation is gone.")
         val profile = entry.profileId?.let { profileRepository.getProfile(it) }
             ?: profileRepository.getActiveProfile()
-        return transcribeWithProfile(audioFile, entry.durationMs, entry.toAppContext(), profile, retryEntryId = entry.id)
+        val dictation = DictationRecord(
+            audio = audioFile,
+            durationMs = entry.durationMs,
+            appContext = entry.toAppContext(),
+            profile = profile,
+            retryEntryId = entry.id
+        )
+        return process(dictation, onPostProcessing)
     }
 
-    suspend fun latestRetriableFailureId(): Long? = dictationDao.getLatestRetriableFailureId()
-
-    private suspend fun transcribeWithProfile(
-        audioFile: File,
-        durationMs: Long,
-        appContext: AppContext?,
-        profile: Profile,
-        retryEntryId: Long?,
-        onPostProcessing: (() -> Unit)? = null
-    ): Result<String> {
+    private suspend fun process(dictation: DictationRecord, onPostProcessing: (() -> Unit)?): Result<String> {
         val prefs = preferencesDataStore.preferences.first()
+        val profile = dictation.profile
         val endpoint = when (val speech = providerRepository.resolve(profile, Purpose.SPEECH)) {
             is Resolution.Ready -> speech.endpoint
-            Resolution.NoProvider -> {
-                val error = Exception("Speech to text is not set up. Add a provider in Settings.")
-                persistFailure(audioFile, durationMs, appContext, profile, prefs.historyEnabled, error, retryEntryId)
-                return Result.failure(error)
-            }
-            is Resolution.NoModel -> {
-                val error = Exception("Choose a speech model for ${speech.provider.name} in Settings.")
-                persistFailure(audioFile, durationMs, appContext, profile, prefs.historyEnabled, error, retryEntryId)
-                return Result.failure(error)
-            }
+            Resolution.NoProvider -> return fail(dictation, Exception("Speech to text is not set up. Add a provider in Settings."))
+            is Resolution.NoModel -> return fail(dictation, Exception("Choose a speech model for ${speech.provider.name} in Settings."))
         }
+        if (!engine.isAvailable()) return fail(dictation, Exception("No network connection."))
 
-        if (!whisperEngine.isAvailable()) {
-            val error = Exception("No network connection.")
-            persistFailure(audioFile, durationMs, appContext, profile, prefs.historyEnabled, error, retryEntryId)
-            return Result.failure(error)
-        }
-
-        Log.d(TAG, "Sending ${audioFile.length()} bytes for transcription (model=${endpoint.model})")
-        val rawResult = whisperEngine.transcribe(audioFile, endpoint, profile.language, speechPrompt(prefs.vocabulary))
-        val rawText = rawResult.map { withoutRecitedGlossary(it, prefs.vocabulary) }.getOrElse { error ->
-            Log.e(TAG, "Whisper API error", error)
-            persistFailure(audioFile, durationMs, appContext, profile, prefs.historyEnabled, error, retryEntryId)
-            return Result.failure(error)
-        }
+        Log.d(TAG, "Sending ${dictation.audio.length()} bytes for transcription (model=${endpoint.model})")
+        val rawText = engine.transcribe(dictation.audio, endpoint, profile.language, speechPrompt(prefs.vocabulary))
+            .map { withoutRecitedGlossary(it, prefs.vocabulary) }
+            .getOrElse { return fail(dictation, it) }
 
         if (rawText.isBlank()) {
-            persistSuccess("", "", durationMs, appContext, profile, prefs.historyEnabled, prefs.keepStatsWithoutHistory, audioFile, retryEntryId)
+            historyRepository.recordSuccess(dictation, text = "", rawText = "")
             return Result.success("")
         }
 
+        val appContext = dictation.appContext
         val skipCleanup = prefs.skipCleanupInAiChats && appCategoryOf(appContext?.packageName) == AppCategory.AI_CHAT
-        val processedText = textProcessor.process(rawText, profile, appContext, skipCleanup, onPostProcessing)
-        recordLifetimeStats(processedText, durationMs)
-        persistSuccess(
-            text = processedText,
-            rawText = rawText,
-            durationMs = durationMs,
-            appContext = appContext,
-            profile = profile,
-            historyEnabled = prefs.historyEnabled,
-            keepStatsWithoutHistory = prefs.keepStatsWithoutHistory,
-            audioFile = audioFile,
-            retryEntryId = retryEntryId
-        )
-        return Result.success(processedText)
+        val text = textProcessor.process(rawText, profile, appContext, skipCleanup, onPostProcessing)
+        historyRepository.recordSuccess(dictation, text = text, rawText = rawText)
+        return Result.success(text)
     }
 
-    private suspend fun persistSuccess(
-        text: String,
-        rawText: String,
-        durationMs: Long,
-        appContext: AppContext?,
-        profile: Profile,
-        historyEnabled: Boolean,
-        keepStatsWithoutHistory: Boolean,
-        audioFile: File,
-        retryEntryId: Long?
-    ) {
-        if (!historyEnabled && !keepStatsWithoutHistory && retryEntryId == null) return
-        val wordCount = countWords(text)
-        val savedAudioPath = if (historyEnabled) retainAudio(audioFile, retryEntryId) else null
-        upsertHistory(
-            retryEntryId = retryEntryId,
-            text = if (historyEnabled) text else "",
-            rawText = if (historyEnabled) rawText else "",
-            wordCount = wordCount,
-            durationMs = durationMs,
-            appContext = if (historyEnabled) appContext else null,
-            profile = profile,
-            status = DictationStatus.SUCCESS,
-            errorMessage = null,
-            audioPath = savedAudioPath,
-            historyVisible = historyEnabled
-        )
-        pruneHistory()
+    private suspend fun fail(dictation: DictationRecord, error: Throwable): Result<String> {
+        Log.e(TAG, "Dictation failed", error)
+        val retryEntryId = historyRepository.recordFailure(dictation, error)
+        return Result.failure(DictationFailure(error, retryEntryId))
     }
 
-    private suspend fun persistFailure(
-        audioFile: File,
-        durationMs: Long,
-        appContext: AppContext?,
-        profile: Profile,
-        historyEnabled: Boolean,
-        error: Throwable,
-        retryEntryId: Long?
-    ) {
-        if (!historyEnabled && retryEntryId == null) return
-        val savedAudioPath = if (historyEnabled) retainAudio(audioFile, retryEntryId) else null
-        upsertHistory(
-            retryEntryId = retryEntryId,
-            text = "",
-            rawText = "",
-            wordCount = 0,
-            durationMs = durationMs,
-            appContext = appContext,
-            profile = profile,
-            status = DictationStatus.FAILURE,
-            errorMessage = error.message ?: "Unknown transcription error",
-            audioPath = savedAudioPath,
-            historyVisible = historyEnabled
-        )
-        pruneHistory()
-    }
+    private fun unretriable(message: String): Result<String> =
+        Result.failure(DictationFailure(IllegalStateException(message), retryEntryId = null))
 
-    private suspend fun upsertHistory(
-        retryEntryId: Long?,
-        text: String,
-        rawText: String,
-        wordCount: Int,
-        durationMs: Long,
-        appContext: AppContext?,
-        profile: Profile,
-        status: DictationStatus,
-        errorMessage: String?,
-        audioPath: String?,
-        historyVisible: Boolean
-    ) {
-        val timestamp = System.currentTimeMillis()
-        if (retryEntryId == null) {
-            dictationDao.insert(
-                Dictation(
-                    text = text,
-                    rawText = rawText,
-                    wordCount = wordCount,
-                    timestamp = timestamp,
-                    sourceApp = appContext?.label,
-                    sourceAppPackage = appContext?.packageName,
-                    durationMs = durationMs,
-                    historyVisible = historyVisible,
-                    status = status.name,
-                    errorMessage = errorMessage,
-                    profileId = profile.id.takeIf { it != 0L },
-                    audioPath = audioPath
-                )
-            )
-        } else {
-            val previousAudioPath = dictationDao.getAudioPath(retryEntryId)
-            if (previousAudioPath != null && previousAudioPath != audioPath) {
-                deleteRetainedAudio(previousAudioPath)
-            }
-            dictationDao.updateRetryResult(
-                id = retryEntryId,
-                text = text,
-                rawText = rawText,
-                wordCount = wordCount,
-                timestamp = timestamp,
-                status = status.name,
-                errorMessage = errorMessage,
-                sourceApp = appContext?.label,
-                sourceAppPackage = appContext?.packageName,
-                profileId = profile.id.takeIf { it != 0L },
-                audioPath = audioPath,
-                historyVisible = historyVisible
-            )
-        }
-    }
-
-    private fun countWords(text: String): Int =
-        text.split("\\s+".toRegex()).count { it.isNotBlank() }
-
-    /**
-     * Lifetime counters are content-free and deliberately independent of the history
-     * settings: they must keep accumulating when history is off, when an entry is
-     * deleted, and when [pruneHistory] drops the row this dictation is stored in.
-     * A counter failure must never fail the dictation itself.
-     */
-    private suspend fun recordLifetimeStats(text: String, durationMs: Long) {
-        val wordCount = countWords(text)
-        if (wordCount == 0) return
-        try {
-            lifetimeStatsDao.record(wordCount, durationMs, System.currentTimeMillis())
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to record lifetime stats", e)
-        }
-    }
-
-    private suspend fun pruneHistory() {
-        val limit = preferencesDataStore.preferences.first().historyRetentionLimit
-        dictationDao.getPrunableAudioPaths(limit).forEach(::deleteRetainedAudio)
-        dictationDao.pruneOldEntries(limit)
-    }
-
-    private fun retainAudio(audioFile: File, retryEntryId: Long?): String? {
-        if (retryEntryId != null && audioFile.exists() && audioFile.parentFile?.name == RETAINED_AUDIO_DIR) {
-            return audioFile.absolutePath
-        }
-        return runCatching {
-            val dir = File(context.filesDir, RETAINED_AUDIO_DIR).apply { mkdirs() }
-            val retained = File(dir, "dictation_${System.currentTimeMillis()}.wav")
-            audioFile.copyTo(retained, overwrite = true)
-            retained.absolutePath
-        }.onFailure { Log.e(TAG, "Could not retain audio", it) }.getOrNull()
-    }
-
-    private fun deleteRetainedAudio(path: String) {
-        runCatching {
-            val file = File(path)
-            if (file.canonicalPath.startsWith(context.filesDir.canonicalPath)) {
-                file.delete()
-            }
-        }
-    }
-
+    // Rows written before sourceAppPackage existed hold only a display name, which may be
+    // the package name itself or the placeholder "App".
     private fun Dictation.toAppContext(): AppContext? {
         val storedLabel = sourceApp?.takeIf { it.isNotBlank() && !it.equals("App", ignoreCase = true) }
         val inferredPackage = sourceAppPackage ?: storedLabel?.takeIf { it.contains('.') }
@@ -300,5 +114,9 @@ class TranscriptionManager @Inject constructor(
             packageName = inferredPackage
         )
         return context.takeIf { it.hasData }
+    }
+
+    private companion object {
+        const val TAG = "TranscriptionManager"
     }
 }

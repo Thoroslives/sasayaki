@@ -25,6 +25,7 @@ import com.sasayaki.domain.model.AppContext
 import com.sasayaki.domain.model.Profile
 import com.sasayaki.domain.provider.describeConnectionError
 import com.sasayaki.domain.transcription.AudioConverter
+import com.sasayaki.domain.transcription.DictationFailure
 import com.sasayaki.domain.transcription.SpeechDetector
 import com.sasayaki.domain.transcription.TranscriptionManager
 import com.sasayaki.service.bubble.BubbleActions
@@ -463,35 +464,17 @@ class BubbleService : Service() {
                 val profile = recordingProfile?.await()
 
                 val result = withContext(Dispatchers.IO) {
-                    transcriptionManager.transcribe(wavFile, durationMs, appContext, profile) {
-                        scope.launch { updateState(ServiceState.PostProcessing) }
-                    }
+                    transcriptionManager.transcribe(wavFile, durationMs, appContext, profile, ::showPostProcessing)
                 }
-
-                result.onSuccess { text ->
-                    if (text.isNotBlank()) {
-                        updateState(ServiceState.Injecting)
-                        if (textInjectionBridge.inject(text)) flashInserted()
-                        hapticFeedback?.complete()
-                    }
-                    updateState(ServiceState.Idle)
-                }.onFailure { error ->
-                    Log.e(TAG, "Transcription failed", error)
-                    val retryEntryId = withContext(Dispatchers.IO) {
-                        transcriptionManager.latestRetriableFailureId()
-                    }
-                    showError(describeConnectionError(error), retryEntryId)
-                }
+                deliver(result)
             } catch (e: CancellationException) {
                 // Cancelled by the user; cancelProcessing() owns the state transition.
                 throw e
             } catch (e: Exception) {
                 Log.e(TAG, "Processing failed", e)
-                val retryEntryId = withContext(Dispatchers.IO) {
-                    transcriptionManager.latestRetriableFailureId()
-                }
-                showError(describeConnectionError(e), retryEntryId)
+                showError(describe(e), null)
             } finally {
+                recording.job?.cancel()
                 abandonRecordingAudioFocus()
                 currentPcmFile?.delete()
                 wavFile?.delete()
@@ -576,21 +559,40 @@ class BubbleService : Service() {
     private fun retrySavedFailure(entryId: Long) {
         updateState(ServiceState.Transcribing)
         transcriptionJob = scope.launch {
-            val result = withContext(Dispatchers.IO) {
-                transcriptionManager.retry(entryId)
-            }
-            result.onSuccess { text ->
-                if (text.isNotBlank()) {
-                    updateState(ServiceState.Injecting)
-                    if (textInjectionBridge.inject(text)) flashInserted()
-                    hapticFeedback?.complete()
-                }
-                updateState(ServiceState.Idle)
-            }.onFailure { error ->
-                showError(describeConnectionError(error), entryId)
+            try {
+                deliver(withContext(Dispatchers.IO) { transcriptionManager.retry(entryId, ::showPostProcessing) })
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e(TAG, "Retry failed", e)
+                showError(describe(e), entryId)
             }
         }
     }
+
+    private suspend fun deliver(result: Result<String>) {
+        result.onSuccess { text ->
+            if (text.isNotBlank()) {
+                updateState(ServiceState.Injecting)
+                if (textInjectionBridge.inject(text)) flashInserted()
+                hapticFeedback?.complete()
+            }
+            updateState(ServiceState.Idle)
+        }.onFailure { error ->
+            showError(describe(error), (error as? DictationFailure)?.retryEntryId)
+        }
+    }
+
+    // showPostProcessing is called from the processing thread, and only moves a dictation
+    // that is still transcribing; a cancel may already have returned the bubble to idle.
+    private fun showPostProcessing() {
+        scope.launch {
+            if (state == ServiceState.Transcribing) updateState(ServiceState.PostProcessing)
+        }
+    }
+
+    private fun describe(error: Throwable): String =
+        describeConnectionError((error as? DictationFailure)?.cause ?: error)
 
     private fun retryBubbleError() {
         val retryEntryId = (state as? ServiceState.Error)?.retryEntryId

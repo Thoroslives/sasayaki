@@ -7,6 +7,7 @@ import com.sasayaki.data.preferences.BubbleSize
 import com.sasayaki.data.preferences.PreferencesDataStore
 import com.sasayaki.data.preferences.ThemeMode
 import com.sasayaki.data.preferences.UserPreferences
+import com.sasayaki.data.repository.HistoryRepository
 import com.sasayaki.data.repository.ProcessingRepository
 import com.sasayaki.data.repository.ProviderRepository
 import com.sasayaki.domain.provider.Provider
@@ -30,6 +31,7 @@ data class SettingsUiState(
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val preferencesDataStore: PreferencesDataStore,
+    private val historyRepository: HistoryRepository,
     providerRepository: ProviderRepository,
     processingRepository: ProcessingRepository
 ) : ViewModel() {
@@ -60,7 +62,10 @@ class SettingsViewModel @Inject constructor(
 
     fun setHistoryEnabled(enabled: Boolean) = persist { preferencesDataStore.setHistoryEnabled(enabled) }
 
-    fun setHistoryRetention(limit: Int) = persist { preferencesDataStore.setHistoryRetentionLimit(limit) }
+    fun setHistoryRetention(limit: Int) = persist {
+        preferencesDataStore.setHistoryRetentionLimit(limit)
+        historyRepository.prune()
+    }
 
     fun setKeepStatsWithoutHistory(enabled: Boolean) = persist { preferencesDataStore.setKeepStatsWithoutHistory(enabled) }
 

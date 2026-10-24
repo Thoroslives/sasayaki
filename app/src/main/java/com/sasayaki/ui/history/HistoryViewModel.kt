@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.sasayaki.data.preferences.PreferencesDataStore
 import com.sasayaki.data.repository.HistoryRepository
 import com.sasayaki.di.ApplicationScope
+import com.sasayaki.domain.transcription.TranscriptionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -32,6 +33,7 @@ data class HistoryUiState(
 @HiltViewModel
 class HistoryViewModel @Inject constructor(
     private val historyRepository: HistoryRepository,
+    private val transcriptionManager: TranscriptionManager,
     private val preferencesDataStore: PreferencesDataStore,
     @ApplicationScope private val applicationScope: CoroutineScope
 ) : ViewModel() {
@@ -41,7 +43,7 @@ class HistoryViewModel @Inject constructor(
     private val retryingIds = MutableStateFlow<Set<Long>>(emptySet())
 
     val uiState: StateFlow<HistoryUiState> = combine(
-        historyRepository.recent(),
+        historyRepository.history,
         preferencesDataStore.preferences,
         query,
         pendingDeletion,
@@ -90,7 +92,7 @@ class HistoryViewModel @Inject constructor(
         viewModelScope.launch {
             retryingIds.update { it + id }
             try {
-                historyRepository.retry(id)
+                transcriptionManager.retry(id)
             } finally {
                 retryingIds.update { it - id }
             }
@@ -105,6 +107,5 @@ class HistoryViewModel @Inject constructor(
         if (pending.isNotEmpty()) {
             applicationScope.launch { pending.forEach { historyRepository.removeFromHistory(it) } }
         }
-        super.onCleared()
     }
 }

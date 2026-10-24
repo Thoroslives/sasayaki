@@ -18,9 +18,11 @@ data class ChatCompletionResponse(
     @SerializedName("choices") val choices: List<Choice>
 ) {
     val text: String get() = choices.firstOrNull()?.message?.content ?: ""
+    val finishReason: String? get() = choices.firstOrNull()?.finishReason
 }
 
 data class Choice(
     @SerializedName("index") val index: Int,
-    @SerializedName("message") val message: ChatMessage
+    @SerializedName("message") val message: ChatMessage,
+    @SerializedName("finish_reason") val finishReason: String? = null
 )

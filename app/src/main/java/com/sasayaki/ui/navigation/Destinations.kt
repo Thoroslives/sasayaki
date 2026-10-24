@@ -11,6 +11,10 @@ data object HistoryDestination
 @Serializable
 data object ProfilesDestination
 
+/** [id] is an existing profile; new profiles are created before the editor opens. */
+@Serializable
+data class ProfileEditorDestination(val id: Long)
+
 @Serializable
 data object SettingsDestination
 

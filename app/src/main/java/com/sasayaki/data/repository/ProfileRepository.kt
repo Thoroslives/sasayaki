@@ -56,8 +56,14 @@ class ProfileRepository @Inject constructor(
         return if (cleanProfile.id == 0L) {
             profileDao.insert(cleanProfile.toEntity())
         } else {
+            // Activation is owned by activate(); a stale draft must not flip it back.
             val existing = profileDao.getProfile(cleanProfile.id)
-            profileDao.update(cleanProfile.toEntity().copy(createdAt = existing?.createdAt ?: System.currentTimeMillis()))
+            profileDao.update(
+                cleanProfile.toEntity().copy(
+                    createdAt = existing?.createdAt ?: System.currentTimeMillis(),
+                    isActive = existing?.isActive ?: cleanProfile.isActive
+                )
+            )
             cleanProfile.id
         }
     }
@@ -66,8 +72,8 @@ class ProfileRepository @Inject constructor(
         profileDao.activate(id)
     }
 
-    suspend fun duplicate(profile: Profile) {
-        profileDao.insert(
+    suspend fun duplicate(profile: Profile): Long {
+        return profileDao.insert(
             profile.copy(
                 id = 0,
                 name = "${profile.name} copy",

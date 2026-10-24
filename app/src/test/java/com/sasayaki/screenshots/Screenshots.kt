@@ -11,6 +11,9 @@ import java.io.File
 
 const val PHONE = "w411dp-h891dp-xxhdpi"
 
+// TALL_PHONE fits a whole scrolling page in one capture.
+const val TALL_PHONE = "w411dp-h1900dp-xxhdpi"
+
 fun ComposeContentTestRule.screenshot(name: String, dark: Boolean = false, content: @Composable () -> Unit) {
     setContent { SasayakiTheme(darkTheme = dark) { content() } }
     waitForIdle()

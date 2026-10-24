@@ -61,10 +61,26 @@ fun SectionLabel(text: String, modifier: Modifier = Modifier) {
     )
 }
 
+/**
+ * Segmented rows sit on surfaceBright. Checked switch rows keep that color unless
+ * [highlightSelection]: a toggle being on is not the row being selected.
+ */
 @Composable
-fun segmentedItemColors(): ListItemColors = ListItemDefaults.segmentedColors(
-    containerColor = MaterialTheme.colorScheme.surfaceBright
-)
+fun segmentedItemColors(highlightSelection: Boolean = false): ListItemColors {
+    val colors = MaterialTheme.colorScheme
+    return if (highlightSelection) {
+        ListItemDefaults.segmentedColors(containerColor = colors.surfaceBright)
+    } else {
+        ListItemDefaults.segmentedColors(
+            containerColor = colors.surfaceBright,
+            selectedContainerColor = colors.surfaceBright,
+            selectedContentColor = colors.onSurface,
+            selectedLeadingContentColor = colors.onSurfaceVariant,
+            selectedTrailingContentColor = colors.onSurfaceVariant,
+            selectedSupportingContentColor = colors.onSurfaceVariant
+        )
+    }
+}
 
 @Composable
 fun NavigationItem(

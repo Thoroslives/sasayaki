@@ -533,7 +533,7 @@ private fun ProfileSwitcherSheet(
                             selected = profile.isActive,
                             onClick = { onSelect(profile.id) },
                             shapes = shapes,
-                            colors = segmentedItemColors(),
+                            colors = segmentedItemColors(highlightSelection = true),
                             leadingContent = { RadioButton(selected = profile.isActive, onClick = null) },
                             supportingContent = { Text(profileSummary(profile), maxLines = 1, overflow = TextOverflow.Ellipsis) }
                         ) {

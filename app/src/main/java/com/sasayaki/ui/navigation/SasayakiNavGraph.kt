@@ -3,7 +3,6 @@ package com.sasayaki.ui.navigation
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.padding
@@ -23,7 +22,9 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.sasayaki.ui.history.HistoryRoute
 import com.sasayaki.ui.home.HomeRoute
-import com.sasayaki.ui.profiles.ProfilesScreen
+import com.sasayaki.ui.profiles.ProfileEditorNavigation
+import com.sasayaki.ui.profiles.ProfileEditorRoute
+import com.sasayaki.ui.profiles.ProfilesRoute
 import com.sasayaki.ui.settings.AppearanceSettingsRoute
 import com.sasayaki.ui.settings.HistorySettingsRoute
 import com.sasayaki.ui.settings.PermissionsRoute
@@ -92,7 +93,22 @@ fun SasayakiNavGraph() {
                 HistoryRoute()
             }
             composable<ProfilesDestination> {
-                ProfilesScreen(outerPadding = PaddingValues())
+                ProfilesRoute(onOpenProfile = { id -> navController.navigate(ProfileEditorDestination(id)) })
+            }
+            composable<ProfileEditorDestination> {
+                ProfileEditorRoute(
+                    navigation = ProfileEditorNavigation(
+                        onBack = dropUnlessResumed { navController.popBackStack() },
+                        onOpenProfile = { id ->
+                            navController.navigate(ProfileEditorDestination(id)) {
+                                popUpTo<ProfileEditorDestination> { inclusive = true }
+                            }
+                        },
+                        onManageProviders = { navController.navigate(ProvidersDestination) },
+                        onManagePrompts = { navController.navigate(PromptsDestination) },
+                        onManageRules = { navController.navigate(ReplacementRulesDestination) }
+                    )
+                )
             }
             composable<SettingsDestination> {
                 SettingsRoute(

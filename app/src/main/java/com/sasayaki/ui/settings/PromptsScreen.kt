@@ -89,7 +89,7 @@ fun PromptsScreen(
         ) {
             item(key = "intro") {
                 Text(
-                    text = "Prompts are extra instructions for cleanup, like “Write numbers as digits”. Turn them on per profile.",
+                    text = "Prompts are instructions for cleanup. The built-in ones always apply; turn yours on per profile.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = Spacing.xs)
@@ -228,7 +228,7 @@ private fun BuiltInPromptSheet(prompt: PostProcessingPrompt, onDismiss: () -> Un
         ) {
             Text(prompt.title, style = MaterialTheme.typography.headlineSmall)
             Text(
-                "Built in. Turn it on for a profile under Profiles.",
+                "Built in. Always applied when cleanup is on.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

@@ -1,83 +1,176 @@
 package com.sasayaki.ui.navigation
 
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Settings
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Icon
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.ShortNavigationBar
+import androidx.compose.material3.ShortNavigationBarItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.navigation.NavDestination.Companion.hierarchy
-import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.compose.ui.Modifier
+import androidx.lifecycle.compose.dropUnlessResumed
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.sasayaki.ui.home.HomeScreen
-import com.sasayaki.ui.profiles.ProfilesScreen
-import com.sasayaki.ui.settings.SettingsScreen
-import com.sasayaki.ui.theme.SasayakiIcons
-
-object Routes {
-    const val HOME = "home"
-    const val PROFILES = "profiles"
-    const val SETTINGS = "settings"
-}
-private data class BottomDestination(
-    val route: String,
-    val label: String,
-    val icon: ImageVector
-)
-
-private val bottomDestinations = listOf(
-    BottomDestination(Routes.HOME, "Transcriptions", SasayakiIcons.Description),
-    BottomDestination(Routes.PROFILES, "Profiles", SasayakiIcons.Tune),
-    BottomDestination(Routes.SETTINGS, "Settings", Icons.Default.Settings)
-)
+import com.sasayaki.ui.history.HistoryRoute
+import com.sasayaki.ui.home.HomeRoute
+import com.sasayaki.ui.onboarding.OnboardingRoute
+import com.sasayaki.ui.profiles.ProfileEditorNavigation
+import com.sasayaki.ui.profiles.ProfileEditorRoute
+import com.sasayaki.ui.profiles.ProfilesRoute
+import com.sasayaki.ui.settings.AppearanceSettingsRoute
+import com.sasayaki.ui.settings.AppsSettingsRoute
+import com.sasayaki.ui.settings.HistorySettingsRoute
+import com.sasayaki.ui.settings.PermissionsRoute
+import com.sasayaki.ui.settings.PromptsRoute
+import com.sasayaki.ui.settings.ProviderEditorRoute
+import com.sasayaki.ui.settings.ProvidersRoute
+import com.sasayaki.ui.settings.RecordingSettingsRoute
+import com.sasayaki.ui.settings.ReplacementRulesRoute
+import com.sasayaki.ui.settings.SettingsDestinations
+import com.sasayaki.ui.settings.SettingsRoute
+import com.sasayaki.ui.settings.VocabularyRoute
 
 @Composable
-fun SasayakiNavGraph() {
+fun SasayakiNavGraph(startDestination: Any) {
     val navController = rememberNavController()
+    val backStackEntry by navController.currentBackStackEntryAsState()
+    val currentDestination = backStackEntry?.destination
+    val showNavigationBar = currentDestination == null || currentDestination.topLevelDestination() != null
+    val transitions = rememberNavTransitions()
 
     Scaffold(
+        contentWindowInsets = WindowInsets(0),
         bottomBar = {
-            val navBackStackEntry by navController.currentBackStackEntryAsState()
-            val currentDestination = navBackStackEntry?.destination
-            NavigationBar {
-                bottomDestinations.forEach { destination ->
-                    NavigationBarItem(
-                        selected = currentDestination?.hierarchy?.any { it.route == destination.route } == true,
-                        onClick = {
-                            navController.navigate(destination.route) {
-                                popUpTo(navController.graph.findStartDestination().id) {
-                                    saveState = true
-                                }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        },
-                        icon = { Icon(destination.icon, contentDescription = destination.label) },
-                        label = { Text(destination.label) }
-                    )
+            AnimatedVisibility(
+                visible = showNavigationBar,
+                enter = expandVertically(MaterialTheme.motionScheme.defaultSpatialSpec()),
+                exit = shrinkVertically(MaterialTheme.motionScheme.fastEffectsSpec())
+            ) {
+                ShortNavigationBar {
+                    TopLevelDestination.entries.forEach { destination ->
+                        val selected = currentDestination.isIn(destination)
+                        ShortNavigationBarItem(
+                            selected = selected,
+                            onClick = { navController.navigateToTopLevel(destination) },
+                            icon = {
+                                Icon(
+                                    imageVector = if (selected) destination.selectedIcon else destination.icon,
+                                    contentDescription = null
+                                )
+                            },
+                            label = { Text(destination.label) }
+                        )
+                    }
                 }
             }
         }
     ) { padding ->
         NavHost(
             navController = navController,
-            startDestination = Routes.HOME
+            startDestination = startDestination,
+            modifier = Modifier
+                .padding(padding)
+                .consumeWindowInsets(padding),
+            enterTransition = transitions.enter,
+            exitTransition = transitions.exit,
+            popEnterTransition = transitions.popEnter,
+            popExitTransition = transitions.popExit,
+            predictivePopEnterTransition = transitions.predictivePopEnter,
+            predictivePopExitTransition = transitions.predictivePopExit
         ) {
-            composable(Routes.HOME) {
-                HomeScreen(outerPadding = padding)
+            composable<OnboardingDestination> {
+                OnboardingRoute(
+                    onFinished = {
+                        navController.navigate(HomeDestination) {
+                            popUpTo<OnboardingDestination> { inclusive = true }
+                        }
+                    }
+                )
             }
-            composable(Routes.PROFILES) {
-                ProfilesScreen(outerPadding = padding)
+            composable<HomeDestination> {
+                HomeRoute(
+                    onOpenHistory = { navController.navigateToTopLevel(TopLevelDestination.HISTORY) },
+                    onOpenProfiles = { navController.navigateToTopLevel(TopLevelDestination.PROFILES) },
+                    onOpenProviders = { navController.navigate(ProvidersDestination) }
+                )
             }
-            composable(Routes.SETTINGS) {
-                SettingsScreen(outerPadding = padding)
+            composable<HistoryDestination> {
+                HistoryRoute()
+            }
+            composable<ProfilesDestination> {
+                ProfilesRoute(onOpenProfile = { id -> navController.navigate(ProfileEditorDestination(id)) })
+            }
+            composable<ProfileEditorDestination> {
+                ProfileEditorRoute(
+                    navigation = ProfileEditorNavigation(
+                        onBack = dropUnlessResumed { navController.popBackStack() },
+                        onOpenProfile = { id ->
+                            navController.navigate(ProfileEditorDestination(id)) {
+                                popUpTo<ProfileEditorDestination> { inclusive = true }
+                            }
+                        },
+                        onManageProviders = { navController.navigate(ProvidersDestination) },
+                        onManagePrompts = { navController.navigate(PromptsDestination) },
+                        onManageRules = { navController.navigate(ReplacementRulesDestination) }
+                    )
+                )
+            }
+            composable<SettingsDestination> {
+                SettingsRoute(
+                    destinations = SettingsDestinations(
+                        onProviders = { navController.navigate(ProvidersDestination) },
+                        onRecording = { navController.navigate(RecordingSettingsDestination) },
+                        onApps = { navController.navigate(AppsSettingsDestination) },
+                        onRules = { navController.navigate(ReplacementRulesDestination) },
+                        onVocabulary = { navController.navigate(VocabularyDestination) },
+                        onPrompts = { navController.navigate(PromptsDestination) },
+                        onPermissions = { navController.navigate(PermissionsDestination) },
+                        onHistory = { navController.navigate(HistorySettingsDestination) },
+                        onAppearance = { navController.navigate(AppearanceSettingsDestination) }
+                    )
+                )
+            }
+            composable<ProvidersDestination> {
+                ProvidersRoute(
+                    onOpenProvider = { id -> navController.navigate(ProviderEditorDestination(id)) },
+                    onBack = dropUnlessResumed { navController.popBackStack() }
+                )
+            }
+            composable<ProviderEditorDestination> {
+                ProviderEditorRoute(onDone = dropUnlessResumed { navController.popBackStack() })
+            }
+            composable<RecordingSettingsDestination> {
+                RecordingSettingsRoute(onBack = dropUnlessResumed { navController.popBackStack() })
+            }
+            composable<HistorySettingsDestination> {
+                HistorySettingsRoute(onBack = dropUnlessResumed { navController.popBackStack() })
+            }
+            composable<AppsSettingsDestination> {
+                AppsSettingsRoute(onBack = dropUnlessResumed { navController.popBackStack() })
+            }
+            composable<AppearanceSettingsDestination> {
+                AppearanceSettingsRoute(onBack = dropUnlessResumed { navController.popBackStack() })
+            }
+            composable<PermissionsDestination> {
+                PermissionsRoute(onBack = dropUnlessResumed { navController.popBackStack() })
+            }
+            composable<VocabularyDestination> {
+                VocabularyRoute(onBack = dropUnlessResumed { navController.popBackStack() })
+            }
+            composable<ReplacementRulesDestination> {
+                ReplacementRulesRoute(onBack = dropUnlessResumed { navController.popBackStack() })
+            }
+            composable<PromptsDestination> {
+                PromptsRoute(onBack = dropUnlessResumed { navController.popBackStack() })
             }
         }
     }

@@ -6,45 +6,65 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.ServiceInfo
-import android.graphics.PixelFormat
+import android.content.res.Configuration
 import android.media.AudioAttributes
 import android.media.AudioFocusRequest
 import android.media.AudioManager
-import android.os.Build
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import android.provider.Settings
 import android.util.Log
-import android.view.Gravity
-import android.view.MotionEvent
-import android.view.View
 import android.view.WindowManager
 import android.widget.Toast
+import androidx.core.app.ServiceCompat
+import androidx.core.content.ContextCompat
+import com.sasayaki.data.preferences.BubbleSize
 import com.sasayaki.data.preferences.PreferencesDataStore
 import com.sasayaki.data.repository.ProfileRepository
 import com.sasayaki.domain.model.AppContext
+import com.sasayaki.domain.model.Profile
+import com.sasayaki.domain.provider.describeConnectionError
 import com.sasayaki.domain.transcription.AudioConverter
+import com.sasayaki.domain.transcription.DictationFailure
+import com.sasayaki.domain.transcription.SpeechDetector
 import com.sasayaki.domain.transcription.TranscriptionManager
+import com.sasayaki.service.bubble.BubbleActions
+import com.sasayaki.service.bubble.BubbleAppearance
+import com.sasayaki.service.bubble.BubbleOverlay
+import com.sasayaki.service.bubble.BubbleUiState
+import com.sasayaki.service.bubble.WAVEFORM_BARS
+import com.sasayaki.service.bubble.toPhase
 import dagger.hilt.android.AndroidEntryPoint
+import java.io.File
+import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.File
-import javax.inject.Inject
 
 @AndroidEntryPoint
 class BubbleService : Service() {
     companion object {
         private const val TAG = "BubbleService"
+        private const val INSERTED_FLASH_MS = 700L
+        private const val NO_SPEECH_NOTICE_MS = 2500L
         const val ACTION_START = "com.sasayaki.ACTION_START_BUBBLE"
 
         @Volatile
@@ -58,9 +78,11 @@ class BubbleService : Service() {
         val runningState: StateFlow<Boolean> = _runningState.asStateFlow()
 
         fun start(context: Context) {
-            context.startForegroundService(Intent(context, BubbleService::class.java).apply {
-                action = ACTION_START
-            })
+            context.startForegroundService(
+                Intent(context, BubbleService::class.java).apply {
+                    action = ACTION_START
+                }
+            )
         }
 
         fun stop(context: Context) {
@@ -69,49 +91,68 @@ class BubbleService : Service() {
     }
 
     @Inject lateinit var transcriptionManager: TranscriptionManager
+
     @Inject lateinit var textInjectionBridge: TextInjectionBridge
+
     @Inject lateinit var preferencesDataStore: PreferencesDataStore
+
     @Inject lateinit var profileRepository: ProfileRepository
 
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
-    private var windowManager: WindowManager? = null
-    private var bubbleView: BubbleView? = null
-    private var layoutParams: WindowManager.LayoutParams? = null
+    // scope reports a failure that escapes a dictation instead of crashing the app.
+    private val scope = CoroutineScope(
+        SupervisorJob() + Dispatchers.Main + CoroutineExceptionHandler { _, error ->
+            Log.e(TAG, "Unhandled bubble failure", error)
+            mainHandler.post { showError(describe(error), null) }
+        }
+    )
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private var overlay: BubbleOverlay? = null
+    private val uiState = MutableStateFlow(BubbleUiState())
+    private val levels = MutableStateFlow<List<Float>>(emptyList())
     private var notificationHelper: NotificationHelper? = null
     private var hapticFeedback: HapticFeedback? = null
     private var audioRecorder: AudioRecorder? = null
     private var silenceDetector: SilenceDetector? = null
+
     @Volatile private var recordingJob: Job? = null
     private var transcriptionJob: Job? = null
     private var silenceCheckJob: Job? = null
     private var levelJob: Job? = null
     private var timerJob: Job? = null
-    private var profileJob: Job? = null
-    private var longPressJob: Job? = null
-    private var fanMenuController: FanMenuController? = null
     private var audioManager: AudioManager? = null
     private var audioFocusRequest: AudioFocusRequest? = null
-    private var collapsedBubbleX: Int? = null
-    private var collapsedBubbleY: Int? = null
+    private var profileJob: Job? = null
+    private var startJob: Job? = null
 
     private var state: ServiceState = ServiceState.Idle
     private var recordingStartTime: Long = 0
     private var pausedStartedAt: Long = 0
     private var totalPausedMs: Long = 0
-    private var recordingAppContext: AppContext? = null
-    @Volatile private var pcmFile: File? = null
-    private var bubbleAdded = false
+    private var recordingAppContext: Deferred<AppContext?>? = null
+    private var recordingProfile: Deferred<Profile>? = null
+    private var profileSwitch: Job? = null
 
-    // Keyboard-aware visibility
+    private val dictationInFlight: Boolean
+        get() = state is ServiceState.Recording || state is ServiceState.Transcribing ||
+            state is ServiceState.PostProcessing || state is ServiceState.Injecting
+
+    @Volatile private var pcmFile: File? = null
+
     private val keyboardListener = object : TextInjectorService.KeyboardListener {
         override fun onKeyboardVisibilityChanged(visible: Boolean) {
             scope.launch(Dispatchers.Main) {
+                // An active dictation keeps the bubble up even if the keyboard closes.
                 if (visible) {
-                    showBubble()
+                    overlay?.show()
+                    // Switching mid-dictation would process it with another app's profile.
+                    if (!dictationInFlight) {
+                        profileSwitch = scope.launch {
+                            profileRepository.switchToRememberedProfile(textInjectionBridge.focusedEditorPackage())
+                        }
+                    }
                 } else if (state is ServiceState.Idle) {
-                    hideBubble()
+                    overlay?.hide()
                 }
-                // Don't hide while recording/transcribing
             }
         }
     }
@@ -127,6 +168,7 @@ class BubbleService : Service() {
     override fun onCreate() {
         super.onCreate()
         isRunning = true
+        BubbleTileService.requestRefresh(this)
         val helper = NotificationHelper(this)
         notificationHelper = helper
         hapticFeedback = HapticFeedback(this)
@@ -134,11 +176,16 @@ class BubbleService : Service() {
         helper.createNotificationChannel()
         profileJob = scope.launch {
             profileRepository.activeProfile.collect { profile ->
-                bubbleView?.updateActiveProfileName(profile?.name ?: "AUTO")
+                uiState.update { it.copy(profileName = profile?.name.orEmpty()) }
             }
         }
 
-        registerReceiver(stopReceiver, IntentFilter(NotificationHelper.ACTION_STOP), RECEIVER_NOT_EXPORTED)
+        ContextCompat.registerReceiver(
+            this,
+            stopReceiver,
+            IntentFilter(NotificationHelper.ACTION_STOP),
+            ContextCompat.RECEIVER_NOT_EXPORTED
+        )
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -149,7 +196,8 @@ class BubbleService : Service() {
         }
         // Idle as specialUse so the service can also be started from the boot receiver;
         // promoteToMicrophoneService() upgrades the type when recording actually starts.
-        startForeground(
+        ServiceCompat.startForeground(
+            this,
             NotificationHelper.NOTIFICATION_ID,
             notification,
             ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
@@ -161,235 +209,83 @@ class BubbleService : Service() {
             return START_NOT_STICKY
         }
 
-        windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
-        prepareBubble()
-
-        // Register for keyboard events
+        prepareOverlay()
         TextInjectorService.keyboardListener = keyboardListener
-
-        // If keyboard is already visible, show immediately
-        if (TextInjectorService.isKeyboardVisible) {
-            showBubble()
-        }
+        if (TextInjectorService.isKeyboardVisible) overlay?.show()
 
         return START_STICKY
     }
 
     override fun onDestroy() {
         isRunning = false
-        fanMenuController?.dismiss()
-        stopRecordingAndWait()
-        removeBubble()
-        TextInjectorService.keyboardListener = null
-        try { unregisterReceiver(stopReceiver) } catch (_: Exception) {}
+        BubbleTileService.requestRefresh(this)
+        discardRecordingOnDestroy()
+        overlay?.destroy()
+        overlay = null
+        if (TextInjectorService.keyboardListener === keyboardListener) TextInjectorService.keyboardListener = null
+        try {
+            unregisterReceiver(stopReceiver)
+        } catch (e: IllegalArgumentException) {
+            Log.w(TAG, "Stop receiver was not registered", e)
+        }
         scope.cancel()
+        abandonRecordingAudioFocus()
         super.onDestroy()
     }
 
-    private fun prepareBubble() {
-        if (bubbleView != null) return
-
-        bubbleView = BubbleView(this)
-        scope.launch {
-            bubbleView?.updateActiveProfileName(profileRepository.getActiveProfile().name)
-        }
-        layoutParams = WindowManager.LayoutParams(
-            bubbleView?.collapsedWidthPx() ?: WindowManager.LayoutParams.WRAP_CONTENT,
-            bubbleView?.collapsedHeightPx() ?: BubbleView.SIZE_DP.dpToPx(),
-            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                    WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
-            PixelFormat.TRANSLUCENT
-        ).apply {
-            gravity = Gravity.TOP or Gravity.START
-            x = 50
-            y = 300
-        }
-
-        val wm = windowManager ?: return
-        fanMenuController = FanMenuController(
+    private fun prepareOverlay() {
+        if (overlay != null) return
+        val windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
+        overlay = BubbleOverlay(
             context = this,
-            windowManager = wm,
-            profileRepository = profileRepository,
+            windowManager = windowManager,
             scope = scope,
-            hapticFeedback = hapticFeedback
-        )
-
-        setupTouchListener()
-    }
-
-    private fun showBubble() {
-        if (bubbleAdded || bubbleView == null) return
-        try {
-            windowManager?.addView(bubbleView, layoutParams)
-            bubbleAdded = true
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to show bubble", e)
-        }
-    }
-
-    private fun hideBubble() {
-        if (!bubbleAdded || bubbleView == null) return
-        try {
-            windowManager?.removeView(bubbleView)
-            bubbleAdded = false
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to hide bubble", e)
-        }
-    }
-
-    private fun removeBubble() {
-        bubbleView?.cleanup()
-        if (bubbleAdded) {
-            try { windowManager?.removeView(bubbleView) } catch (_: Exception) {}
-            bubbleAdded = false
-        }
-        bubbleView = null
-    }
-
-    private fun setupTouchListener() {
-        val params = layoutParams ?: return
-        var initialX = 0
-        var initialY = 0
-        var initialTouchX = 0f
-        var initialTouchY = 0f
-        var isDragging = false
-        var longPressTriggered = false
-        var cancelPressed = false
-        var cancelGesture = false
-        var profileTapCandidate = false
-        var pauseTapCandidate = false
-        var errorRetryCandidate = false
-        var errorCancelCandidate = false
-        val tapThreshold = 10 * resources.displayMetrics.density
-        val longPressDelayMs = 400L
-
-        bubbleView?.setOnTouchListener { _, event ->
-            when (event.action) {
-                MotionEvent.ACTION_DOWN -> {
-                    profileTapCandidate = state is ServiceState.Recording && bubbleView?.isProfileHit(event.x, event.y) == true
-                    pauseTapCandidate = state is ServiceState.Recording && bubbleView?.isPauseHit(event.x, event.y) == true
-                    errorRetryCandidate = state is ServiceState.Error && bubbleView?.isErrorRetryHit(event.x, event.y) == true
-                    errorCancelCandidate = state is ServiceState.Error && bubbleView?.isErrorCancelHit(event.x, event.y) == true
-                    cancelPressed = state is ServiceState.Recording && (bubbleView?.isCancelHit(event.x, event.y) == true)
-                    cancelGesture = cancelPressed
-                    if (cancelPressed) {
-                        longPressJob?.cancel()
-                        return@setOnTouchListener true
-                    }
-                    initialX = params.x
-                    initialY = params.y
-                    initialTouchX = event.rawX
-                    initialTouchY = event.rawY
-                    isDragging = false
-                    longPressTriggered = false
-                    longPressJob?.cancel()
-                    if (state is ServiceState.Idle) {
-                        longPressJob = scope.launch {
-                            delay(longPressDelayMs)
-                            if (!isDragging) longPressTriggered = true
-                        }
-                    }
-                    true
+            uiState = uiState,
+            levels = levels,
+            profiles = profileRepository.profiles.stateIn(scope, SharingStarted.Eagerly, emptyList()),
+            appearance = preferencesDataStore.preferences
+                .map { BubbleAppearance(it.wallpaperColors, it.bubbleTranslucent, it.bubbleMonochrome) }
+                .stateIn(scope, SharingStarted.Eagerly, BubbleAppearance()),
+            bubbleScale = preferencesDataStore.preferences
+                .map { it.bubbleSize.scale }
+                .stateIn(scope, SharingStarted.Eagerly, BubbleSize.STANDARD.scale),
+            actions = BubbleActions(
+                onStart = ::onBubbleTap,
+                onStop = ::stopRecordingAndTranscribe,
+                onCancel = ::cancelRecording,
+                onTogglePause = ::toggleRecordingPause,
+                onCancelProcessing = ::cancelProcessing,
+                onRetry = ::retryBubbleError,
+                onDismissError = ::cancelBubbleError
+            ),
+            onSelectProfile = { id ->
+                hapticFeedback?.tick()
+                val selection = scope.async {
+                    val packageName = textInjectionBridge.focusedEditorPackage()
+                    profileRepository.activate(id)
+                    profileRepository.rememberProfileForApp(packageName, id)
+                    profileRepository.getActiveProfile()
                 }
-                MotionEvent.ACTION_MOVE -> {
-                    if (cancelGesture) {
-                        cancelPressed = bubbleView?.isCancelHit(event.x, event.y) == true
-                        return@setOnTouchListener true
-                    }
-                    val dx = event.rawX - initialTouchX
-                    val dy = event.rawY - initialTouchY
-                    if (dx * dx + dy * dy > tapThreshold * tapThreshold) {
-                        isDragging = true
-                        profileTapCandidate = false
-                        pauseTapCandidate = false
-                        errorRetryCandidate = false
-                        errorCancelCandidate = false
-                        longPressJob?.cancel()
-                    }
-                    if (isDragging && bubbleAdded) {
-                        params.x = initialX + dx.toInt()
-                        params.y = initialY + dy.toInt()
-                        try { windowManager?.updateViewLayout(bubbleView, params) } catch (_: Exception) {}
-                    }
-                    true
-                }
-                MotionEvent.ACTION_UP -> {
-                    if (profileTapCandidate && !isDragging) {
-                        val profileAnchorX = params.x + (bubbleView?.profileSegmentCenterXPx() ?: event.x)
-                        fanMenuController?.show(profileAnchorX, params.y.toFloat())
-                        profileTapCandidate = false
-                        return@setOnTouchListener true
-                    }
-                    if (pauseTapCandidate && !isDragging) {
-                        toggleRecordingPause()
-                        pauseTapCandidate = false
-                        return@setOnTouchListener true
-                    }
-                    if (errorRetryCandidate && !isDragging) {
-                        retryBubbleError()
-                        errorRetryCandidate = false
-                        return@setOnTouchListener true
-                    }
-                    if (errorCancelCandidate && !isDragging) {
-                        cancelBubbleError()
-                        errorCancelCandidate = false
-                        return@setOnTouchListener true
-                    }
-                    if (cancelGesture) {
-                        longPressJob?.cancel()
-                        if (cancelPressed && bubbleView?.isCancelHit(event.x, event.y) == true) {
-                            cancelRecording()
-                        }
-                        cancelPressed = false
-                        cancelGesture = false
-                        return@setOnTouchListener true
-                    }
-                    longPressJob?.cancel()
-                    if (longPressTriggered) {
-                        // Long press already handled, do nothing
-                    } else if (!isDragging) {
-                        if (fanMenuController?.isShowing == true) {
-                            fanMenuController?.dismiss()
-                        } else {
-                            onBubbleTap()
-                        }
-                    } else {
-                        val displayHeight = resources.displayMetrics.heightPixels
-                        if (params.y > displayHeight - 200) {
-                            stopSelf()
-                        }
-                    }
-                    true
-                }
-                MotionEvent.ACTION_CANCEL -> {
-                    longPressJob?.cancel()
-                    cancelPressed = false
-                    cancelGesture = false
-                    profileTapCandidate = false
-                    pauseTapCandidate = false
-                    errorRetryCandidate = false
-                    errorCancelCandidate = false
-                    isDragging = false
-                    true
-                }
-                else -> false
-            }
-        }
+                profileSwitch = selection
+                // The pill shows the pick at once, so it applies to the dictation in progress.
+                if (state is ServiceState.Recording) recordingProfile = selection
+            },
+            onRemove = ::stopSelf
+        ).also { it.create() }
     }
 
     private fun onBubbleTap() {
-        when (state) {
-            is ServiceState.Idle -> startRecording()
+        when (val current = state) {
+            is ServiceState.Idle, ServiceState.NoSpeech -> requestRecording()
+
             is ServiceState.Recording -> stopRecordingAndTranscribe()
-            is ServiceState.Transcribing -> cancelProcessing()
-            is ServiceState.PostProcessing -> cancelProcessing()
+
+            is ServiceState.Transcribing, is ServiceState.PostProcessing -> cancelProcessing()
+
             // Injection is already underway and cannot be meaningfully undone.
             is ServiceState.Injecting -> {}
-            is ServiceState.Error -> {
-                val retryEntryId = (state as ServiceState.Error).retryEntryId
-                if (retryEntryId != null) retrySavedFailure(retryEntryId) else updateState(ServiceState.Idle)
-            }
+
+            is ServiceState.Error -> current.retryEntryId?.let(::retrySavedFailure) ?: updateState(ServiceState.Idle)
         }
     }
 
@@ -404,7 +300,8 @@ class BubbleService : Service() {
     private fun promoteToMicrophoneService(): Boolean {
         val notification = notificationHelper?.buildForegroundNotification() ?: return false
         return try {
-            startForeground(
+            ServiceCompat.startForeground(
+                this,
                 NotificationHelper.NOTIFICATION_ID,
                 notification,
                 ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE or
@@ -425,13 +322,31 @@ class BubbleService : Service() {
     private fun demoteToIdleService() {
         val notification = notificationHelper?.buildForegroundNotification() ?: return
         try {
-            startForeground(
+            ServiceCompat.startForeground(
+                this,
                 NotificationHelper.NOTIFICATION_ID,
                 notification,
                 ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
             )
         } catch (e: Exception) {
             Log.w(TAG, "Could not drop microphone foreground service type", e)
+        }
+    }
+
+    /**
+     * requestRecording checks the focused field first: the lookup crosses into the focused
+     * app, so it runs off the main thread, and taps that land meanwhile are ignored.
+     */
+    private fun requestRecording() {
+        if (startJob?.isActive == true) return
+        startJob = scope.launch {
+            val sensitive = textInjectionBridge.isFocusedFieldSensitive()
+            if (state !is ServiceState.Idle && state !is ServiceState.NoSpeech) return@launch
+            if (sensitive) {
+                showError("Dictation is off in password and banking fields.", null)
+            } else {
+                startRecording()
+            }
         }
     }
 
@@ -444,11 +359,18 @@ class BubbleService : Service() {
             if (prefs.vibrateOnRecord) hapticFeedback?.recordStart()
         }
 
+        uiState.update { it.copy(elapsedSeconds = 0) }
         updateState(ServiceState.Recording())
         recordingStartTime = System.currentTimeMillis()
         pausedStartedAt = 0
         totalPausedMs = 0
-        recordingAppContext = textInjectionBridge.currentAppContext
+        // The lookup crosses into the focused app, so it stays off the main thread.
+        recordingAppContext = scope.async(Dispatchers.Default) { textInjectionBridge.currentAppContext }
+        val pendingSwitch = profileSwitch
+        recordingProfile = scope.async {
+            pendingSwitch?.join()
+            profileRepository.getActiveProfile()
+        }
 
         audioRecorder = AudioRecorder()
         pcmFile = File(cacheDir, "recording_${System.currentTimeMillis()}.pcm")
@@ -459,20 +381,23 @@ class BubbleService : Service() {
         recordingJob = scope.launch(Dispatchers.IO) {
             try {
                 recorder.record(outputFile)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.e(TAG, "Recording error", e)
             }
         }
 
+        levels.value = emptyList()
         levelJob = scope.launch {
             recorder.audioLevel.collect { level ->
-                bubbleView?.updateAudioLevel(level)
+                levels.update { (it + level).takeLast(WAVEFORM_BARS) }
             }
         }
 
         timerJob = scope.launch {
             while (state is ServiceState.Recording) {
-                bubbleView?.updateRecordingElapsed(recordedDurationMs() / 1000)
+                uiState.update { it.copy(elapsedSeconds = recordedDurationMs() / 1000) }
                 delay(250)
             }
         }
@@ -514,17 +439,15 @@ class BubbleService : Service() {
         }
     }
 
-    /** Stop recording without transcribing (for cleanup on destroy) */
-    private fun stopRecordingAndWait() {
+    // discardRecordingOnDestroy drops a recording in progress; the service's scope is about
+    // to be cancelled, so nothing could transcribe it.
+    private fun discardRecordingOnDestroy() {
         if (state !is ServiceState.Recording) return
         audioRecorder?.stop()
-        levelJob?.cancel()
-        timerJob?.cancel()
-        silenceCheckJob?.cancel()
-        // Don't cancel recordingJob — let it finish flushing the file
+        recordingJob?.cancel()
+        pcmFile?.delete()
     }
 
-    /** Stop recording and start transcription */
     private fun stopRecordingAndTranscribe() {
         if (state !is ServiceState.Recording) return
 
@@ -534,7 +457,7 @@ class BubbleService : Service() {
         silenceCheckJob?.cancel()
         levelJob?.cancel()
         timerJob?.cancel()
-        fanMenuController?.dismiss()
+        overlay?.dismissProfileMenu()
 
         scope.launch {
             val prefs = preferencesDataStore.preferences.first()
@@ -544,16 +467,28 @@ class BubbleService : Service() {
         val durationMs = recordedDurationMs()
         updateState(ServiceState.Transcribing)
 
+        // A new recording may start before this job ends, so it holds on to its own
+        // recording and only clears the shared fields that still point at it.
+        val recording = Recording(recordingJob, pcmFile, audioRecorder, silenceDetector)
         transcriptionJob = scope.launch {
-            var currentPcmFile: File? = null
+            val currentPcmFile = recording.pcm
             var wavFile: File? = null
             try {
-                recordingJob?.join()
+                recording.job?.join()
 
-                currentPcmFile = pcmFile
                 if (currentPcmFile == null || !currentPcmFile.exists() || currentPcmFile.length() == 0L) {
                     Log.w(TAG, "PCM file empty or missing")
                     updateState(ServiceState.Idle)
+                    return@launch
+                }
+
+                val heardSpeech = withContext(Dispatchers.IO) {
+                    currentPcmFile.inputStream().buffered().use { pcm ->
+                        SpeechDetector.containsSpeech(SpeechDetector.frameLevels(pcm, AudioRecorder.SAMPLE_RATE))
+                    }
+                }
+                if (!heardSpeech) {
+                    showNoSpeech()
                     return@launch
                 }
 
@@ -562,45 +497,25 @@ class BubbleService : Service() {
                     AudioConverter.pcmToWav(currentPcmFile, wavFile)
                 }
 
-                val appContext = recordingAppContext
+                val appContext = recordingAppContext?.await()
+                val profile = recordingProfile?.await()
 
                 val result = withContext(Dispatchers.IO) {
-                    transcriptionManager.transcribe(wavFile, durationMs, appContext) {
-                        scope.launch { updateState(ServiceState.PostProcessing) }
-                    }
+                    transcriptionManager.transcribe(wavFile, durationMs, appContext, profile, ::showPostProcessing)
                 }
-
-                result.onSuccess { text ->
-                    if (text.isNotBlank()) {
-                        updateState(ServiceState.Injecting)
-                        textInjectionBridge.inject(text)
-                        hapticFeedback?.complete()
-                    }
-                    updateState(ServiceState.Idle)
-                }.onFailure { error ->
-                    Log.e(TAG, "Transcription failed", error)
-                    val retryEntryId = withContext(Dispatchers.IO) {
-                        transcriptionManager.latestRetriableFailureId()
-                    }
-                    showError("Transcription failed: ${error.message}", retryEntryId)
-                }
+                deliver(result)
             } catch (e: CancellationException) {
                 // Cancelled by the user; cancelProcessing() owns the state transition.
                 throw e
             } catch (e: Exception) {
                 Log.e(TAG, "Processing failed", e)
-                val retryEntryId = withContext(Dispatchers.IO) {
-                    transcriptionManager.latestRetriableFailureId()
-                }
-                showError(e.message ?: "Unknown error", retryEntryId)
+                showError(describe(e), null)
             } finally {
+                recording.job?.cancel()
                 abandonRecordingAudioFocus()
                 currentPcmFile?.delete()
                 wavFile?.delete()
-                recordingJob = null
-                pcmFile = null
-                audioRecorder = null
-                silenceDetector = null
+                release(recording)
             }
         }
     }
@@ -631,7 +546,7 @@ class BubbleService : Service() {
         silenceCheckJob?.cancel()
         levelJob?.cancel()
         timerJob?.cancel()
-        fanMenuController?.dismiss()
+        overlay?.dismissProfileMenu()
 
         scope.launch {
             val prefs = preferencesDataStore.preferences.first()
@@ -641,19 +556,24 @@ class BubbleService : Service() {
 
         updateState(ServiceState.Idle)
 
-        scope.launch(Dispatchers.IO) {
+        val recording = Recording(recordingJob, pcmFile, audioRecorder, silenceDetector)
+        scope.launch {
             try {
-                recordingJob?.join()
-            } catch (e: Exception) {
-                Log.w(TAG, "Recording cleanup interrupted", e)
+                recording.job?.join()
             } finally {
-                pcmFile?.delete()
-                recordingJob = null
-                pcmFile = null
-                audioRecorder = null
-                silenceDetector = null
+                withContext(Dispatchers.IO) { recording.pcm?.delete() }
+                release(recording)
             }
         }
+    }
+
+    private class Recording(val job: Job?, val pcm: File?, val recorder: AudioRecorder?, val detector: SilenceDetector?)
+
+    private fun release(recording: Recording) {
+        if (recordingJob === recording.job) recordingJob = null
+        if (pcmFile === recording.pcm) pcmFile = null
+        if (audioRecorder === recording.recorder) audioRecorder = null
+        if (silenceDetector === recording.detector) silenceDetector = null
     }
 
     private fun recordedDurationMs(): Long {
@@ -668,22 +588,40 @@ class BubbleService : Service() {
 
     private fun retrySavedFailure(entryId: Long) {
         updateState(ServiceState.Transcribing)
-        scope.launch {
-            val result = withContext(Dispatchers.IO) {
-                transcriptionManager.retry(entryId)
-            }
-            result.onSuccess { text ->
-                if (text.isNotBlank()) {
-                    updateState(ServiceState.Injecting)
-                    textInjectionBridge.inject(text)
-                    hapticFeedback?.complete()
-                }
-                updateState(ServiceState.Idle)
-            }.onFailure { error ->
-                showError("Retry failed: ${error.message}", entryId)
+        transcriptionJob = scope.launch {
+            try {
+                deliver(withContext(Dispatchers.IO) { transcriptionManager.retry(entryId, ::showPostProcessing) })
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e(TAG, "Retry failed", e)
+                showError(describe(e), entryId)
             }
         }
     }
+
+    private suspend fun deliver(result: Result<String>) {
+        result.onSuccess { text ->
+            if (text.isNotBlank()) {
+                updateState(ServiceState.Injecting)
+                if (textInjectionBridge.inject(text)) flashInserted()
+                hapticFeedback?.complete()
+            }
+            updateState(ServiceState.Idle)
+        }.onFailure { error ->
+            showError(describe(error), (error as? DictationFailure)?.retryEntryId)
+        }
+    }
+
+    // showPostProcessing is called from the processing thread, and only moves a dictation
+    // that is still transcribing; a cancel may already have returned the bubble to idle.
+    private fun showPostProcessing() {
+        scope.launch {
+            if (state == ServiceState.Transcribing) updateState(ServiceState.PostProcessing)
+        }
+    }
+
+    private fun describe(error: Throwable): String = describeConnectionError((error as? DictationFailure)?.cause ?: error)
 
     private fun retryBubbleError() {
         val retryEntryId = (state as? ServiceState.Error)?.retryEntryId
@@ -698,97 +636,61 @@ class BubbleService : Service() {
         updateState(ServiceState.Idle)
     }
 
+    private fun showNoSpeech() {
+        updateState(ServiceState.NoSpeech)
+        scope.launch {
+            delay(NO_SPEECH_NOTICE_MS)
+            if (state is ServiceState.NoSpeech) updateState(ServiceState.Idle)
+        }
+    }
+
     private fun showError(message: String, retryEntryId: Long? = null) {
         updateState(ServiceState.Error(message, retryEntryId))
         hapticFeedback?.error()
-        val retryHint = if (retryEntryId != null) " Tap bubble to retry." else ""
-        Toast.makeText(this@BubbleService, message + retryHint, Toast.LENGTH_SHORT).show()
         scope.launch {
-            delay(if (retryEntryId == null) 2500 else 6000)
+            delay(if (retryEntryId == null) 4000 else 8000)
             if (state is ServiceState.Error) {
                 updateState(ServiceState.Idle)
             }
         }
     }
 
+    private fun flashInserted() {
+        uiState.update { it.copy(justInserted = true) }
+        scope.launch {
+            delay(INSERTED_FLASH_MS)
+            uiState.update { it.copy(justInserted = false) }
+        }
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        overlay?.onDisplayChanged()
+    }
+
     private fun updateState(newState: ServiceState) {
         state = newState
-        scope.launch(Dispatchers.Main) {
-            bubbleView?.updateState(newState)
-            syncBubbleLayout()
-            // When done transcribing, hide bubble if keyboard is gone
-            if (newState is ServiceState.Idle && !TextInjectorService.isKeyboardVisible) {
-                hideBubble()
-            }
-        }
+        uiState.update { it.copy(phase = newState.toPhase()) }
+        if (newState is ServiceState.Idle && !TextInjectorService.isKeyboardVisible) overlay?.hide()
     }
-
-    private fun syncBubbleLayout() {
-        val params = layoutParams ?: return
-        val view = bubbleView ?: return
-        val wasRecording = params.width == view.recordingWidthPx()
-        val isRecording = state is ServiceState.Recording
-        val targetWidth = view.collapsedWidthPx()
-        val targetHeight = view.collapsedHeightPx()
-
-        if (params.width == targetWidth && params.height == targetHeight) return
-        val previousWidth = params.width
-        val previousHeight = params.height
-        if (!wasRecording && isRecording) {
-            collapsedBubbleX = params.x
-            collapsedBubbleY = params.y
-        }
-        val centerX = params.x + previousWidth / 2
-        params.width = targetWidth
-        params.height = targetHeight
-        val restoredX = if (wasRecording && !isRecording) collapsedBubbleX else null
-        val restoredY = if (wasRecording && !isRecording) collapsedBubbleY else null
-        params.x = restoredX ?: (centerX - targetWidth / 2)
-        params.y = restoredY ?: (params.y - (targetHeight - previousHeight))
-        val maxX = (resources.displayMetrics.widthPixels - targetWidth).coerceAtLeast(0)
-        params.x = params.x.coerceIn(0, maxX)
-        if (wasRecording && !isRecording) {
-            collapsedBubbleX = null
-            collapsedBubbleY = null
-        }
-        if (bubbleAdded) {
-            try {
-                windowManager?.updateViewLayout(view, params)
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to resize bubble", e)
-            }
-        }
-    }
-
-    private fun Int.dpToPx(): Int = (this * resources.displayMetrics.density).toInt()
 
     private fun requestRecordingAudioFocus() {
         val manager = audioManager ?: return
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val request = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
-                .setAudioAttributes(
-                    AudioAttributes.Builder()
-                        .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
-                        .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
-                        .build()
-                )
-                .build()
-            audioFocusRequest = request
-            manager.requestAudioFocus(request)
-        } else {
-            @Suppress("DEPRECATION")
-            manager.requestAudioFocus(null, AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
-        }
+        val request = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
+            .setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                    .build()
+            )
+            .build()
+        audioFocusRequest = request
+        manager.requestAudioFocus(request)
     }
 
     private fun abandonRecordingAudioFocus() {
         val manager = audioManager ?: return
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            audioFocusRequest?.let(manager::abandonAudioFocusRequest)
-            audioFocusRequest = null
-        } else {
-            @Suppress("DEPRECATION")
-            manager.abandonAudioFocus(null)
-        }
+        audioFocusRequest?.let(manager::abandonAudioFocusRequest)
+        audioFocusRequest = null
     }
 }

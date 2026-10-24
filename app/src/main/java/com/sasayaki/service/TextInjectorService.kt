@@ -25,29 +25,11 @@ import androidx.annotation.RequiresApi
  * WebView- and Flutter-backed ones especially, report no text selection while holding real
  * typed text, and discarding it on that basis would delete what the user wrote.
  */
-internal fun resolveExistingText(
-    rawText: String,
-    hintText: String,
-    isShowingHintText: Boolean
-): String {
+internal fun resolveExistingText(rawText: String, hintText: String, isShowingHintText: Boolean): String {
     val showsPlaceholder = isShowingHintText ||
         (hintText.isNotBlank() && rawText.trim().equals(hintText.trim(), ignoreCase = true))
     return if (showsPlaceholder) "" else rawText
 }
-
-/**
- * Leading space is dropped when the field is empty, since it would open the message with
- * whitespace. Mid-message the spacing is the speaker's to decide.
- */
-internal fun insertionFor(existingText: String, dictated: String): String =
-    if (existingText.isEmpty()) dictated.trimStart() else dictated
-
-/**
- * A null count is the editor declining to answer rather than an empty field, so the
- * speaker's spacing is left alone rather than guessed at.
- */
-internal fun insertionAtCursor(charsBeforeCursor: Int?, dictated: String): String =
-    if (charsBeforeCursor == 0) dictated.trimStart() else dictated
 
 /**
  * [AccessibilityNodeInfo.isPassword] is set from the view, and web password inputs reach the
@@ -60,7 +42,9 @@ internal fun isSensitiveInputType(inputType: Int): Boolean {
             variation == InputType.TYPE_TEXT_VARIATION_PASSWORD ||
                 variation == InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD ||
                 variation == InputType.TYPE_TEXT_VARIATION_WEB_PASSWORD
+
         InputType.TYPE_CLASS_NUMBER -> variation == InputType.TYPE_NUMBER_VARIATION_PASSWORD
+
         else -> false
     }
 }
@@ -79,14 +63,21 @@ class TextInjectorService : AccessibilityService() {
 
     companion object {
         private const val TAG = "TextInjectorService"
+        private const val CURSOR_CONTEXT_CHARS = 16
 
+        @Volatile
         var instance: TextInjectorService? = null
             private set
 
+        // keyboardListener outlives a restart of this service; only its owner clears it.
+        @Volatile
         var keyboardListener: KeyboardListener? = null
+
+        @Volatile
         var isKeyboardVisible: Boolean = false
             private set
 
+        @Volatile
         var focusedAppPackage: String? = null
             private set
 
@@ -117,6 +108,7 @@ class TextInjectorService : AccessibilityService() {
                     }
                 }
             }
+
             AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> {
                 checkKeyboardVisibility()
             }
@@ -141,9 +133,11 @@ class TextInjectorService : AccessibilityService() {
         instance = null
         lastFocusedPackage = null
         lastFocusedEditablePackage = null
-        isKeyboardVisible = false
-        keyboardListener = null
         focusedAppPackage = null
+        if (isKeyboardVisible) {
+            isKeyboardVisible = false
+            keyboardListener?.onKeyboardVisibilityChanged(false)
+        }
         super.onDestroy()
     }
 
@@ -158,12 +152,33 @@ class TextInjectorService : AccessibilityService() {
         }
     }
 
-    fun getFocusedAppPackageName(): String? {
+    fun getFocusedAppPackageName(): String? = findCurrentFocusedEditable()?.packageName?.toString()
+        ?: lastFocusedEditablePackage
+        ?: focusedAppPackage
+        ?: lastFocusedPackage
+        ?: rootInActiveWindow?.packageName?.toString()
+
+    /**
+     * focusedEditorPackage names the app whose editor has input focus right now, without
+     * the remembered fallbacks [getFocusedAppPackageName] uses, so it never names an app
+     * the user has left.
+     */
+    fun focusedEditorPackage(): String? {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            inputMethod?.takeIf { it.currentInputStarted }?.currentInputEditorInfo?.packageName?.let { return it }
+        }
         return findCurrentFocusedEditable()?.packageName?.toString()
-            ?: lastFocusedEditablePackage
-            ?: focusedAppPackage
-            ?: lastFocusedPackage
-            ?: rootInActiveWindow?.packageName?.toString()
+    }
+
+    /** isFocusedFieldSensitive applies the same password and banking checks as [injectText]. */
+    fun isFocusedFieldSensitive(): Boolean {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val editorInfo = inputMethod?.takeIf { it.currentInputStarted }?.currentInputEditorInfo
+            if (editorInfo != null && (isSensitiveInputType(editorInfo.inputType) || isBankingPackage(editorInfo.packageName))) {
+                return true
+            }
+        }
+        return findCurrentFocusedEditable()?.let(::isSensitiveField) ?: false
     }
 
     fun injectText(text: String): InjectionResult {
@@ -201,10 +216,12 @@ class TextInjectorService : AccessibilityService() {
             return InjectionResult.BlockedSensitive
         }
 
-        // Asking for a single character keeps a long draft from crossing processes on
-        // every dictation; only whether anything precedes the cursor matters.
-        val charsBeforeCursor = connection.getSurroundingText(1, 0, 0)?.selectionStart
-        connection.commitText(insertionAtCursor(charsBeforeCursor, text), 1, null)
+        // A short window keeps a long draft from crossing processes on every dictation;
+        // only the end of the previous sentence matters.
+        val textBeforeCursor = connection.getSurroundingText(CURSOR_CONTEXT_CHARS, 0, 0)?.let {
+            textBeforeSelection(it.text, it.selectionStart, it.selectionEnd)
+        }
+        connection.commitText(fitToCursor(textBeforeCursor, text), 1, null)
         return InjectionResult.Success
     }
 
@@ -225,7 +242,7 @@ class TextInjectorService : AccessibilityService() {
             existingText.length
         }
 
-        val textToInsert = insertionFor(existingText, text)
+        val textToInsert = fitToCursor(existingText.substring(0, cursorPos), text)
 
         val newText = buildString {
             append(existingText.substring(0, cursorPos))
@@ -266,7 +283,7 @@ class TextInjectorService : AccessibilityService() {
     }
 
     private fun isSensitiveField(node: AccessibilityNodeInfo): Boolean =
-        node.isPassword || isBankingPackage(node.packageName?.toString())
+        node.isPassword || isSensitiveInputType(node.inputType) || isBankingPackage(node.packageName?.toString())
 
     private fun isBankingPackage(packageName: CharSequence?): Boolean {
         val normalized = packageName?.toString()?.lowercase() ?: return false

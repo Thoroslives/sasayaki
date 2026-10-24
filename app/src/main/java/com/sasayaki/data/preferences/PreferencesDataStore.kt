@@ -10,18 +10,21 @@ import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.sasayaki.domain.processing.sortedVocabulary
+import com.sasayaki.domain.provider.LegacyEndpoint
 import dagger.hilt.android.qualifiers.ApplicationContext
+import java.io.IOException
+import javax.inject.Inject
+import javax.inject.Singleton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
-import java.io.IOException
-import javax.inject.Inject
-import javax.inject.Singleton
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
 
@@ -49,6 +52,16 @@ class PreferencesDataStore @Inject constructor(
         val KEEP_STATS_WITHOUT_HISTORY = booleanPreferencesKey("keep_stats_without_history")
         val HISTORY_RETENTION_LIMIT = intPreferencesKey("history_retention_limit")
         val START_ON_BOOT = booleanPreferencesKey("start_on_boot")
+        val THEME_MODE = stringPreferencesKey("theme_mode")
+        val WALLPAPER_COLORS = booleanPreferencesKey("wallpaper_colors")
+        val ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
+        val BUBBLE_SIZE = stringPreferencesKey("bubble_size")
+        val BUBBLE_TRANSLUCENT = booleanPreferencesKey("bubble_translucent")
+        val BUBBLE_MONOCHROME = booleanPreferencesKey("bubble_monochrome")
+        val REMEMBER_PROFILE_PER_APP = booleanPreferencesKey("remember_profile_per_app")
+        val SKIP_CLEANUP_IN_AI_CHATS = booleanPreferencesKey("skip_cleanup_in_ai_chats")
+        val APP_PROFILES = stringSetPreferencesKey("app_profiles")
+        val VOCABULARY = stringSetPreferencesKey("vocabulary")
     }
 
     val preferences: Flow<UserPreferences> = context.dataStore.data
@@ -61,97 +74,122 @@ class PreferencesDataStore @Inject constructor(
             }
         }
         .map { prefs ->
-        UserPreferences(
-            asrBaseUrl = prefs[Keys.ASR_BASE_URL] ?: "",
-            asrApiKey = securePreferencesStore.getAsrApiKey(),
-            asrModel = prefs[Keys.ASR_MODEL] ?: "whisper-1",
-            llmBaseUrl = prefs[Keys.LLM_BASE_URL] ?: "",
-            llmApiKey = securePreferencesStore.getLlmApiKey(),
-            llmModel = prefs[Keys.LLM_MODEL] ?: "gpt-4o-mini",
-            llmEnabled = prefs[Keys.LLM_ENABLED] ?: false,
-            autoClipboard = prefs[Keys.AUTO_CLIPBOARD] ?: true,
-            vibrateOnRecord = prefs[Keys.VIBRATE_ON_RECORD] ?: true,
-            pauseOtherAudio = prefs[Keys.PAUSE_OTHER_AUDIO] ?: false,
-            silenceThresholdMs = prefs[Keys.SILENCE_THRESHOLD_MS] ?: 2000L,
-            preferredLanguages = parsePreferredLanguages(prefs),
-            activeLanguage = resolveActiveLanguage(prefs),
-            historyEnabled = prefs[Keys.HISTORY_ENABLED] ?: true,
-            keepStatsWithoutHistory = prefs[Keys.KEEP_STATS_WITHOUT_HISTORY] ?: false,
-            historyRetentionLimit = (prefs[Keys.HISTORY_RETENTION_LIMIT] ?: 500).coerceIn(1, 5000),
-            startOnBoot = prefs[Keys.START_ON_BOOT] ?: true
-        )
-    }
-    .distinctUntilChanged()
-    .flowOn(Dispatchers.IO)
+            UserPreferences(
+                autoClipboard = prefs[Keys.AUTO_CLIPBOARD] ?: true,
+                vibrateOnRecord = prefs[Keys.VIBRATE_ON_RECORD] ?: true,
+                pauseOtherAudio = prefs[Keys.PAUSE_OTHER_AUDIO] ?: false,
+                silenceThresholdMs = prefs[Keys.SILENCE_THRESHOLD_MS] ?: 2000L,
+                preferredLanguages = parsePreferredLanguages(prefs),
+                activeLanguage = resolveActiveLanguage(prefs),
+                historyEnabled = prefs[Keys.HISTORY_ENABLED] ?: true,
+                keepStatsWithoutHistory = prefs[Keys.KEEP_STATS_WITHOUT_HISTORY] ?: false,
+                historyRetentionLimit = (prefs[Keys.HISTORY_RETENTION_LIMIT] ?: 500).coerceIn(1, 5000),
+                startOnBoot = prefs[Keys.START_ON_BOOT] ?: true,
+                themeMode = ThemeMode.entries.firstOrNull { it.name == prefs[Keys.THEME_MODE] } ?: ThemeMode.SYSTEM,
+                wallpaperColors = prefs[Keys.WALLPAPER_COLORS] ?: false,
+                onboardingCompleted = prefs[Keys.ONBOARDING_COMPLETED] ?: false,
+                bubbleSize = BubbleSize.entries.firstOrNull { it.name == prefs[Keys.BUBBLE_SIZE] } ?: BubbleSize.STANDARD,
+                bubbleTranslucent = prefs[Keys.BUBBLE_TRANSLUCENT] ?: false,
+                bubbleMonochrome = prefs[Keys.BUBBLE_MONOCHROME] ?: false,
+                rememberProfilePerApp = prefs[Keys.REMEMBER_PROFILE_PER_APP] ?: true,
+                skipCleanupInAiChats = prefs[Keys.SKIP_CLEANUP_IN_AI_CHATS] ?: true,
+                appProfiles = decodeAppProfiles(prefs[Keys.APP_PROFILES].orEmpty()),
+                vocabulary = sortedVocabulary(prefs[Keys.VOCABULARY].orEmpty())
+            )
+        }
+        .distinctUntilChanged()
+        .flowOn(Dispatchers.IO)
 
-    suspend fun updateAsrConfig(baseUrl: String, apiKey: String, model: String) {
-        securePreferencesStore.updateAsrApiKey(apiKey.trim())
+    /**
+     * legacyEndpoints returns the single speech and cleanup endpoints from before
+     * providers existed, or null once they have been moved into the providers table.
+     */
+    suspend fun legacyEndpoints(): Pair<LegacyEndpoint?, LegacyEndpoint?>? {
+        val prefs = context.dataStore.data.first()
+        val speechUrl = prefs[Keys.ASR_BASE_URL].orEmpty()
+        val cleanupUrl = prefs[Keys.LLM_BASE_URL].orEmpty()
+        if (speechUrl.isBlank() && cleanupUrl.isBlank()) return null
+        val speech = LegacyEndpoint(speechUrl, securePreferencesStore.getAsrApiKey(), prefs[Keys.ASR_MODEL] ?: "whisper-1")
+        val cleanup = LegacyEndpoint(cleanupUrl, securePreferencesStore.getLlmApiKey(), prefs[Keys.LLM_MODEL] ?: "gpt-4o-mini")
+        return speech to cleanup
+    }
+
+    fun clearLegacyApiKeysIfPresent() {
+        if (securePreferencesStore.hasLegacyApiKeys()) securePreferencesStore.clearLegacyApiKeys()
+    }
+
+    suspend fun clearLegacyEndpoints() {
+        securePreferencesStore.clearLegacyApiKeys()
         context.dataStore.edit { prefs ->
-            prefs[Keys.ASR_BASE_URL] = baseUrl.trim()
-            prefs.remove(Keys.ASR_API_KEY)
-            prefs[Keys.ASR_MODEL] = model.trim()
+            listOf(Keys.ASR_BASE_URL, Keys.ASR_MODEL, Keys.LLM_BASE_URL, Keys.LLM_MODEL).forEach(prefs::remove)
+            prefs.remove(Keys.LLM_ENABLED)
         }
     }
 
-    suspend fun updateLlmConfig(baseUrl: String, apiKey: String, model: String, enabled: Boolean) {
-        securePreferencesStore.updateLlmApiKey(apiKey.trim())
+    suspend fun setAutoClipboard(enabled: Boolean) = set(Keys.AUTO_CLIPBOARD, enabled)
+
+    suspend fun setVibrateOnRecord(enabled: Boolean) = set(Keys.VIBRATE_ON_RECORD, enabled)
+
+    suspend fun setPauseOtherAudio(enabled: Boolean) = set(Keys.PAUSE_OTHER_AUDIO, enabled)
+
+    suspend fun setSilenceThresholdMs(value: Long) = set(Keys.SILENCE_THRESHOLD_MS, value)
+
+    suspend fun setKeepStatsWithoutHistory(enabled: Boolean) = set(Keys.KEEP_STATS_WITHOUT_HISTORY, enabled)
+
+    suspend fun setHistoryRetentionLimit(limit: Int) = set(Keys.HISTORY_RETENTION_LIMIT, limit.coerceIn(1, 5000))
+
+    suspend fun setStartOnBoot(enabled: Boolean) = set(Keys.START_ON_BOOT, enabled)
+
+    suspend fun setHistoryEnabled(enabled: Boolean) = set(Keys.HISTORY_ENABLED, enabled)
+
+    suspend fun setThemeMode(mode: ThemeMode) = set(Keys.THEME_MODE, mode.name)
+
+    suspend fun setWallpaperColors(enabled: Boolean) = set(Keys.WALLPAPER_COLORS, enabled)
+
+    suspend fun setOnboardingCompleted() = set(Keys.ONBOARDING_COMPLETED, true)
+
+    suspend fun setBubbleSize(size: BubbleSize) = set(Keys.BUBBLE_SIZE, size.name)
+
+    suspend fun setBubbleTranslucent(enabled: Boolean) = set(Keys.BUBBLE_TRANSLUCENT, enabled)
+
+    suspend fun setBubbleMonochrome(enabled: Boolean) = set(Keys.BUBBLE_MONOCHROME, enabled)
+
+    suspend fun setRememberProfilePerApp(enabled: Boolean) {
         context.dataStore.edit { prefs ->
-            prefs[Keys.LLM_BASE_URL] = baseUrl.trim()
-            prefs.remove(Keys.LLM_API_KEY)
-            prefs[Keys.LLM_MODEL] = model.trim()
-            prefs[Keys.LLM_ENABLED] = enabled
+            prefs[Keys.REMEMBER_PROFILE_PER_APP] = enabled
+            if (!enabled) prefs.remove(Keys.APP_PROFILES)
         }
     }
 
-    suspend fun updateGeneralSettings(
-        autoClipboard: Boolean,
-        vibrateOnRecord: Boolean,
-        pauseOtherAudio: Boolean,
-        silenceThresholdMs: Long,
-        historyEnabled: Boolean,
-        keepStatsWithoutHistory: Boolean,
-        historyRetentionLimit: Int,
-        startOnBoot: Boolean
-    ) {
-        context.dataStore.edit { prefs ->
-            prefs[Keys.AUTO_CLIPBOARD] = autoClipboard
-            prefs[Keys.VIBRATE_ON_RECORD] = vibrateOnRecord
-            prefs[Keys.PAUSE_OTHER_AUDIO] = pauseOtherAudio
-            prefs[Keys.SILENCE_THRESHOLD_MS] = silenceThresholdMs
-            prefs[Keys.HISTORY_ENABLED] = historyEnabled
-            prefs[Keys.KEEP_STATS_WITHOUT_HISTORY] = keepStatsWithoutHistory
-            prefs[Keys.HISTORY_RETENTION_LIMIT] = historyRetentionLimit.coerceIn(1, 5000)
-            prefs[Keys.START_ON_BOOT] = startOnBoot
-        }
-    }
+    suspend fun setSkipCleanupInAiChats(enabled: Boolean) = set(Keys.SKIP_CLEANUP_IN_AI_CHATS, enabled)
 
-    suspend fun updateActiveLanguage(language: String?) {
+    suspend fun rememberAppProfile(packageName: String, profileId: Long) {
         context.dataStore.edit { prefs ->
-            if (language == null) {
-                prefs.remove(Keys.ACTIVE_LANGUAGE)
-            } else {
-                prefs[Keys.ACTIVE_LANGUAGE] = language
+            val profiles = decodeAppProfiles(prefs[Keys.APP_PROFILES].orEmpty())
+            if (profiles[packageName] != profileId) {
+                prefs[Keys.APP_PROFILES] = encodeAppProfiles(profiles + (packageName to profileId))
             }
         }
     }
 
-    suspend fun toggleLlmEnabled() {
+    suspend fun addVocabulary(terms: List<String>) {
         context.dataStore.edit { prefs ->
-            prefs[Keys.LLM_ENABLED] = !(prefs[Keys.LLM_ENABLED] ?: false)
+            val existing = prefs[Keys.VOCABULARY].orEmpty()
+            val known = existing.map(String::lowercase).toSet()
+            prefs[Keys.VOCABULARY] = existing + terms.filter { it.lowercase() !in known }
         }
     }
 
-    suspend fun toggleHistoryEnabled() {
-        context.dataStore.edit { prefs ->
-            prefs[Keys.HISTORY_ENABLED] = !(prefs[Keys.HISTORY_ENABLED] ?: true)
-        }
+    suspend fun removeVocabulary(term: String) {
+        context.dataStore.edit { prefs -> prefs[Keys.VOCABULARY] = prefs[Keys.VOCABULARY].orEmpty() - term }
     }
 
-    suspend fun updatePreferredLanguages(languages: List<String>) {
-        context.dataStore.edit { prefs ->
-            prefs[Keys.PREFERRED_LANGUAGES] = languages.joinToString(",")
-            prefs.remove(Keys.LANGUAGE)
-        }
+    suspend fun forgetAppProfiles() {
+        context.dataStore.edit { prefs -> prefs.remove(Keys.APP_PROFILES) }
+    }
+
+    private suspend fun <T> set(key: Preferences.Key<T>, value: T) {
+        context.dataStore.edit { prefs -> prefs[key] = value }
     }
 
     suspend fun runStartupMigrations() {
@@ -194,5 +232,4 @@ class PreferencesDataStore @Inject constructor(
             mutablePrefs.remove(Keys.LLM_API_KEY)
         }
     }
-
 }

@@ -43,16 +43,15 @@ class SystemPromptBuilderTest {
     private val builtIn = PostProcessingPrompt(id = 1, title = "Role", prompt = "BUILT_IN_ONE", builtIn = true)
     private val custom = PostProcessingPrompt(id = 2, title = "Mine", prompt = "CUSTOM_ONE", builtIn = false)
 
-    private fun allStyleCombinations(): List<Profile> =
-        OutputStyle.entries.flatMap { style ->
-            RewriteMode.entries.flatMap { rewrite ->
-                SummarizeMode.entries.flatMap { summarize ->
-                    listOf(true, false).map { emoji ->
-                        profile(style, rewrite, summarize, emoji)
-                    }
+    private fun allStyleCombinations(): List<Profile> = OutputStyle.entries.flatMap { style ->
+        RewriteMode.entries.flatMap { rewrite ->
+            SummarizeMode.entries.flatMap { summarize ->
+                listOf(true, false).map { emoji ->
+                    profile(style, rewrite, summarize, emoji)
                 }
             }
         }
+    }
 
     // ---- Contradiction sweep -------------------------------------------------------
 

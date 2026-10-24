@@ -1,27 +1,41 @@
 package com.sasayaki
 
 import android.app.Application
-import com.sasayaki.data.preferences.PreferencesDataStore
-import com.sasayaki.data.repository.ProfileRepository
+import android.util.Log
+import com.sasayaki.data.StartupMigrations
+import com.sasayaki.data.repository.HistoryRepository
+import com.sasayaki.di.ApplicationScope
 import dagger.hilt.android.HiltAndroidApp
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.launch
 import javax.inject.Inject
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 
 @HiltAndroidApp
 class SasayakiApp : Application() {
-    @Inject lateinit var preferencesDataStore: PreferencesDataStore
-    @Inject lateinit var profileRepository: ProfileRepository
+    @Inject lateinit var startupMigrations: StartupMigrations
 
-    private val startupScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    @Inject lateinit var historyRepository: HistoryRepository
+
+    @Inject @ApplicationScope
+    lateinit var applicationScope: CoroutineScope
 
     override fun onCreate() {
         super.onCreate()
-        startupScope.launch {
-            preferencesDataStore.runStartupMigrations()
-            profileRepository.ensureDefaults()
+        applicationScope.launch {
+            startupMigrations.await()
+            // Also clears audio left behind by a crash between retaining it and saving its row.
+            try {
+                historyRepository.prune()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e(TAG, "History pruning failed", e)
+            }
         }
+    }
+
+    private companion object {
+        const val TAG = "SasayakiApp"
     }
 }

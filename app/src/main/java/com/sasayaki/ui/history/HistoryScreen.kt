@@ -1,140 +1,228 @@
 package com.sasayaki.ui.history
 
-import android.content.ClipData
-import android.content.ClipboardManager
-import android.content.Context
-import android.widget.Toast
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
-import com.sasayaki.ui.theme.SasayakiIcons
+import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.ListItemShapes
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sasayaki.data.db.entity.DictationSummary
-import com.sasayaki.ui.common.EmptyStateCard
-import com.sasayaki.ui.common.SasayakiScaffold
-import com.sasayaki.ui.common.SasayakiTopBar
-import com.sasayaki.ui.common.StatusPill
-import kotlinx.coroutines.launch
+import com.sasayaki.domain.model.DictationStatus
+import com.sasayaki.ui.common.copyText
+import com.sasayaki.ui.common.displaySourceApp
+import com.sasayaki.ui.components.EmptyState
+import com.sasayaki.ui.components.LargeTitleBar
+import com.sasayaki.ui.components.Pill
+import com.sasayaki.ui.components.SasayakiScaffold
+import com.sasayaki.ui.theme.SasayakiIcons
+import com.sasayaki.ui.theme.Spacing
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import java.util.Locale
+import java.time.format.FormatStyle
+import kotlinx.coroutines.launch
+
+@Composable
+fun HistoryRoute(viewModel: HistoryViewModel = hiltViewModel()) {
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+
+    HistoryScreen(
+        state = state,
+        snackbarHostState = snackbarHostState,
+        onQueryChange = viewModel::onQueryChange,
+        onCopy = { dictation ->
+            if (context.copyText(dictation.text)) {
+                scope.launch { snackbarHostState.showSnackbar("Copied") }
+            }
+        },
+        onRetry = viewModel::retry,
+        onDelete = { id ->
+            viewModel.requestDelete(id)
+            scope.launch {
+                snackbarHostState.currentSnackbarData?.dismiss()
+                var undone = false
+                try {
+                    undone = snackbarHostState.showSnackbar(
+                        message = "Dictation deleted",
+                        actionLabel = "Undo",
+                        duration = SnackbarDuration.Short
+                    ) == SnackbarResult.ActionPerformed
+                } finally {
+                    // Leaving the tab cancels the snackbar; that counts as not undoing.
+                    if (undone) viewModel.undoDelete(id) else viewModel.commitDelete(id)
+                }
+            }
+        },
+        onClearAll = viewModel::clearAll,
+        onEnableHistory = viewModel::enableHistory,
+        loadRawText = viewModel::rawText
+    )
+}
 
 @Composable
 fun HistoryScreen(
-    onBack: () -> Unit,
-    viewModel: HistoryViewModel = hiltViewModel()
+    state: HistoryUiState,
+    snackbarHostState: SnackbarHostState,
+    onQueryChange: (String) -> Unit,
+    onCopy: (DictationSummary) -> Unit,
+    onRetry: (Long) -> Unit,
+    onDelete: (Long) -> Unit,
+    onClearAll: () -> Unit,
+    onEnableHistory: () -> Unit,
+    loadRawText: suspend (Long) -> String?
 ) {
-    val dayGroups by viewModel.dayGroups.collectAsStateWithLifecycle()
-    val context = LocalContext.current
-    var showClearHistoryDialog by remember { mutableStateOf(false) }
+    var confirmClear by rememberSaveable { mutableStateOf(false) }
 
     SasayakiScaffold(
-        topBar = {
-            SasayakiTopBar(
+        snackbarHostState = snackbarHostState,
+        topBar = { scrollBehavior ->
+            LargeTitleBar(
                 title = "History",
-                subtitle = "Review, copy, or clear previous dictations stored on this device.",
-                onBack = onBack,
+                scrollBehavior = scrollBehavior,
                 actions = {
-                    if (dayGroups.isNotEmpty()) {
-                        IconButton(onClick = { showClearHistoryDialog = true }) {
-                            Icon(
-                                imageVector = SasayakiIcons.DeleteSweep,
-                                contentDescription = "Clear history",
-                                tint = MaterialTheme.colorScheme.error
-                            )
+                    if (state.hasHistory) {
+                        IconButton(onClick = { confirmClear = true }) {
+                            Icon(SasayakiIcons.DeleteSweep, contentDescription = "Clear history")
                         }
                     }
                 }
             )
         }
     ) { padding ->
-        if (dayGroups.isEmpty()) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(historyContentPadding(padding)),
-                verticalArrangement = Arrangement.Center
-            ) {
-                EmptyStateCard(
-                    icon = SasayakiIcons.Description,
-                    title = "No dictations yet",
-                    description = "When history is enabled, your recent transcripts will appear here for quick reuse."
-                )
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(
+                start = Spacing.screenHorizontal,
+                end = Spacing.screenHorizontal,
+                top = padding.calculateTopPadding(),
+                bottom = padding.calculateBottomPadding() + Spacing.xl
+            ),
+            verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap)
+        ) {
+            if (state.loaded && !state.historyEnabled) {
+                item(key = "off") { HistoryOffBanner(onEnableHistory) }
             }
-        } else {
-            LazyColumn(
-                contentPadding = historyContentPadding(padding),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                dayGroups.forEach { group ->
-                    item(key = "header_${group.key}", contentType = "header") {
-                        DayHeader(group = group)
-                    }
+            if (state.hasHistory) {
+                item(key = "search") { SearchField(state.query, onQueryChange) }
+            }
+            when {
+                !state.loaded -> Unit
 
-                    items(group.dictations, key = { it.id }, contentType = { "card" }) { dictation ->
-                        HistoryCard(
-                            dictation = dictation,
-                            onCopy = { copyToClipboard(context, dictation.text) },
-                            onDelete = { viewModel.removeFromHistory(dictation.id) },
-                            onLoadRawText = { viewModel.getRawText(dictation.id) }
-                        )
-                    }
+                !state.hasHistory -> item(key = "empty") {
+                    EmptyState(
+                        icon = SasayakiIcons.History,
+                        title = "No dictations yet",
+                        body = if (state.historyEnabled) {
+                            "Everything you dictate lands here, ready to copy or retry."
+                        } else {
+                            "Turn history on to keep your dictations on this device."
+                        }
+                    )
                 }
+
+                state.groups.isEmpty() -> item(key = "no-match") {
+                    EmptyState(
+                        icon = SasayakiIcons.Search,
+                        title = "No matches",
+                        body = "Nothing you dictated contains “${state.query.trim()}”."
+                    )
+                }
+
+                else -> dayGroups(state, onCopy, onRetry, onDelete, loadRawText)
             }
         }
     }
 
-    if (showClearHistoryDialog) {
+    if (confirmClear) {
         AlertDialog(
-            onDismissRequest = { showClearHistoryDialog = false },
-            title = { Text("Clear saved history?") },
-            text = { Text("This removes saved dictation text from the history screen but keeps your usage stats.") },
+            onDismissRequest = { confirmClear = false },
+            icon = { Icon(SasayakiIcons.DeleteSweep, contentDescription = null) },
+            title = { Text("Clear all history?") },
+            text = { Text("Saved text and retry audio are erased from this device. Your word counts are kept.") },
             confirmButton = {
                 TextButton(
                     onClick = {
-                        viewModel.removeAllFromHistory()
-                        showClearHistoryDialog = false
-                    }
-                ) {
-                    Text("Clear")
-                }
+                        onClearAll()
+                        confirmClear = false
+                    },
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                ) { Text("Clear") }
             },
-            dismissButton = {
-                TextButton(onClick = { showClearHistoryDialog = false }) {
-                    Text("Cancel")
-                }
-            }
+            dismissButton = { TextButton(onClick = { confirmClear = false }) { Text("Cancel") } }
         )
+    }
+}
+
+private fun LazyListScope.dayGroups(
+    state: HistoryUiState,
+    onCopy: (DictationSummary) -> Unit,
+    onRetry: (Long) -> Unit,
+    onDelete: (Long) -> Unit,
+    loadRawText: suspend (Long) -> String?
+) {
+    state.groups.forEach { group ->
+        stickyHeader(key = "day-${group.key}", contentType = "day") {
+            DayHeader(group)
+        }
+        itemsIndexed(group.dictations, key = { _, it -> it.id }, contentType = { _, _ -> "dictation" }) { index, dictation ->
+            HistoryItem(
+                dictation = dictation,
+                shapes = ListItemDefaults.segmentedShapes(index, group.dictations.size),
+                retrying = dictation.id in state.retryingIds,
+                onCopy = { onCopy(dictation) },
+                onRetry = { onRetry(dictation.id) },
+                onDelete = { onDelete(dictation.id) },
+                loadRawText = { loadRawText(dictation.id) },
+                modifier = Modifier.animateItem()
+            )
+        }
     }
 }
 
@@ -143,170 +231,198 @@ private fun DayHeader(group: DayGroup) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 8.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+            .background(MaterialTheme.colorScheme.surfaceContainer)
+            .padding(start = Spacing.l, end = Spacing.xs, top = Spacing.l, bottom = Spacing.s),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
     ) {
+        Text(group.label, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
         Text(
-            text = group.date,
-            style = MaterialTheme.typography.titleLarge
-        )
-        StatusPill(
-            label = "${group.totalWords} words",
-            containerColor = MaterialTheme.colorScheme.secondaryContainer,
-            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+            "${group.totalWords} words",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }
 
 @Composable
-private fun HistoryCard(
-    dictation: DictationSummary,
-    onCopy: () -> Unit,
-    onDelete: () -> Unit,
-    onLoadRawText: suspend () -> String?
-) {
-    var expanded by remember { mutableStateOf(false) }
-    var rawText by remember { mutableStateOf<String?>(null) }
-    val scope = rememberCoroutineScope()
-
-    Column(
+private fun SearchField(query: String, onQueryChange: (String) -> Unit) {
+    TextField(
+        value = query,
+        onValueChange = onQueryChange,
         modifier = Modifier
             .fillMaxWidth()
-            .clip(MaterialTheme.shapes.medium)
-            .background(MaterialTheme.colorScheme.surface)
-            .clickable {
-                expanded = !expanded
-                if (expanded && rawText == null) {
-                    scope.launch { rawText = onLoadRawText() }
+            .padding(bottom = Spacing.xs),
+        placeholder = { Text("Search dictations") },
+        leadingIcon = { Icon(SasayakiIcons.Search, contentDescription = null) },
+        trailingIcon = {
+            if (query.isNotEmpty()) {
+                IconButton(onClick = { onQueryChange("") }) {
+                    Icon(SasayakiIcons.Close, contentDescription = "Clear search")
                 }
             }
-            .padding(18.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+        },
+        singleLine = true,
+        shape = CircleShape,
+        colors = TextFieldDefaults.colors(
+            focusedContainerColor = MaterialTheme.colorScheme.surfaceBright,
+            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceBright,
+            focusedIndicatorColor = Color.Transparent,
+            unfocusedIndicatorColor = Color.Transparent
+        )
+    )
+}
+
+@Composable
+private fun HistoryOffBanner(onEnable: () -> Unit) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = Spacing.m),
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.tertiaryContainer,
+        contentColor = MaterialTheme.colorScheme.onTertiaryContainer
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.Top
+            modifier = Modifier.padding(start = Spacing.l, end = Spacing.s, top = Spacing.s, bottom = Spacing.s),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(Spacing.m)
         ) {
-            Column(
+            Icon(SasayakiIcons.Lock, contentDescription = null)
+            Text(
+                "History is off. New dictations are not saved.",
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Text(
-                    text = if (expanded) dictation.text else dictation.text.take(200),
-                    style = MaterialTheme.typography.bodyLarge,
-                    maxLines = if (expanded) Int.MAX_VALUE else 2,
-                    overflow = TextOverflow.Ellipsis
-                )
+                style = MaterialTheme.typography.bodyMedium
+            )
+            TextButton(onClick = onEnable) { Text("Turn on") }
+        }
+    }
+}
 
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
+private val timeFormatter = DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT)
+private const val COLLAPSED_LINES = 4
+
+@Composable
+private fun HistoryItem(
+    dictation: DictationSummary,
+    shapes: ListItemShapes,
+    retrying: Boolean,
+    onCopy: () -> Unit,
+    onRetry: () -> Unit,
+    onDelete: () -> Unit,
+    loadRawText: suspend () -> String?,
+    modifier: Modifier = Modifier
+) {
+    var expanded by rememberSaveable(dictation.id) { mutableStateOf(false) }
+    var rawText by remember(dictation.id) { mutableStateOf<String?>(null) }
+    LaunchedEffect(expanded) {
+        if (expanded && rawText == null) rawText = loadRawText()
+    }
+
+    val failed = dictation.status == DictationStatus.FAILURE.name
+    val time = remember(dictation.timestamp) {
+        timeFormatter.format(Instant.ofEpochMilli(dictation.timestamp).atZone(ZoneId.systemDefault()))
+    }
+    val meta = listOfNotNull(
+        time,
+        displaySourceApp(dictation.sourceApp, dictation.sourceAppPackage),
+        if (failed) null else "${dictation.wordCount} words"
+    ).joinToString(" · ")
+    val original = rawText?.takeIf { !failed && it.isNotBlank() && it != dictation.text }
+
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = shapes.shape,
+        color = MaterialTheme.colorScheme.surfaceBright
+    ) {
+        Column(
+            modifier = Modifier
+                .clickable(onClickLabel = if (expanded) "Show less" else "Show more") { expanded = !expanded }
+                .animateContentSize(MaterialTheme.motionScheme.defaultSpatialSpec())
+                .padding(start = Spacing.l, top = Spacing.m, end = Spacing.xs, bottom = Spacing.xs)
+        ) {
+            Text(
+                text = if (failed) dictation.errorMessage ?: "Transcription failed" else dictation.text,
+                style = MaterialTheme.typography.bodyLarge,
+                color = if (failed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+                maxLines = if (expanded) Int.MAX_VALUE else COLLAPSED_LINES,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(end = Spacing.m)
+            )
+            if (expanded && original != null) {
+                Column(
+                    modifier = Modifier
+                        .padding(top = Spacing.m, end = Spacing.m)
+                        .fillMaxWidth()
+                        .clip(MaterialTheme.shapes.medium)
+                        .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                        .padding(Spacing.m),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.xs)
                 ) {
-                    StatusPill(label = formatTime(dictation.timestamp))
-                    StatusPill(label = "${dictation.wordCount} words")
-                    displaySourceApp(dictation.sourceApp, dictation.sourceAppPackage)?.let { sourceApp ->
-                        StatusPill(
-                            label = sourceApp,
-                            containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                            contentColor = MaterialTheme.colorScheme.onTertiaryContainer
-                        )
-                    }
+                    Text("What you said", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                    Text(original, style = MaterialTheme.typography.bodyMedium)
                 }
             }
-
-            Column(horizontalAlignment = Alignment.End) {
-                IconButton(onClick = onCopy) {
-                    Icon(
-                        imageVector = SasayakiIcons.ContentCopy,
-                        contentDescription = "Copy dictation"
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (failed) {
+                    Pill(
+                        text = "Failed",
+                        containerColor = MaterialTheme.colorScheme.errorContainer,
+                        contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                        modifier = Modifier.padding(end = Spacing.s)
                     )
                 }
-                IconButton(onClick = onDelete) {
-                    Icon(
-                        imageVector = Icons.Default.Delete,
-                        contentDescription = "Delete dictation",
-                        tint = MaterialTheme.colorScheme.error
-                    )
-                }
-            }
-        }
-
-        val loadedRawText = rawText
-        if (expanded && loadedRawText != null && loadedRawText != dictation.text) {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
-                    text = "Raw transcript",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    text = meta,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
                 )
-                Text(
-                    text = loadedRawText,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                HistoryActions(
+                    canCopy = !failed && dictation.text.isNotBlank(),
+                    canRetry = !dictation.audioPath.isNullOrBlank(),
+                    retrying = retrying,
+                    emphasizeRetry = failed,
+                    onCopy = onCopy,
+                    onRetry = onRetry,
+                    onDelete = onDelete
                 )
             }
         }
     }
 }
 
-private fun copyToClipboard(context: Context, text: String) {
-    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-    clipboard.setPrimaryClip(ClipData.newPlainText("dictation", text))
-    Toast.makeText(context, "Copied to clipboard", Toast.LENGTH_SHORT).show()
-}
-
-private val timeFormat = DateTimeFormatter.ofPattern("HH:mm", Locale.getDefault())
-private val defaultZoneId = ZoneId.systemDefault()
-
-private fun formatTime(timestamp: Long): String {
-    return timeFormat.format(Instant.ofEpochMilli(timestamp).atZone(defaultZoneId))
-}
-
-private fun displaySourceApp(sourceApp: String?, sourceAppPackage: String?): String? {
-    val label = sourceApp?.trim()
-        ?.takeIf { it.isNotBlank() && !it.equals("App", ignoreCase = true) }
-    if (label != null && !label.contains('.')) return label.take(20)
-
-    val packageName = sourceAppPackage?.trim()?.takeIf { it.isNotBlank() }
-        ?: label?.takeIf { it.contains('.') }
-        ?: return label?.take(20)
-
-    return when {
-        packageName.contains("whatsapp", ignoreCase = true) -> "WhatsApp"
-        packageName.contains("signal", ignoreCase = true) -> "Signal"
-        packageName.contains("molly", ignoreCase = true) -> "Molly"
-        packageName.contains("element", ignoreCase = true) -> "Element"
-        packageName.contains("telegram", ignoreCase = true) -> "Telegram"
-        packageName.contains("gmail", ignoreCase = true) -> "Gmail"
-        packageName.contains("outlook", ignoreCase = true) -> "Outlook"
-        packageName.contains("discord", ignoreCase = true) -> "Discord"
-        packageName.contains("slack", ignoreCase = true) -> "Slack"
-        else -> appLabelFromPackage(packageName).take(20)
-    }
-}
-
-private fun appLabelFromPackage(packageName: String): String {
-    val ignoredSegments = setOf("android", "app", "apps", "client", "com", "debug", "im", "io", "mobile", "net", "org", "release", "x")
-    val segment = packageName.split('.')
-        .firstOrNull { part ->
-            val normalized = part.lowercase()
-            normalized.length > 1 && normalized !in ignoredSegments
+@Composable
+private fun HistoryActions(
+    canCopy: Boolean,
+    canRetry: Boolean,
+    retrying: Boolean,
+    emphasizeRetry: Boolean,
+    onCopy: () -> Unit,
+    onRetry: () -> Unit,
+    onDelete: () -> Unit
+) {
+    if (canCopy) {
+        IconButton(onClick = onCopy) {
+            Icon(SasayakiIcons.ContentCopy, contentDescription = "Copy", modifier = Modifier.size(20.dp))
         }
-        ?: packageName.substringAfterLast('.')
-    return segment
-        .replace('_', ' ')
-        .replace('-', ' ')
-        .trim()
-        .replaceFirstChar { it.uppercase() }
-}
+    }
+    when {
+        retrying -> Box(modifier = Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+            LoadingIndicator(modifier = Modifier.size(28.dp))
+        }
 
-private fun historyContentPadding(padding: PaddingValues): PaddingValues {
-    return PaddingValues(
-        start = 20.dp,
-        end = 20.dp,
-        top = padding.calculateTopPadding() + 12.dp,
-        bottom = padding.calculateBottomPadding() + 24.dp
-    )
+        canRetry && emphasizeRetry -> FilledTonalIconButton(onClick = onRetry) {
+            Icon(SasayakiIcons.Refresh, contentDescription = "Retry", modifier = Modifier.size(20.dp))
+        }
+
+        canRetry -> IconButton(onClick = onRetry) {
+            Icon(SasayakiIcons.Refresh, contentDescription = "Retry", modifier = Modifier.size(20.dp))
+        }
+    }
+    IconButton(onClick = onDelete) {
+        Icon(SasayakiIcons.Delete, contentDescription = "Delete", modifier = Modifier.size(20.dp))
+    }
 }

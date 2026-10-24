@@ -2,50 +2,52 @@ package com.sasayaki.domain.transcription
 
 import com.sasayaki.data.api.ApiClientFactory
 import com.sasayaki.data.api.AsrApiService
-import com.sasayaki.data.preferences.PreferencesDataStore
-import kotlinx.coroutines.flow.first
+import com.sasayaki.domain.provider.Endpoint
+import java.io.File
+import java.io.IOException
+import javax.inject.Inject
+import javax.inject.Singleton
+import kotlinx.coroutines.CancellationException
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
-import java.io.File
-import javax.inject.Inject
-import javax.inject.Singleton
+import retrofit2.HttpException
 
 @Singleton
-class WhisperEngine @Inject constructor(
-    private val apiClientFactory: ApiClientFactory,
-    private val preferencesDataStore: PreferencesDataStore,
-    private val networkMonitor: NetworkMonitor
-) : TranscriptionEngine {
+class WhisperEngine @Inject constructor(private val apiClientFactory: ApiClientFactory, private val networkMonitor: NetworkMonitor) :
+    TranscriptionEngine {
 
-    override suspend fun transcribe(audioFile: File, model: String, language: String?): Result<String> {
-        return try {
-            val prefs = preferencesDataStore.preferences.first()
-            val service = apiClientFactory.create(
-                AsrApiService::class.java,
-                prefs.asrBaseUrl,
-                prefs.asrApiKey
-            )
+    override suspend fun transcribe(audioFile: File, endpoint: Endpoint, language: String?, prompt: String?): Result<String> = try {
+        val service = apiClientFactory.create(AsrApiService::class.java, endpoint.baseUrl, endpoint.apiKey)
 
-            val filePart = MultipartBody.Part.createFormData(
-                "file",
-                audioFile.name,
-                audioFile.asRequestBody("audio/wav".toMediaType())
-            )
-            val modelPart = model.toRequestBody("text/plain".toMediaType())
-            val languagePart = language?.let {
-                it.toRequestBody("text/plain".toMediaType())
-            }
+        val filePart = MultipartBody.Part.createFormData(
+            "file",
+            audioFile.name,
+            audioFile.asRequestBody("audio/wav".toMediaType())
+        )
+        val modelPart = endpoint.model.toRequestBody("text/plain".toMediaType())
+        val languagePart = language?.toRequestBody("text/plain".toMediaType())
+        val promptPart = prompt?.toRequestBody("text/plain".toMediaType())
 
-            val response = service.transcribe(filePart, modelPart, language = languagePart)
-            Result.success(response.text)
-        } catch (e: Exception) {
-            Result.failure(e)
+        val response = try {
+            service.transcribe(filePart, modelPart, prompt = promptPart, language = languagePart)
+        } catch (e: HttpException) {
+            // A server that refuses the glossary should still transcribe without it.
+            if (promptPart == null || e.code() !in REFUSED_PROMPT_CODES) throw e
+            service.transcribe(filePart, modelPart, language = languagePart)
         }
+        val text = response.text ?: throw IOException("The speech server answered without a transcript.")
+        Result.success(text)
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        Result.failure(e)
     }
 
-    override fun isAvailable(): Boolean {
-        return networkMonitor.isOnline.value
+    private companion object {
+        val REFUSED_PROMPT_CODES = setOf(400, 422)
     }
+
+    override fun isAvailable(): Boolean = networkMonitor.isOnline.value
 }

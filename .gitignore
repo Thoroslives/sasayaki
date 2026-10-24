@@ -25,9 +25,18 @@ sasayaki-*.apk
 output/
 .*-cache
 
-# Credentials for the post-processing benchmark
+# The release key never enters the repository; signing/lineage is public and committed.
+/signing/*.jks
+/signing/*.keystore
+
+# Credentials for the post-processing benchmark and local shells
 .env
+.envrc
 .env.*
 !.env.example
 *.md
 !README.md
+!docs/*.md
+
+# Local leftovers from the retired fine-tuning recipe
+/fine-tuning/

@@ -2,8 +2,8 @@ import java.util.Calendar
 
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
     alias(libs.plugins.room)
@@ -11,12 +11,12 @@ plugins {
 
 android {
     namespace = "com.sasayaki"
-    compileSdk = 35
-    buildToolsVersion = "35.0.0"
+    compileSdk = 37
+    buildToolsVersion = "37.0.0"
 
     defaultConfig {
         applicationId = "com.sasayaki"
-        minSdk = 26
+        minSdk = 28
         targetSdk = 35
 
         val tag = findProperty("versionTag")?.toString()?.removePrefix("v") ?: ""
@@ -48,8 +48,9 @@ android {
         debug {
             signingConfig = signingConfigs.getByName("debug")
         }
+        // Release APKs are left unsigned here and signed by scripts/sign-release.sh, because
+        // the key rotation proof (signing/lineage) is something AGP cannot apply.
         release {
-            signingConfig = signingConfigs.getByName("debug")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
@@ -64,17 +65,16 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = "17"
-    }
-
     buildFeatures {
         compose = true
         buildConfig = true
     }
 
     lint {
-        checkReleaseBuilds = false
+        abortOnError = true
+        // Version-bump hints change with every upstream release, so they would make the
+        // pre-push gate fail on code that has not changed.
+        disable += setOf("NewerVersionAvailable", "GradleDependency", "AndroidGradlePluginVersion")
     }
 
     composeCompiler {
@@ -84,13 +84,29 @@ android {
     room {
         schemaDirectory("$projectDir/schemas")
     }
+
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
+    }
+
+    // Robolectric only sees the app's merged assets, so the exported Room schemas ride
+    // along in debug builds for the migration tests; release builds never include them.
+    sourceSets.getByName("debug").assets.directories.add("$projectDir/schemas")
 }
 
-/**
- * The benchmark reads its endpoint, key and model list from the environment and skips
- * itself when they are absent, so ordinary builds never touch the network. Values are
- * forwarded through providers so the configuration cache stays valid.
- */
+kotlin {
+    compilerOptions {
+        // Expressive components are adopted deliberately while material3 1.5 is in beta.
+        optIn.addAll(
+            "androidx.compose.material3.ExperimentalMaterial3Api",
+            "androidx.compose.material3.ExperimentalMaterial3ExpressiveApi"
+        )
+    }
+}
+
+// The benchmark reads its endpoint, key and model list from the environment and skips
+// itself when they are absent, so ordinary builds never touch the network. Values are
+// forwarded through providers so the configuration cache stays valid.
 tasks.withType<Test>().configureEach {
     testLogging {
         showStandardStreams = true
@@ -108,10 +124,20 @@ tasks.withType<Test>().configureEach {
     if (providers.environmentVariable("OPENAI_ENDPOINT").isPresent) {
         outputs.upToDateWhen { false }
     }
+
+    // Screenshot tests render through Robolectric and take far longer than the rest of
+    // the suite, so they only run when asked for (make screenshots).
+    if (providers.gradleProperty("screenshots").isPresent) {
+        filter.includeTestsMatching("*ScreenshotTest")
+        outputs.upToDateWhen { false }
+    } else {
+        exclude("**/*ScreenshotTest*")
+    }
 }
 
 dependencies {
     implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.core.splashscreen)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
@@ -129,7 +155,7 @@ dependencies {
     // Hilt
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
-    implementation(libs.hilt.navigation.compose)
+    implementation(libs.hilt.lifecycle.viewmodel.compose)
 
     // Room
     implementation(libs.room.runtime)
@@ -153,4 +179,10 @@ dependencies {
     // Test
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.room.testing)
+    testImplementation(libs.androidx.test.junit)
+    testImplementation(platform(libs.compose.bom))
+    testImplementation(libs.compose.ui.test.junit4)
+    debugImplementation(libs.compose.ui.test.manifest)
 }

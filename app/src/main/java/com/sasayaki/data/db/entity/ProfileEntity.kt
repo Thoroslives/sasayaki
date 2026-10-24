@@ -13,10 +13,10 @@ data class ProfileEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val name: String,
     val isActive: Boolean = false,
-    val asrModel: String = "whisper-1",
+    val asrModel: String = "",
     val language: String? = null,
     val llmEnabled: Boolean = false,
-    val llmModel: String = "gpt-4o-mini",
+    val llmModel: String = "",
     val profilePrompt: String = "",
     val outputStyle: String = OutputStyle.STANDARD.name,
     val rewriteMode: String = RewriteMode.FIX.name,
@@ -25,15 +25,19 @@ data class ProfileEntity(
     val selectedRuleIds: String = "",
     val selectedPromptIds: String = "",
     val createdAt: Long = System.currentTimeMillis(),
-    val updatedAt: Long = System.currentTimeMillis()
+    val updatedAt: Long = System.currentTimeMillis(),
+    val speechProviderId: Long? = null,
+    val cleanupProviderId: Long? = null
 ) {
     fun toDomain(): Profile = Profile(
         id = id,
         name = name,
         isActive = isActive,
+        speechProviderId = speechProviderId,
         asrModel = asrModel,
         language = language,
         llmEnabled = llmEnabled,
+        cleanupProviderId = cleanupProviderId,
         llmModel = llmModel,
         profilePrompt = profilePrompt,
         outputStyle = enumValueOrDefault(outputStyle, OutputStyle.STANDARD),
@@ -49,10 +53,12 @@ fun Profile.toEntity(now: Long = System.currentTimeMillis()): ProfileEntity = Pr
     id = id,
     name = name.trim().ifBlank { "Untitled profile" },
     isActive = isActive,
-    asrModel = asrModel.trim().ifBlank { "whisper-1" },
+    speechProviderId = speechProviderId,
+    asrModel = asrModel.trim(),
     language = language?.trim()?.lowercase()?.ifBlank { null },
     llmEnabled = llmEnabled,
-    llmModel = llmModel.trim().ifBlank { "gpt-4o-mini" },
+    cleanupProviderId = cleanupProviderId,
+    llmModel = llmModel.trim(),
     profilePrompt = profilePrompt.trim(),
     outputStyle = outputStyle.name,
     rewriteMode = rewriteMode.name,
@@ -63,9 +69,9 @@ fun Profile.toEntity(now: Long = System.currentTimeMillis()): ProfileEntity = Pr
     updatedAt = now
 )
 
-private inline fun <reified T : Enum<T>> enumValueOrDefault(value: String, default: T): T {
-    return enumValues<T>().firstOrNull { it.name == value } ?: default
-}
+private inline fun <reified T : Enum<T>> enumValueOrDefault(value: String, default: T): T = enumValues<T>().firstOrNull {
+    it.name == value
+} ?: default
 
 fun String.toIdSet(): Set<Long> = split(",")
     .mapNotNull { it.trim().toLongOrNull() }

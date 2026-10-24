@@ -2,22 +2,25 @@ package com.sasayaki.data.repository
 
 import com.sasayaki.data.db.dao.PostProcessingPromptDao
 import com.sasayaki.data.db.dao.ProfileDao
+import com.sasayaki.data.db.dao.ProviderDao
 import com.sasayaki.data.db.entity.PostProcessingPromptEntity
 import com.sasayaki.data.db.entity.ProfileEntity
 import com.sasayaki.data.db.entity.toEntity
 import com.sasayaki.data.preferences.PreferencesDataStore
+import com.sasayaki.data.preferences.rememberedProfileFor
 import com.sasayaki.domain.model.Profile
 import com.sasayaki.domain.processing.BuiltInPrompt
 import com.sasayaki.domain.processing.BuiltInPrompts
+import javax.inject.Inject
+import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
-import javax.inject.Inject
-import javax.inject.Singleton
 
 @Singleton
 class ProfileRepository @Inject constructor(
     private val profileDao: ProfileDao,
+    private val providerDao: ProviderDao,
     private val promptDao: PostProcessingPromptDao,
     private val preferencesDataStore: PreferencesDataStore
 ) {
@@ -35,10 +38,7 @@ class ProfileRepository @Inject constructor(
                 ProfileEntity(
                     name = "Default",
                     isActive = true,
-                    asrModel = prefs.asrModel,
-                    language = prefs.activeLanguage,
-                    llmEnabled = prefs.llmEnabled,
-                    llmModel = prefs.llmModel
+                    language = prefs.activeLanguage
                 )
             )
         } else if (profileDao.activeCount() == 0) {
@@ -55,29 +55,54 @@ class ProfileRepository @Inject constructor(
     suspend fun getProfile(id: Long): Profile? = profileDao.getProfile(id)?.toDomain()
 
     suspend fun save(profile: Profile): Long {
-        val cleanProfile = profile.copy(name = profile.name.trim().ifBlank { "Untitled profile" })
+        val cleanProfile = withExistingProviders(profile.copy(name = profile.name.trim().ifBlank { "Untitled profile" }))
         return if (cleanProfile.id == 0L) {
             profileDao.insert(cleanProfile.toEntity())
         } else {
+            // Activation is owned by activate(); a stale draft must not flip it back.
             val existing = profileDao.getProfile(cleanProfile.id)
-            profileDao.update(cleanProfile.toEntity().copy(createdAt = existing?.createdAt ?: System.currentTimeMillis()))
+            profileDao.update(
+                cleanProfile.toEntity().copy(
+                    createdAt = existing?.createdAt ?: System.currentTimeMillis(),
+                    isActive = existing?.isActive ?: cleanProfile.isActive
+                )
+            )
             cleanProfile.id
         }
+    }
+
+    /** withExistingProviders drops references to deleted providers, with their model overrides. */
+    private suspend fun withExistingProviders(profile: Profile): Profile {
+        suspend fun gone(id: Long?) = id != null && providerDao.getById(id) == null
+        var result = profile
+        if (gone(profile.speechProviderId)) result = result.copy(speechProviderId = null, asrModel = "")
+        if (gone(profile.cleanupProviderId)) result = result.copy(cleanupProviderId = null, llmModel = "")
+        return result
     }
 
     suspend fun activate(id: Long) {
         profileDao.activate(id)
     }
 
-    suspend fun duplicate(profile: Profile) {
-        profileDao.insert(
-            profile.copy(
-                id = 0,
-                name = "${profile.name} copy",
-                isActive = false
-            ).toEntity()
-        )
+    suspend fun switchToRememberedProfile(packageName: String?) {
+        val id = preferencesDataStore.preferences.first().rememberedProfileFor(packageName) ?: return
+        val profile = profileDao.getProfile(id) ?: return
+        if (!profile.isActive) activate(id)
     }
+
+    suspend fun rememberProfileForApp(packageName: String?, profileId: Long) {
+        if (packageName == null || profileId <= 0) return
+        if (!preferencesDataStore.preferences.first().rememberProfilePerApp) return
+        preferencesDataStore.rememberAppProfile(packageName, profileId)
+    }
+
+    suspend fun duplicate(profile: Profile): Long = profileDao.insert(
+        profile.copy(
+            id = 0,
+            name = "${profile.name} copy",
+            isActive = false
+        ).toEntity()
+    )
 
     suspend fun delete(id: Long) {
         val wasActive = profileDao.getProfile(id)?.isActive == true

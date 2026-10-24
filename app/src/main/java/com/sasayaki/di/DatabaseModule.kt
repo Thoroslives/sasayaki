@@ -1,14 +1,15 @@
 package com.sasayaki.di
 
 import android.content.Context
-import androidx.room.migration.Migration
 import androidx.room.Room
+import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.sasayaki.data.db.SasayakiDatabase
 import com.sasayaki.data.db.dao.DictationDao
 import com.sasayaki.data.db.dao.LifetimeStatsDao
 import com.sasayaki.data.db.dao.PostProcessingPromptDao
 import com.sasayaki.data.db.dao.ProfileDao
+import com.sasayaki.data.db.dao.ProviderDao
 import com.sasayaki.data.db.dao.TextReplacementRuleDao
 import dagger.Module
 import dagger.Provides
@@ -138,24 +139,42 @@ object DatabaseModule {
         }
     }
 
+    /**
+     * migration7To8 adds the providers table. Existing endpoints are copied into it at
+     * startup rather than here, because their API keys live in encrypted preferences
+     * that SQL cannot reach.
+     */
+    private val migration7To8 = object : Migration(7, 8) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS `providers` (
+                    `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    `name` TEXT NOT NULL,
+                    `baseUrl` TEXT NOT NULL,
+                    `speechModel` TEXT,
+                    `cleanupModel` TEXT,
+                    `createdAt` INTEGER NOT NULL
+                )
+                """.trimIndent()
+            )
+            db.execSQL("ALTER TABLE `profiles` ADD COLUMN `speechProviderId` INTEGER")
+            db.execSQL("ALTER TABLE `profiles` ADD COLUMN `cleanupProviderId` INTEGER")
+        }
+    }
+
+    val migrations: Array<Migration>
+        get() = arrayOf(migration1To2, migration2To3, migration3To4, migration4To5, migration5To6, migration6To7, migration7To8)
+
     @Provides
     @Singleton
-    fun provideDatabase(@ApplicationContext context: Context): SasayakiDatabase {
-        return Room.databaseBuilder(
-            context,
-            SasayakiDatabase::class.java,
-            "sasayaki.db"
-        ).addMigrations(
-            migration1To2,
-            migration2To3,
-            migration3To4,
-            migration4To5,
-            migration5To6,
-            migration6To7
-        )
-            .fallbackToDestructiveMigrationOnDowngrade(dropAllTables = true)
-            .build()
-    }
+    fun provideDatabase(@ApplicationContext context: Context): SasayakiDatabase = Room.databaseBuilder(
+        context,
+        SasayakiDatabase::class.java,
+        "sasayaki.db"
+    ).addMigrations(*migrations)
+        .fallbackToDestructiveMigrationOnDowngrade(dropAllTables = true)
+        .build()
 
     @Provides
     fun provideDictationDao(db: SasayakiDatabase): DictationDao = db.dictationDao()
@@ -171,4 +190,7 @@ object DatabaseModule {
 
     @Provides
     fun provideLifetimeStatsDao(db: SasayakiDatabase): LifetimeStatsDao = db.lifetimeStatsDao()
+
+    @Provides
+    fun provideProviderDao(db: SasayakiDatabase): ProviderDao = db.providerDao()
 }

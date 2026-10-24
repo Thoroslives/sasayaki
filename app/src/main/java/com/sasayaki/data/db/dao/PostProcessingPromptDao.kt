@@ -28,9 +28,6 @@ interface PostProcessingPromptDao {
     @Query("SELECT * FROM post_processing_prompts WHERE builtIn = 1 ORDER BY createdAt ASC")
     suspend fun getBuiltIns(): List<PostProcessingPromptEntity>
 
-    @Query("SELECT COUNT(*) FROM post_processing_prompts WHERE builtIn = 1")
-    suspend fun builtInCount(): Int
-
     @Query("DELETE FROM post_processing_prompts WHERE id = :id AND builtIn = 0")
     suspend fun deleteCustomById(id: Long)
 

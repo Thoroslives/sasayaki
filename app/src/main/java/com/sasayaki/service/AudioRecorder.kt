@@ -5,15 +5,15 @@ import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaRecorder
 import android.util.Log
+import java.io.File
+import java.io.FileOutputStream
+import kotlin.math.sqrt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
-import java.io.File
-import java.io.FileOutputStream
-import kotlin.math.sqrt
 
 class AudioRecorder {
     companion object {
@@ -23,11 +23,13 @@ class AudioRecorder {
         private const val AUDIO_FORMAT = AudioFormat.ENCODING_PCM_16BIT
     }
 
+    // stopRequested is never reset: an AudioRecorder records once, so a stop() that lands
+    // before record() has opened the microphone still ends the recording.
     @Volatile
-    private var isRecording = false
+    private var stopRequested = false
+
     @Volatile
     private var isPaused = false
-    private var audioRecord: AudioRecord? = null
     private val _audioLevel = MutableStateFlow(0f)
     val audioLevel: StateFlow<Float> = _audioLevel.asStateFlow()
 
@@ -38,6 +40,7 @@ class AudioRecorder {
 
     @SuppressLint("MissingPermission")
     suspend fun record(outputFile: File): Unit = withContext(Dispatchers.IO) {
+        if (stopRequested) return@withContext
         val recorder = AudioRecord(
             MediaRecorder.AudioSource.MIC,
             SAMPLE_RATE,
@@ -52,16 +55,13 @@ class AudioRecorder {
             return@withContext
         }
 
-        audioRecord = recorder
-        isRecording = true
-        isPaused = false
         val buffer = ShortArray(bufferSize / 2)
 
         try {
             recorder.startRecording()
 
             FileOutputStream(outputFile).use { fos ->
-                while (isRecording && isActive) {
+                while (!stopRequested && isActive) {
                     val read = recorder.read(buffer, 0, buffer.size)
                     if (read > 0) {
                         if (isPaused) {
@@ -88,15 +88,18 @@ class AudioRecorder {
                 }
             }
         } finally {
-            try { recorder.stop() } catch (e: Exception) { Log.e(TAG, "Error stopping recorder", e) }
+            try {
+                recorder.stop()
+            } catch (e: Exception) {
+                Log.e(TAG, "Error stopping recorder", e)
+            }
             recorder.release()
-            audioRecord = null
             _audioLevel.value = 0f
         }
     }
 
     fun stop() {
-        isRecording = false
+        stopRequested = true
         isPaused = false
     }
 

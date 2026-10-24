@@ -1,377 +1,593 @@
 package com.sasayaki.ui.home
 
-import android.content.ClipData
-import android.content.ClipboardManager
-import android.content.Context
-import android.content.Intent
-import android.net.Uri
-import android.os.Build
-import android.provider.Settings
-import android.widget.Toast
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearWavyProgressIndicator
+import androidx.compose.material3.ListItemShapes
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedListItem
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.sasayaki.data.db.entity.DictationStats
 import com.sasayaki.data.db.entity.DictationSummary
 import com.sasayaki.domain.model.DictationStatus
-import com.sasayaki.service.BubbleService
-import com.sasayaki.ui.common.EmptyStateCard
-import com.sasayaki.ui.common.PermissionCard
-import com.sasayaki.ui.common.PermissionStatus
-import com.sasayaki.ui.common.SectionCard
-import com.sasayaki.ui.common.StatusPill
-import com.sasayaki.ui.common.rememberAccessibilityPermissionState
-import com.sasayaki.ui.common.rememberMicrophonePermissionState
-import com.sasayaki.ui.common.rememberNotificationPermissionState
-import com.sasayaki.ui.common.rememberOverlayPermissionState
-import com.sasayaki.ui.history.DayGroup
-import com.sasayaki.ui.history.HistoryViewModel
+import com.sasayaki.domain.model.Profile
+import com.sasayaki.ui.common.SetupItem
+import com.sasayaki.ui.common.copyText
+import com.sasayaki.ui.common.displaySourceApp
+import com.sasayaki.ui.common.formatCompactNumber
+import com.sasayaki.ui.common.formatDuration
+import com.sasayaki.ui.common.minutesSaved
+import com.sasayaki.ui.common.rememberPermissionItems
+import com.sasayaki.ui.common.rememberRestrictedSettingsLikely
+import com.sasayaki.ui.common.wordsPerMinute
+import com.sasayaki.ui.components.EmptyState
+import com.sasayaki.ui.components.SectionLabel
+import com.sasayaki.ui.components.SegmentedGroup
+import com.sasayaki.ui.components.SetupGroup
+import com.sasayaki.ui.components.segmentedItemColors
 import com.sasayaki.ui.theme.SasayakiIcons
+import com.sasayaki.ui.theme.SasayakiTheme
+import com.sasayaki.ui.theme.Spacing
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import java.util.Locale
+import java.time.format.FormatStyle
+import kotlinx.coroutines.launch
+
+@Composable
+fun HomeRoute(
+    onOpenHistory: () -> Unit,
+    onOpenProfiles: () -> Unit,
+    onOpenProviders: () -> Unit,
+    viewModel: HomeViewModel = hiltViewModel()
+) {
+    val context = LocalContext.current
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val providerItem = SetupItem(
+        key = "provider",
+        title = "Speech to text",
+        description = "Add the server that turns your voice into text.",
+        icon = SasayakiIcons.Dns,
+        done = state.speechProviderConfigured,
+        required = true,
+        actionLabel = "Add",
+        onAction = onOpenProviders
+    )
+    val steps = listOf(providerItem) + rememberPermissionItems()
+    val restricted = rememberRestrictedSettingsLikely()
+
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+
+    HomeScreen(
+        state = state,
+        setupSteps = steps,
+        restrictedSettingsLikely = restricted,
+        snackbarHostState = snackbarHostState,
+        onStartService = viewModel::startService,
+        onStopService = viewModel::stopService,
+        onSelectProfile = viewModel::activateProfile,
+        onOpenProfiles = onOpenProfiles,
+        onOpenHistory = onOpenHistory,
+        onCopy = { dictation ->
+            if (context.copyText(dictation.text)) {
+                scope.launch { snackbarHostState.showSnackbar("Copied") }
+            }
+        }
+    )
+}
 
 @Composable
 fun HomeScreen(
-    outerPadding: PaddingValues,
-    viewModel: HomeViewModel = hiltViewModel(),
-    historyViewModel: HistoryViewModel = hiltViewModel()
+    state: HomeUiState,
+    setupSteps: List<SetupItem>,
+    restrictedSettingsLikely: Boolean,
+    snackbarHostState: SnackbarHostState,
+    onStartService: () -> Unit,
+    onStopService: () -> Unit,
+    onSelectProfile: (Long) -> Unit,
+    onOpenProfiles: () -> Unit,
+    onOpenHistory: () -> Unit,
+    onCopy: (DictationSummary) -> Unit
 ) {
-    val context = LocalContext.current
-    val todayStats by viewModel.todayStats.collectAsStateWithLifecycle()
-    val totalStats by viewModel.totalStats.collectAsStateWithLifecycle()
-    val dayGroups by historyViewModel.dayGroups.collectAsStateWithLifecycle()
-    val retryingIds by historyViewModel.retryingIds.collectAsStateWithLifecycle()
-    val serviceRunning by BubbleService.runningState.collectAsStateWithLifecycle()
+    var showProfiles by rememberSaveable { mutableStateOf(false) }
+    val pendingSteps = setupSteps.filterNot(SetupItem::done)
+    val ready = state.loaded && pendingSteps.none(SetupItem::required)
 
-    val overlayPermission = rememberOverlayPermissionState()
-    val accessibilityPermission = rememberAccessibilityPermissionState()
-    val microphonePermission = rememberMicrophonePermissionState()
-    val notificationPermission = rememberNotificationPermissionState()
-    val setupStatuses = listOf(overlayPermission, accessibilityPermission, microphonePermission, notificationPermission)
-    val missingPermissions = setupStatuses.filterNot(PermissionStatus::granted)
-    val serviceReady = overlayPermission.granted && accessibilityPermission.granted && microphonePermission.granted
-
-    LazyColumn(
-        contentPadding = homeContentPadding(outerPadding),
-        verticalArrangement = Arrangement.spacedBy(18.dp)
-    ) {
-        item("summary") {
-            SummaryCard(
-                totalWords = totalStats.wordCount,
-                totalCount = totalStats.count,
-                serviceRunning = serviceRunning,
-                serviceReady = serviceReady,
-                onToggleService = {
-                    when {
-                        serviceRunning -> BubbleService.stop(context)
-                        !microphonePermission.granted -> microphonePermission.onRequest()
-                        !overlayPermission.granted -> overlayPermission.onRequest()
-                        !accessibilityPermission.granted -> accessibilityPermission.onRequest()
-                        else -> BubbleService.start(context)
-                    }
-                }
-            )
-        }
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-            (!overlayPermission.granted || !accessibilityPermission.granted)
+    Scaffold(
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        snackbarHost = { SnackbarHost(snackbarHostState) }
+    ) { padding ->
+        LazyColumn(
+            contentPadding = PaddingValues(
+                start = Spacing.screenHorizontal,
+                end = Spacing.screenHorizontal,
+                top = padding.calculateTopPadding() + Spacing.s,
+                bottom = padding.calculateBottomPadding() + Spacing.xl
+            ),
+            verticalArrangement = Arrangement.spacedBy(Spacing.xl)
         ) {
-            item("restricted") {
-                RestrictedSettingsCard(
-                    onOpenAppInfo = {
-                        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                            data = Uri.parse("package:${context.packageName}")
-                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                        }
-                        context.startActivity(intent)
-                    }
+            item(key = "header") {
+                HomeHeader(
+                    activeProfile = state.activeProfile,
+                    onOpenProfiles = { showProfiles = true }
+                )
+            }
+            item(key = "hero") {
+                StatusHero(
+                    loaded = state.loaded,
+                    ready = ready,
+                    running = state.serviceRunning,
+                    setupSteps = setupSteps,
+                    onStart = onStartService,
+                    onStop = onStopService
+                )
+            }
+            if (state.loaded && pendingSteps.isNotEmpty()) {
+                item(key = "setup") {
+                    SetupGroup(items = pendingSteps, restrictedSettingsLikely = restrictedSettingsLikely, title = "Setup")
+                }
+            }
+            if (state.lifetime.count > 0 || state.today.count > 0) {
+                item(key = "today") {
+                    TodaySection(today = state.today, lifetime = state.lifetime)
+                }
+            }
+            item(key = "recent") {
+                RecentSection(
+                    recent = state.recent,
+                    historyEnabled = state.historyEnabled,
+                    onOpenHistory = onOpenHistory,
+                    onCopy = onCopy
                 )
             }
         }
-
-        if (missingPermissions.isNotEmpty()) {
-            item("setup_header") { Text("Finish setup", style = MaterialTheme.typography.titleLarge) }
-            items(missingPermissions, key = { it.name }) { status -> PermissionCard(status = status) }
-        }
-
-        item("today_header") {
-            Text(
-                text = "Today",
-                style = MaterialTheme.typography.displaySmall,
-                fontFamily = FontFamily.Serif
-            )
-        }
-
-        if (dayGroups.isEmpty()) {
-            item("empty") {
-                EmptyStateCard(
-                    icon = SasayakiIcons.Description,
-                    title = "No dictations yet",
-                    description = "Recent transcripts and failures will appear here when history is enabled."
-                )
-            }
-        } else {
-            dayGroups.forEach { group ->
-                item("header_${group.key}") {
-                    DayHeader(group)
-                }
-                items(group.dictations, key = { it.id }) { dictation ->
-                    TranscriptCard(
-                        dictation = dictation,
-                        isRetrying = dictation.id in retryingIds,
-                        onCopy = { copyToClipboard(context, dictation.text) },
-                        onRetry = { historyViewModel.retry(dictation.id) },
-                        onDelete = { historyViewModel.removeFromHistory(dictation.id) }
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun SummaryCard(
-    totalWords: Int,
-    totalCount: Int,
-    serviceRunning: Boolean,
-    serviceReady: Boolean,
-    onToggleService: () -> Unit
-) {
-    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 26.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Text(
-                text = "${formatCompactNumber(totalWords)} words",
-                style = MaterialTheme.typography.displayMedium,
-                fontFamily = FontFamily.Serif,
-                color = MaterialTheme.colorScheme.primary
-            )
-            Text("spoken so far", style = MaterialTheme.typography.titleMedium)
-            Text(
-                text = if (totalCount == 0) "Start a dictation to build your history." else "You've written $totalCount transcriptions.",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                StatusPill(if (serviceRunning) "Bubble active" else "Bubble off")
-                if (!serviceReady && !serviceRunning) StatusPill("Setup needed")
-            }
-            Button(onClick = onToggleService, modifier = Modifier.fillMaxWidth().padding(top = 10.dp)) {
-                Icon(if (serviceRunning) SasayakiIcons.StopCircle else SasayakiIcons.Mic, contentDescription = null, modifier = Modifier.size(20.dp))
-                Spacer(Modifier.size(10.dp))
-                Text(if (serviceRunning) "Stop dictation service" else "Start dictation service")
-            }
-        }
-    }
-}
-
-@Composable
-private fun DayHeader(group: DayGroup) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(group.date, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        StatusPill("${group.totalWords} words")
-    }
-}
-
-@Composable
-private fun TranscriptCard(
-    dictation: DictationSummary,
-    isRetrying: Boolean,
-    onCopy: () -> Unit,
-    onRetry: () -> Unit,
-    onDelete: () -> Unit
-) {
-    var confirmDelete by remember { mutableStateOf(false) }
-    val failed = dictation.status == DictationStatus.FAILURE.name
-
-    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            Text(
-                text = if (failed) dictation.errorMessage ?: "Transcription failed" else dictation.text,
-                style = MaterialTheme.typography.titleMedium,
-                color = if (failed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
-                maxLines = 8,
-                overflow = TextOverflow.Ellipsis
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(formatTime(dictation.timestamp), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                displaySourceApp(dictation.sourceApp, dictation.sourceAppPackage)?.let {
-                    StatusPill(it)
-                }
-                if (isRetrying) {
-                    StatusPill("Retrying")
-                }
-                if (failed) {
-                    StatusPill(
-                        label = "Failed",
-                        containerColor = MaterialTheme.colorScheme.errorContainer,
-                        contentColor = MaterialTheme.colorScheme.onErrorContainer
-                    )
-                }
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                OutlinedButton(onClick = onCopy, enabled = !isRetrying && !failed && dictation.text.isNotBlank()) {
-                    Icon(SasayakiIcons.ContentCopy, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.size(8.dp))
-                    Text("Copy")
-                }
-                OutlinedButton(onClick = onRetry, enabled = !isRetrying && !dictation.audioPath.isNullOrBlank()) {
-                    if (isRetrying) {
-                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
-                    } else {
-                        Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
-                    }
-                    Spacer(Modifier.size(8.dp))
-                    Text(if (isRetrying) "Retrying" else "Retry")
-                }
-                Spacer(Modifier.weight(1f))
-                IconButton(onClick = { confirmDelete = true }) {
-                    Icon(Icons.Default.Delete, contentDescription = "Delete dictation", tint = MaterialTheme.colorScheme.error)
-                }
-            }
-        }
     }
 
-    if (confirmDelete) {
-        AlertDialog(
-            onDismissRequest = { confirmDelete = false },
-            title = { Text("Delete this dictation?") },
-            text = { Text("This removes the transcript and any saved retry audio.") },
-            confirmButton = {
-                TextButton(onClick = {
-                    onDelete()
-                    confirmDelete = false
-                }) { Text("Delete") }
+    if (showProfiles) {
+        ProfileSwitcherSheet(
+            profiles = state.profiles,
+            onSelect = { id ->
+                onSelectProfile(id)
+                showProfiles = false
             },
-            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Cancel") } }
+            onManage = {
+                showProfiles = false
+                onOpenProfiles()
+            },
+            onDismiss = { showProfiles = false }
         )
     }
 }
 
 @Composable
-private fun RestrictedSettingsCard(onOpenAppInfo: () -> Unit) {
-    SectionCard(
-        title = "Restricted settings on Android 13+",
-        subtitle = "Sideloaded apps need one extra step before overlay and accessibility permissions can be enabled."
+private fun HomeHeader(activeProfile: Profile?, onOpenProfiles: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        OutlinedButton(onClick = onOpenAppInfo, modifier = Modifier.fillMaxWidth()) {
-            Icon(Icons.Default.Info, contentDescription = null, modifier = Modifier.size(18.dp))
-            Spacer(modifier = Modifier.size(8.dp))
-            Text("Open App Info")
+        Text(
+            text = "Sasayaki",
+            style = MaterialTheme.typography.headlineMediumEmphasized,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(start = Spacing.xs)
+        )
+        if (activeProfile != null) {
+            AssistChip(
+                onClick = onOpenProfiles,
+                label = { Text(activeProfile.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                leadingIcon = { Icon(SasayakiIcons.Tune, contentDescription = null, Modifier.size(AssistChipDefaults.IconSize)) },
+                trailingIcon = {
+                    Icon(SasayakiIcons.ExpandMore, contentDescription = "Switch profile", Modifier.size(AssistChipDefaults.IconSize))
+                },
+                shape = MaterialTheme.shapes.extraLarge
+            )
         }
     }
 }
 
-private fun copyToClipboard(context: Context, text: String) {
-    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-    clipboard.setPrimaryClip(ClipData.newPlainText("dictation", text))
-    Toast.makeText(context, "Copied to clipboard", Toast.LENGTH_SHORT).show()
-}
+private enum class HeroMode { LOADING, SETUP, OFF, ON }
 
-private val timeFormat = DateTimeFormatter.ofPattern("HH:mm", Locale.getDefault())
-private val defaultZoneId = ZoneId.systemDefault()
-
-private fun formatTime(timestamp: Long): String = timeFormat.format(Instant.ofEpochMilli(timestamp).atZone(defaultZoneId))
-
-private fun formatCompactNumber(number: Int): String {
-    return when {
-        number >= 1_000_000 -> "${"%.1f".format(number / 1_000_000.0)}M"
-        number >= 10_000 -> "${"%.1f".format(number / 1_000.0)}K"
-        else -> number.toString()
+@Composable
+private fun StatusHero(
+    loaded: Boolean,
+    ready: Boolean,
+    running: Boolean,
+    setupSteps: List<SetupItem>,
+    onStart: () -> Unit,
+    onStop: () -> Unit
+) {
+    val mode = when {
+        !loaded -> HeroMode.LOADING
+        running -> HeroMode.ON
+        !ready -> HeroMode.SETUP
+        else -> HeroMode.OFF
     }
-}
+    val containerColor = if (mode == HeroMode.ON) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceBright
+    val contentColor = if (mode == HeroMode.ON) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
 
-private fun displaySourceApp(sourceApp: String?, sourceAppPackage: String?): String? {
-    val label = sourceApp?.trim()
-        ?.takeIf { it.isNotBlank() && !it.equals("App", ignoreCase = true) }
-    if (label != null && !label.contains('.')) return label.take(24)
+    val fadeInSpec = MaterialTheme.motionScheme.defaultEffectsSpec<Float>()
+    val fadeOutSpec = MaterialTheme.motionScheme.fastEffectsSpec<Float>()
 
-    val packageName = sourceAppPackage?.trim()?.takeIf { it.isNotBlank() }
-        ?: label?.takeIf { it.contains('.') }
-        ?: return label?.take(24)
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.extraLargeIncreased,
+        color = containerColor,
+        contentColor = contentColor
+    ) {
+        AnimatedContent(
+            targetState = mode,
+            transitionSpec = { fadeIn(fadeInSpec) togetherWith fadeOut(fadeOutSpec) },
+            label = "hero"
+        ) { heroMode ->
+            Column(
+                modifier = Modifier.padding(Spacing.xl),
+                verticalArrangement = Arrangement.spacedBy(Spacing.m)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    BubbleOrb(active = heroMode == HeroMode.ON)
+                    if (heroMode == HeroMode.ON || heroMode == HeroMode.OFF) {
+                        BubbleSwitch(
+                            checked = heroMode == HeroMode.ON,
+                            onCheckedChange = { if (it) onStart() else onStop() }
+                        )
+                    }
+                }
+                when (heroMode) {
+                    HeroMode.LOADING -> HeroText("Sasayaki", "Getting things ready…")
 
-    return when {
-        packageName.contains("whatsapp", ignoreCase = true) -> "WhatsApp"
-        packageName.contains("signal", ignoreCase = true) -> "Signal"
-        packageName.contains("molly", ignoreCase = true) -> "Molly"
-        packageName.contains("element", ignoreCase = true) -> "Element"
-        packageName.contains("telegram", ignoreCase = true) -> "Telegram"
-        packageName.contains("gmail", ignoreCase = true) -> "Gmail"
-        packageName.contains("outlook", ignoreCase = true) -> "Outlook"
-        packageName.contains("discord", ignoreCase = true) -> "Discord"
-        packageName.contains("slack", ignoreCase = true) -> "Slack"
-        else -> appLabelFromPackage(packageName).take(24)
-    }
-}
+                    HeroMode.ON -> HeroText("Speak, don’t type", "Tap the bubble in any text field.")
 
-private fun appLabelFromPackage(packageName: String): String {
-    val ignoredSegments = setOf("android", "app", "apps", "client", "com", "debug", "im", "io", "mobile", "net", "org", "release", "x")
-    val segment = packageName.split('.')
-        .firstOrNull { part ->
-            val normalized = part.lowercase()
-            normalized.length > 1 && normalized !in ignoredSegments
+                    HeroMode.OFF -> HeroText("The bubble is off", "Turn it on to dictate into any app.")
+
+                    HeroMode.SETUP -> {
+                        val required = setupSteps.filter(SetupItem::required)
+                        val done = required.count(SetupItem::done)
+                        HeroText("Almost there", "Finish these steps and you can dictate anywhere.")
+                        Column(verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
+                            LinearWavyProgressIndicator(
+                                progress = { done / required.size.toFloat() },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            Text(
+                                text = "$done of ${required.size} done",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        required.firstOrNull { !it.done }?.let { next ->
+                            Button(onClick = next.onAction) {
+                                Text("Continue setup")
+                                Icon(
+                                    SasayakiIcons.ChevronRight,
+                                    contentDescription = null,
+                                    modifier = Modifier.padding(start = Spacing.xs).size(18.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
         }
-        ?: packageName.substringAfterLast('.')
-    return segment
-        .replace('_', ' ')
-        .replace('-', ' ')
-        .trim()
-        .replaceFirstChar { it.uppercase() }
+    }
 }
 
-private fun homeContentPadding(padding: PaddingValues): PaddingValues {
-    return PaddingValues(
-        start = 20.dp,
-        end = 20.dp,
-        top = padding.calculateTopPadding() + 20.dp,
-        bottom = padding.calculateBottomPadding() + 96.dp
+@Composable
+private fun HeroText(title: String, body: String) {
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+        Text(title, style = MaterialTheme.typography.headlineSmall)
+        Text(body, style = MaterialTheme.typography.bodyMedium, color = LocalContentColor.current.copy(alpha = 0.78f))
+    }
+}
+
+@Composable
+private fun BubbleSwitch(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+    Switch(
+        checked = checked,
+        onCheckedChange = onCheckedChange,
+        modifier = Modifier.semantics { contentDescription = "Dictation bubble" },
+        thumbContent = {
+            Icon(
+                imageVector = if (checked) SasayakiIcons.Check else SasayakiIcons.Close,
+                contentDescription = null,
+                modifier = Modifier.size(SwitchDefaults.IconSize)
+            )
+        }
     )
+}
+
+@Composable
+private fun BubbleOrb(active: Boolean) {
+    val rotation = if (active) {
+        val transition = rememberInfiniteTransition(label = "orb")
+        transition.animateFloat(
+            initialValue = 0f,
+            targetValue = 360f,
+            animationSpec = infiniteRepeatable(tween(24_000, easing = LinearEasing), RepeatMode.Restart),
+            label = "orbRotation"
+        ).value
+    } else {
+        0f
+    }
+    val shape = MaterialShapes.Cookie9Sided.toShape()
+    Box(contentAlignment = Alignment.Center) {
+        Box(
+            modifier = Modifier
+                .size(56.dp)
+                .graphicsLayer { rotationZ = rotation }
+                .clip(shape)
+                .background(if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant)
+        )
+        Icon(
+            imageVector = SasayakiIcons.Mic,
+            contentDescription = null,
+            tint = if (active) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
+private fun TodaySection(today: DictationStats, lifetime: DictationStats) {
+    Column {
+        SectionLabel("Today")
+        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
+            StatTile(
+                value = formatCompactNumber(today.wordCount),
+                label = "words",
+                modifier = Modifier.weight(1f)
+            )
+            StatTile(
+                value = "${minutesSaved(today.wordCount, today.durationMs)} min",
+                label = "saved",
+                modifier = Modifier.weight(1f)
+            )
+            StatTile(
+                value = wordsPerMinute(today.wordCount, today.durationMs)?.toString() ?: "–",
+                label = "words / min",
+                modifier = Modifier.weight(1f)
+            )
+        }
+        if (lifetime.count > 0) {
+            Text(
+                text = "All time · ${formatCompactNumber(lifetime.wordCount)} words · ${formatDuration(lifetime.durationMs)} spoken",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = Spacing.l, top = Spacing.s)
+            )
+        }
+    }
+}
+
+@Composable
+private fun StatTile(value: String, label: String, modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier,
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.surfaceBright
+    ) {
+        Column(modifier = Modifier.padding(horizontal = Spacing.l, vertical = Spacing.m)) {
+            Text(
+                text = value,
+                style = MaterialTheme.typography.headlineSmallEmphasized,
+                color = MaterialTheme.colorScheme.primary,
+                maxLines = 1
+            )
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1
+            )
+        }
+    }
+}
+
+@Composable
+private fun RecentSection(
+    recent: List<DictationSummary>,
+    historyEnabled: Boolean,
+    onOpenHistory: () -> Unit,
+    onCopy: (DictationSummary) -> Unit
+) {
+    Column {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            SectionLabel("Recent", modifier = Modifier.padding(top = Spacing.s))
+            if (recent.isNotEmpty()) {
+                TextButton(onClick = onOpenHistory) { Text("See all") }
+            }
+        }
+        if (recent.isEmpty()) {
+            Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceBright) {
+                EmptyState(
+                    icon = if (historyEnabled) SasayakiIcons.GraphicEq else SasayakiIcons.Lock,
+                    title = if (historyEnabled) "Nothing yet" else "History is off",
+                    body = if (historyEnabled) {
+                        "Your dictations will show up here, ready to copy again."
+                    } else {
+                        "Dictations are not kept on this device. Turn history on in Settings."
+                    }
+                )
+            }
+        } else {
+            SegmentedGroup(items = recent.map { dictation -> { shapes -> RecentItem(dictation, shapes, onOpenHistory, onCopy) } })
+        }
+    }
+}
+
+private val timeFormatter = DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT)
+
+@Composable
+private fun RecentItem(dictation: DictationSummary, shapes: ListItemShapes, onOpen: () -> Unit, onCopy: (DictationSummary) -> Unit) {
+    val failed = dictation.status == DictationStatus.FAILURE.name
+    val time = remember(dictation.timestamp) {
+        timeFormatter.format(Instant.ofEpochMilli(dictation.timestamp).atZone(ZoneId.systemDefault()))
+    }
+    val meta = listOfNotNull(time, displaySourceApp(dictation.sourceApp, dictation.sourceAppPackage)).joinToString(" · ")
+
+    SegmentedListItem(
+        onClick = onOpen,
+        shapes = shapes,
+        colors = segmentedItemColors(),
+        supportingContent = {
+            Text(
+                text = if (failed) "Failed · $meta" else meta,
+                color = if (failed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        },
+        trailingContent = if (failed || dictation.text.isBlank()) {
+            null
+        } else {
+            {
+                IconButton(onClick = { onCopy(dictation) }) {
+                    Icon(SasayakiIcons.ContentCopy, contentDescription = "Copy")
+                }
+            }
+        }
+    ) {
+        Text(
+            text = if (failed) dictation.errorMessage ?: "Transcription failed" else dictation.text,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+@Composable
+private fun ProfileSwitcherSheet(profiles: List<Profile>, onSelect: (Long) -> Unit, onManage: () -> Unit, onDismiss: () -> Unit) {
+    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = MaterialTheme.colorScheme.surfaceContainer) {
+        Column(
+            modifier = Modifier.padding(start = Spacing.l, end = Spacing.l, bottom = Spacing.xl),
+            verticalArrangement = Arrangement.spacedBy(Spacing.m)
+        ) {
+            Text("Active profile", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(start = Spacing.s))
+            SegmentedGroup(
+                items = profiles.map { profile ->
+                    { shapes ->
+                        SegmentedListItem(
+                            selected = profile.isActive,
+                            onClick = { onSelect(profile.id) },
+                            shapes = shapes,
+                            colors = segmentedItemColors(highlightSelection = true),
+                            leadingContent = { RadioButton(selected = profile.isActive, onClick = null) },
+                            supportingContent = { Text(profileSummary(profile), maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                        ) {
+                            Text(profile.name)
+                        }
+                    }
+                }
+            )
+            TextButton(onClick = onManage, modifier = Modifier.align(Alignment.End)) {
+                Text("Manage profiles")
+            }
+        }
+    }
+}
+
+private fun profileSummary(profile: Profile): String = listOfNotNull(
+    profile.language?.uppercase() ?: "Any language",
+    "Cleanup".takeIf { profile.llmEnabled }
+).joinToString(" · ")
+
+@Preview
+@Composable
+private fun HomeScreenPreview() {
+    SasayakiTheme {
+        HomeScreen(
+            state = HomeUiState(
+                loaded = true,
+                serviceRunning = true,
+                speechProviderConfigured = true,
+                profiles = listOf(Profile(id = 1, name = "Chat", isActive = true)),
+                today = DictationStats(count = 12, wordCount = 640, durationMs = 240_000),
+                lifetime = DictationStats(count = 340, wordCount = 18_200, durationMs = 7_800_000),
+                recent = listOf(
+                    DictationSummary(
+                        id = 1,
+                        text = "Let's meet at nine tomorrow at the usual place.",
+                        wordCount = 9,
+                        timestamp = 0,
+                        sourceApp = "Signal",
+                        sourceAppPackage = null,
+                        durationMs = 4000,
+                        status = "SUCCESS",
+                        errorMessage = null,
+                        profileId = 1,
+                        audioPath = null
+                    )
+                )
+            ),
+            setupSteps = emptyList(),
+            restrictedSettingsLikely = false,
+            snackbarHostState = SnackbarHostState(),
+            onStartService = {},
+            onStopService = {},
+            onSelectProfile = {},
+            onOpenProfiles = {},
+            onOpenHistory = {},
+            onCopy = {}
+        )
+    }
 }

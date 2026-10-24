@@ -11,11 +11,11 @@ import com.sasayaki.R
 import com.sasayaki.data.preferences.PreferencesDataStore
 import com.sasayaki.domain.model.AppContext
 import dagger.hilt.android.qualifiers.ApplicationContext
+import javax.inject.Inject
+import javax.inject.Singleton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
-import javax.inject.Inject
-import javax.inject.Singleton
 
 @Singleton
 class TextInjectionBridge @Inject constructor(
@@ -57,11 +57,15 @@ class TextInjectionBridge @Inject constructor(
         return false
     }
 
-    val isAccessibilityServiceActive: Boolean
-        get() = TextInjectorService.instance != null
+    // focusedEditorPackage runs off the main thread because the lookup crosses into the
+    // focused app.
+    suspend fun focusedEditorPackage(): String? = withContext(Dispatchers.Default) {
+        TextInjectorService.instance?.focusedEditorPackage()?.takeIf(::isUsableTargetPackage)
+    }
 
-    val focusedAppName: String?
-        get() = currentAppContext?.displayName
+    suspend fun isFocusedFieldSensitive(): Boolean = withContext(Dispatchers.Default) {
+        TextInjectorService.instance?.isFocusedFieldSensitive() == true
+    }
 
     val currentAppContext: AppContext?
         get() {

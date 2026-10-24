@@ -3,21 +3,22 @@ package com.sasayaki.domain.processing
 import android.util.Log
 import com.sasayaki.data.api.ApiClientFactory
 import com.sasayaki.data.api.LlmApiService
-import com.sasayaki.data.api.model.ChatCompletionRequest
-import com.sasayaki.data.api.model.ChatMessage
-import com.sasayaki.data.preferences.PreferencesDataStore
 import com.sasayaki.data.repository.ProcessingRepository
+import com.sasayaki.data.repository.ProviderRepository
 import com.sasayaki.domain.model.AppContext
 import com.sasayaki.domain.model.Profile
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.flow.first
+import com.sasayaki.domain.provider.Purpose
+import com.sasayaki.domain.provider.Resolution
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.first
+import retrofit2.HttpException
 
 @Singleton
 class TextProcessor @Inject constructor(
     private val apiClientFactory: ApiClientFactory,
-    private val preferencesDataStore: PreferencesDataStore,
+    private val providerRepository: ProviderRepository,
     private val processingRepository: ProcessingRepository
 ) {
     /**
@@ -28,6 +29,7 @@ class TextProcessor @Inject constructor(
         rawText: String,
         profile: Profile,
         appContext: AppContext? = null,
+        skipCleanup: Boolean = false,
         onPostProcessing: (() -> Unit)? = null
     ): String {
         val ruleProcessedText = try {
@@ -40,31 +42,37 @@ class TextProcessor @Inject constructor(
         }
 
         return try {
-            val prefs = preferencesDataStore.preferences.first()
-            if (!profile.llmEnabled || prefs.llmBaseUrl.isBlank() || prefs.llmApiKey.isBlank()) {
-                return ruleProcessedText
-            }
+            if (!profile.llmEnabled || skipCleanup || ruleProcessedText.isBlank()) return ruleProcessedText
+            val endpoint = (providerRepository.resolve(profile, Purpose.CLEANUP) as? Resolution.Ready)?.endpoint
+                ?: return ruleProcessedText
 
             onPostProcessing?.invoke()
 
-            val service = apiClientFactory.create(
-                LlmApiService::class.java,
-                prefs.llmBaseUrl,
-                prefs.llmApiKey
-            )
+            val service = apiClientFactory.create(LlmApiService::class.java, endpoint.baseUrl, endpoint.apiKey)
 
-            val systemPrompt = processingRepository.buildSystemPrompt(profile, appContext)
+            val plan = processingRepository.cleanupPlan(profile, appContext)
 
-            val request = ChatCompletionRequest(
-                model = profile.llmModel,
-                messages = listOf(
-                    ChatMessage(role = "system", content = systemPrompt),
-                    ChatMessage(role = "user", content = ruleProcessedText)
+            val response = optionalFields.send("${endpoint.baseUrl}|${endpoint.model}", ::refusal) { omitted ->
+                service.chatCompletion(
+                    cleanupRequest(
+                        endpoint.model,
+                        plan.systemPrompt,
+                        ruleProcessedText,
+                        profile.outputStyle,
+                        withExamples = !plan.freeform,
+                        omitted = omitted
+                    )
                 )
-            )
-
-            val response = service.chatCompletion(request)
-            response.text.ifBlank { ruleProcessedText }
+            }
+            val cleaned = stripModelArtifacts(response.text, ruleProcessedText)
+            val lengthCheck = lengthCheckFor(profile.summarizeMode, plan.freeform)
+            val rejection = rejectCleanup(ruleProcessedText, cleaned, response.finishReason, lengthCheck)
+            if (rejection != null) {
+                Log.w(TAG, "Cleanup output rejected ($rejection); using rule-processed text")
+                ruleProcessedText
+            } else {
+                cleaned
+            }
         } catch (e: CancellationException) {
             // The user cancelled mid-request; never fall through to injecting text.
             throw e
@@ -76,7 +84,14 @@ class TextProcessor @Inject constructor(
         }
     }
 
+    private val optionalFields = OptionalFieldMemory()
+
+    private fun refusal(error: Throwable): String? = (error as? HttpException)?.takeIf { it.code() in REJECTED_REQUEST_CODES }?.let {
+        it.response()?.errorBody()?.string().orEmpty()
+    }
+
     private companion object {
         const val TAG = "TextProcessor"
+        val REJECTED_REQUEST_CODES = setOf(400, 422)
     }
 }

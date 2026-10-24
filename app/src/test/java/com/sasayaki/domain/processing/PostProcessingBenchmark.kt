@@ -1,8 +1,8 @@
 package com.sasayaki.domain.processing
 
+import java.io.File
 import org.junit.Assume.assumeTrue
 import org.junit.Test
-import java.io.File
 
 /**
  * LLM-in-the-loop benchmark for the post-processing pipeline.
@@ -14,22 +14,16 @@ import java.io.File
  *     -e BENCH_MODELS="model-a,model-b" ... ./gradlew testDebugUnitTest \
  *     --tests '*PostProcessingBenchmark*'
  *
- * Prompts come from the production [SystemPromptBuilder] and [BuiltInPrompts], so what is
- * measured is what the app actually sends. Every case runs several times: sampling wobbles
- * at temperature 0.3, and a single sample once made a model look perfect on one run and
- * flawed on the next.
+ * Prompts and requests come from the production [SystemPromptBuilder], [BuiltInPrompts]
+ * and [cleanupRequest], so what is measured is what the app actually sends. Every case runs
+ * several times: servers that ignore the temperature still sample, and a single sample once
+ * made a model look perfect on one run and flawed on the next.
  */
 class PostProcessingBenchmark {
 
     private val client = BenchmarkClient()
 
-    private data class CheckResult(
-        val model: String,
-        val case: BenchmarkCase,
-        val checkName: String,
-        val passes: Int,
-        val reps: Int
-    ) {
+    private data class CheckResult(val model: String, val case: BenchmarkCase, val checkName: String, val passes: Int, val reps: Int) {
         val rate: Double get() = passes.toDouble() / reps
         val flaky: Boolean get() = passes in 1 until reps
     }
@@ -54,7 +48,7 @@ class PostProcessingBenchmark {
                     appContext = case.appContext,
                     prompts = client.builtInPrompts
                 )
-                val completions = client.completeRepeatedly(model, prompt, case.rawText)
+                val completions = client.completeRepeatedly(model, prompt, case.rawText, case.profile.outputStyle)
                 requests += completions.size
                 errors += completions.count { it.error != null }
                 latencies.getOrPut(model) { mutableListOf() } += completions.map(Completion::latencyMs)
@@ -64,6 +58,25 @@ class PostProcessingBenchmark {
                     val passes = completions.count { it.error == null && check.passes(it.text) }
                     results += CheckResult(model, case, check.name, passes, completions.size)
                 }
+                // Every case also has to come back clean and pass the app's own validation,
+                // or the app would have fallen back to the raw transcript.
+                val lengthCheck = lengthCheckFor(case.profile.summarizeMode, freeform = false)
+                results += CheckResult(
+                    model,
+                    case,
+                    "no framing to strip",
+                    completions.count { it.error == null && it.raw.trim() == it.text.trim() },
+                    completions.size
+                )
+                results += CheckResult(
+                    model,
+                    case,
+                    "accepted by validation",
+                    completions.count {
+                        it.error == null && rejectCleanup(case.rawText, it.text, it.finishReason, lengthCheck) == null
+                    },
+                    completions.size
+                )
             }
         }
 

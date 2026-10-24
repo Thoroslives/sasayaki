@@ -4,35 +4,19 @@ import android.Manifest
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageInstaller
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -46,64 +30,7 @@ data class PermissionStatus(
     val onRequest: () -> Unit
 )
 
-@Composable
-fun PermissionCard(status: PermissionStatus) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = if (status.granted)
-                MaterialTheme.colorScheme.primaryContainer
-            else
-                MaterialTheme.colorScheme.errorContainer
-        )
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Text(
-                        text = status.name,
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                    Text(
-                        text = status.description,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Icon(
-                    imageVector = if (status.granted) Icons.Default.CheckCircle else Icons.Default.Warning,
-                    contentDescription = if (status.granted) "Granted" else "Not granted",
-                    tint = if (status.granted)
-                        MaterialTheme.colorScheme.primary
-                    else
-                        MaterialTheme.colorScheme.error
-                )
-            }
-
-            if (!status.granted) {
-                Button(onClick = status.onRequest, modifier = Modifier.fillMaxWidth()) {
-                    Text(status.actionLabel)
-                }
-            }
-        }
-    }
-}
-
-fun checkOverlayPermission(context: Context): Boolean {
-    return Settings.canDrawOverlays(context)
-}
+fun checkOverlayPermission(context: Context): Boolean = Settings.canDrawOverlays(context)
 
 fun requestOverlayPermission(context: Context) {
     val intent = Intent(
@@ -123,6 +50,33 @@ fun checkAccessibilityPermission(context: Context): Boolean {
     return enabledServices.split(':').any { it.equals(expectedService, ignoreCase = true) }
 }
 
+/**
+ * isRestrictedSettingsLikely reports whether Android 13+ probably blocks accessibility
+ * for this app ("restricted settings"). Apps cannot read the block itself (its app-op is
+ * privileged), so this infers it from the app having been installed from a file, which
+ * is when Android applies it.
+ */
+fun isRestrictedSettingsLikely(context: Context): Boolean {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return false
+    val source = try {
+        context.packageManager.getInstallSourceInfo(context.packageName).packageSource
+    } catch (_: Exception) {
+        // A guess must never take the screen down with it.
+        return false
+    }
+    return source == PackageInstaller.PACKAGE_SOURCE_LOCAL_FILE ||
+        source == PackageInstaller.PACKAGE_SOURCE_DOWNLOADED_FILE
+}
+
+@Composable
+fun rememberRestrictedSettingsLikely(): Boolean = rememberCheckedOnResume { isRestrictedSettingsLikely(it) }
+
+fun openAppInfo(context: Context) {
+    val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}"))
+    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    context.startActivity(intent)
+}
+
 fun requestAccessibilityPermission(context: Context) {
     val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
     intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -133,13 +87,13 @@ fun requestAccessibilityPermission(context: Context) {
 fun rememberOverlayPermissionState(): PermissionStatus {
     val context = LocalContext.current
 
-    val granted = rememberExternalPermissionGranted { checkOverlayPermission(it) }
+    val granted = rememberCheckedOnResume { checkOverlayPermission(it) }
 
     return PermissionStatus(
         name = "Display over other apps",
-        description = "Shows the floating dictation bubble on top of the app you are using.",
+        description = "Lets the bubble float above your keyboard.",
         granted = granted,
-        actionLabel = "Open overlay settings",
+        actionLabel = "Allow",
         onRequest = { requestOverlayPermission(context) }
     )
 }
@@ -148,13 +102,13 @@ fun rememberOverlayPermissionState(): PermissionStatus {
 fun rememberAccessibilityPermissionState(): PermissionStatus {
     val context = LocalContext.current
 
-    val granted = rememberExternalPermissionGranted { checkAccessibilityPermission(it) }
+    val granted = rememberCheckedOnResume { checkAccessibilityPermission(it) }
 
     return PermissionStatus(
-        name = "Direct text insertion",
-        description = "Allows Sasayaki to insert dictated text into the focused field in other apps.",
+        name = "Text insertion",
+        description = "Types the result into the field you are using. Turn on Sasayaki under Accessibility.",
         granted = granted,
-        actionLabel = "Open accessibility settings",
+        actionLabel = "Allow",
         onRequest = { requestAccessibilityPermission(context) }
     )
 }
@@ -176,9 +130,9 @@ fun rememberMicrophonePermissionState(): PermissionStatus {
 
     return PermissionStatus(
         name = "Microphone",
-        description = "Required to record your voice before sending it to transcription.",
+        description = "Records your voice while the bubble is listening.",
         granted = granted,
-        actionLabel = "Allow microphone access",
+        actionLabel = "Allow",
         onRequest = { launcher.launch(Manifest.permission.RECORD_AUDIO) }
     )
 }
@@ -189,13 +143,13 @@ fun rememberNotificationPermissionState(): PermissionStatus {
     var granted by remember {
         mutableStateOf(
             Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
-                    context.hasPermission(Manifest.permission.POST_NOTIFICATIONS)
+                context.hasPermission(Manifest.permission.POST_NOTIFICATIONS)
         )
     }
 
     observeOnResume {
         granted = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
-                context.hasPermission(Manifest.permission.POST_NOTIFICATIONS)
+            context.hasPermission(Manifest.permission.POST_NOTIFICATIONS)
     }
 
     val launcher = rememberLauncherForActivityResult(
@@ -204,9 +158,9 @@ fun rememberNotificationPermissionState(): PermissionStatus {
 
     return PermissionStatus(
         name = "Notifications",
-        description = "Keeps the foreground service visible so Android does not stop it unexpectedly.",
+        description = "Keeps the bubble running reliably in the background.",
         granted = granted,
-        actionLabel = "Allow notifications",
+        actionLabel = "Allow",
         onRequest = {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
@@ -216,9 +170,7 @@ fun rememberNotificationPermissionState(): PermissionStatus {
 }
 
 @Composable
-private fun rememberExternalPermissionGranted(
-    checkPermission: (Context) -> Boolean
-): Boolean {
+private fun rememberCheckedOnResume(checkPermission: (Context) -> Boolean): Boolean {
     val context = LocalContext.current
     var granted by remember { mutableStateOf(checkPermission(context)) }
 
@@ -247,6 +199,5 @@ private fun observeOnResume(onResume: () -> Unit) {
     }
 }
 
-private fun Context.hasPermission(permission: String): Boolean {
-    return checkSelfPermission(permission) == android.content.pm.PackageManager.PERMISSION_GRANTED
-}
+private fun Context.hasPermission(permission: String): Boolean =
+    checkSelfPermission(permission) == android.content.pm.PackageManager.PERMISSION_GRANTED

@@ -4,9 +4,9 @@ import com.sasayaki.domain.model.OutputStyle
 import com.sasayaki.domain.model.Profile
 import com.sasayaki.domain.model.RewriteMode
 import com.sasayaki.domain.model.SummarizeMode
+import java.io.File
 import org.junit.Assume.assumeTrue
 import org.junit.Test
-import java.io.File
 
 /**
  * Does each style control actually change the output?
@@ -17,7 +17,8 @@ import java.io.File
  * still pass, so this compares settings against each other instead of against a threshold.
  *
  * A gap only counts when it exceeds the run-to-run spread within a single setting. Sampling
- * at temperature 0.3 wobbles, and without that guard the wobble reads as an effect.
+ * wobbles on servers that ignore the temperature, and without that guard the wobble reads
+ * as an effect.
  */
 class StyleControlDifferentialTest {
 
@@ -28,12 +29,7 @@ class StyleControlDifferentialTest {
     /** [fromLeast] names variants in the order the metric is expected to increase. */
     private data class Ordering(val metric: String, val fromLeast: List<String>)
 
-    private data class Probe(
-        val control: String,
-        val rawText: String,
-        val variants: List<Variant>,
-        val orderings: List<Ordering>
-    )
+    private data class Probe(val control: String, val rawText: String, val variants: List<Variant>, val orderings: List<Ordering>)
 
     private val metrics: Map<String, (String, String) -> Double> = mapOf(
         "words" to { _, out -> Metrics.wordCount(out) },
@@ -120,11 +116,7 @@ class StyleControlDifferentialTest {
         )
     )
 
-    private data class Sample(
-        val label: String,
-        val values: List<Double>,
-        val outputs: List<String>
-    ) {
+    private data class Sample(val label: String, val values: List<Double>, val outputs: List<String>) {
         val median: Double get() = Metrics.median(values)
         val spread: Double get() = (values.maxOrNull() ?: 0.0) - (values.minOrNull() ?: 0.0)
     }
@@ -177,7 +169,7 @@ class StyleControlDifferentialTest {
                         appContext = null,
                         prompts = client.builtInPrompts
                     )
-                    val completions = client.completeRepeatedly(model, prompt, probe.rawText)
+                    val completions = client.completeRepeatedly(model, prompt, probe.rawText, variant.profile.outputStyle)
                     requestCount += completions.size
                     errorCount += completions.count { it.error != null }
                     val outputs = completions.map(Completion::text)
@@ -209,9 +201,11 @@ class StyleControlDifferentialTest {
                         verdicts
                             .getOrPut(probe.control to "${lower.label} -> ${higher.label} (${ordering.metric})") { mutableListOf() }
                             .add("$model:$verdict")
-                        line("- ${lower.label} -> ${higher.label}: **$verdict** " +
-                            "(gap ${"%.3f".format(higher.median - lower.median)}, " +
-                            "noise ${"%.3f".format(maxOf(lower.spread, higher.spread))})")
+                        line(
+                            "- ${lower.label} -> ${higher.label}: **$verdict** " +
+                                "(gap ${"%.3f".format(higher.median - lower.median)}, " +
+                                "noise ${"%.3f".format(maxOf(lower.spread, higher.spread))})"
+                        )
                     }
                     line()
                 }

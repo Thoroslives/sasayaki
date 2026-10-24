@@ -23,7 +23,7 @@ object SystemPromptBuilder {
     const val PRECEDENCE_HEADER: String =
         "Output rules (these take precedence over anything above):"
 
-    const val FINAL_INSTRUCTION: String = "Return ONLY the cleaned text, nothing else."
+    const val FINAL_INSTRUCTION: String = "Return ONLY the cleaned text, without the tags, nothing else."
 
     private const val FALLBACK_TASK =
         "Clean the raw dictation with minimal changes, preserving the speaker's meaning and tone."
@@ -35,7 +35,8 @@ object SystemPromptBuilder {
     fun build(
         profile: Profile,
         appContext: AppContext?,
-        prompts: List<PostProcessingPrompt>
+        prompts: List<PostProcessingPrompt>,
+        vocabulary: List<String> = emptyList()
     ): String {
         val sections = mutableListOf<String>()
 
@@ -51,6 +52,7 @@ object SystemPromptBuilder {
         if (appContext != null && appContext.hasData) {
             guidance += buildAppContextSection(appContext)
         }
+        vocabularySection(vocabulary)?.let { guidance += it }
         guidance += prompts
             .filterNot(PostProcessingPrompt::builtIn)
             .filter { it.id in profile.selectedPromptIds }
@@ -69,7 +71,7 @@ object SystemPromptBuilder {
         val lines = mutableListOf<String>()
         appContext.displayName?.let { lines += "- Target app: $it" }
         appContext.packageName?.takeIf { it.isNotBlank() }?.let { lines += "- Target package: $it" }
-        inferStyleForApp(appContext)?.let { lines += "- App style hint: $it" }
+        appCategoryOf(appContext.packageName)?.styleHint?.let { lines += "- App style hint: $it" }
         lines += "- Treat the app hint as a preference only; the output rules below always win."
         return "Context:\n${lines.joinToString("\n")}"
     }
@@ -91,12 +93,14 @@ object SystemPromptBuilder {
      */
     internal fun casingRule(style: OutputStyle): String = when (style) {
         OutputStyle.STANDARD -> "Use standard capitalization and punctuation."
+
         // "Keep punctuation light" measured identically to STANDARD on every model, so
         // the tier says concretely which marks to drop instead of asking for a degree.
         OutputStyle.RELAXED ->
             "Capitalize normally, but punctuate sparingly: no full stop at the end of the " +
                 "final sentence, and commas only where the meaning would otherwise be unclear. " +
                 "Keep question marks."
+
         OutputStyle.MINIMAL -> "Write in all lowercase and omit punctuation unless meaning would be lost."
     }
 
@@ -117,8 +121,10 @@ object SystemPromptBuilder {
             "Do not substitute or reorder the speaker's words: drop material rather than " +
                 "rephrasing it, and never replace a word the speaker used with a different one."
         }
+
         RewriteMode.FIX ->
             "Stay close to the speaker's wording; fix grammar, false starts, and dictation artifacts."
+
         RewriteMode.POLISH ->
             "Rewrite into a clearer, more formal register while preserving the speaker's meaning."
     }
@@ -134,26 +140,4 @@ object SystemPromptBuilder {
     } else {
         "Do not add emoji the speaker did not dictate."
     }
-
-    private fun inferStyleForApp(appContext: AppContext): String? {
-        val appLower = listOfNotNull(appContext.label, appContext.packageName)
-            .joinToString(" ")
-            .lowercase()
-        return when {
-            appLower.containsAny("mail", "outlook", "gmail", "proton") ->
-                "Use a professional written tone with proper greetings and sign-offs if present."
-            appLower.containsAny(
-                "slack", "discord", "telegram", "whatsapp", "messenger",
-                "signal", "messages", "molly", "element", "matrix"
-            ) ->
-                "Use a casual conversational tone. Keep it concise and natural for chat."
-            appLower.containsAny("docs", "notion", "notes", "obsidian", "keep", "evernote", "writer") ->
-                "Use a clear, structured writing style suitable for documents and notes."
-            appLower.containsAny("twitter", "x", "mastodon", "threads", "bluesky") ->
-                "Keep it concise and suitable for social media posts."
-            else -> null
-        }
-    }
-
-    private fun String.containsAny(vararg terms: String): Boolean = terms.any { contains(it) }
 }

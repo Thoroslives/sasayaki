@@ -28,4 +28,3 @@ fun PostProcessingPrompt.toEntity(): PostProcessingPromptEntity = PostProcessing
     builtIn = builtIn,
     createdAt = createdAt
 )
-

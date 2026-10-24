@@ -6,7 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.ServiceInfo
-import android.graphics.PixelFormat
+import android.content.res.Configuration
 import android.media.AudioAttributes
 import android.media.AudioFocusRequest
 import android.media.AudioManager
@@ -14,16 +14,19 @@ import android.os.Build
 import android.os.IBinder
 import android.provider.Settings
 import android.util.Log
-import android.view.Gravity
-import android.view.MotionEvent
-import android.view.View
 import android.view.WindowManager
 import android.widget.Toast
 import com.sasayaki.data.preferences.PreferencesDataStore
 import com.sasayaki.data.repository.ProfileRepository
 import com.sasayaki.domain.model.AppContext
+import com.sasayaki.domain.provider.describeConnectionError
 import com.sasayaki.domain.transcription.AudioConverter
 import com.sasayaki.domain.transcription.TranscriptionManager
+import com.sasayaki.service.bubble.BubbleActions
+import com.sasayaki.service.bubble.BubbleOverlay
+import com.sasayaki.service.bubble.BubbleUiState
+import com.sasayaki.service.bubble.WAVEFORM_BARS
+import com.sasayaki.service.bubble.toPhase
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -35,7 +38,11 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -45,6 +52,7 @@ import javax.inject.Inject
 class BubbleService : Service() {
     companion object {
         private const val TAG = "BubbleService"
+        private const val INSERTED_FLASH_MS = 700L
         const val ACTION_START = "com.sasayaki.ACTION_START_BUBBLE"
 
         @Volatile
@@ -74,9 +82,9 @@ class BubbleService : Service() {
     @Inject lateinit var profileRepository: ProfileRepository
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
-    private var windowManager: WindowManager? = null
-    private var bubbleView: BubbleView? = null
-    private var layoutParams: WindowManager.LayoutParams? = null
+    private var overlay: BubbleOverlay? = null
+    private val uiState = MutableStateFlow(BubbleUiState())
+    private val levels = MutableStateFlow<List<Float>>(emptyList())
     private var notificationHelper: NotificationHelper? = null
     private var hapticFeedback: HapticFeedback? = null
     private var audioRecorder: AudioRecorder? = null
@@ -86,13 +94,9 @@ class BubbleService : Service() {
     private var silenceCheckJob: Job? = null
     private var levelJob: Job? = null
     private var timerJob: Job? = null
-    private var profileJob: Job? = null
-    private var longPressJob: Job? = null
-    private var fanMenuController: FanMenuController? = null
     private var audioManager: AudioManager? = null
     private var audioFocusRequest: AudioFocusRequest? = null
-    private var collapsedBubbleX: Int? = null
-    private var collapsedBubbleY: Int? = null
+    private var profileJob: Job? = null
 
     private var state: ServiceState = ServiceState.Idle
     private var recordingStartTime: Long = 0
@@ -100,18 +104,13 @@ class BubbleService : Service() {
     private var totalPausedMs: Long = 0
     private var recordingAppContext: AppContext? = null
     @Volatile private var pcmFile: File? = null
-    private var bubbleAdded = false
 
     // Keyboard-aware visibility
     private val keyboardListener = object : TextInjectorService.KeyboardListener {
         override fun onKeyboardVisibilityChanged(visible: Boolean) {
             scope.launch(Dispatchers.Main) {
-                if (visible) {
-                    showBubble()
-                } else if (state is ServiceState.Idle) {
-                    hideBubble()
-                }
-                // Don't hide while recording/transcribing
+                // An active dictation keeps the bubble up even if the keyboard closes.
+                if (visible) overlay?.show() else if (state is ServiceState.Idle) overlay?.hide()
             }
         }
     }
@@ -135,7 +134,7 @@ class BubbleService : Service() {
         helper.createNotificationChannel()
         profileJob = scope.launch {
             profileRepository.activeProfile.collect { profile ->
-                bubbleView?.updateActiveProfileName(profile?.name ?: "AUTO")
+                uiState.update { it.copy(profileName = profile?.name.orEmpty()) }
             }
         }
 
@@ -162,16 +161,13 @@ class BubbleService : Service() {
             return START_NOT_STICKY
         }
 
-        windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
-        prepareBubble()
+        prepareOverlay()
 
         // Register for keyboard events
         TextInjectorService.keyboardListener = keyboardListener
 
         // If keyboard is already visible, show immediately
-        if (TextInjectorService.isKeyboardVisible) {
-            showBubble()
-        }
+        if (TextInjectorService.isKeyboardVisible) overlay?.show()
 
         return START_STICKY
     }
@@ -179,219 +175,53 @@ class BubbleService : Service() {
     override fun onDestroy() {
         isRunning = false
         BubbleTileService.requestRefresh(this)
-        fanMenuController?.dismiss()
         stopRecordingAndWait()
-        removeBubble()
+        overlay?.destroy()
+        overlay = null
         TextInjectorService.keyboardListener = null
         try { unregisterReceiver(stopReceiver) } catch (_: Exception) {}
         scope.cancel()
         super.onDestroy()
     }
 
-    private fun prepareBubble() {
-        if (bubbleView != null) return
-
-        bubbleView = BubbleView(this)
-        scope.launch {
-            bubbleView?.updateActiveProfileName(profileRepository.getActiveProfile().name)
-        }
-        layoutParams = WindowManager.LayoutParams(
-            bubbleView?.collapsedWidthPx() ?: WindowManager.LayoutParams.WRAP_CONTENT,
-            bubbleView?.collapsedHeightPx() ?: BubbleView.SIZE_DP.dpToPx(),
-            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                    WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
-            PixelFormat.TRANSLUCENT
-        ).apply {
-            gravity = Gravity.TOP or Gravity.START
-            x = 50
-            y = 300
-        }
-
-        val wm = windowManager ?: return
-        fanMenuController = FanMenuController(
+    private fun prepareOverlay() {
+        if (overlay != null) return
+        val windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
+        overlay = BubbleOverlay(
             context = this,
-            windowManager = wm,
-            profileRepository = profileRepository,
+            windowManager = windowManager,
             scope = scope,
-            hapticFeedback = hapticFeedback
-        )
-
-        setupTouchListener()
-    }
-
-    private fun showBubble() {
-        if (bubbleAdded || bubbleView == null) return
-        try {
-            windowManager?.addView(bubbleView, layoutParams)
-            bubbleAdded = true
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to show bubble", e)
-        }
-    }
-
-    private fun hideBubble() {
-        if (!bubbleAdded || bubbleView == null) return
-        try {
-            windowManager?.removeView(bubbleView)
-            bubbleAdded = false
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to hide bubble", e)
-        }
-    }
-
-    private fun removeBubble() {
-        bubbleView?.cleanup()
-        if (bubbleAdded) {
-            try { windowManager?.removeView(bubbleView) } catch (_: Exception) {}
-            bubbleAdded = false
-        }
-        bubbleView = null
-    }
-
-    private fun setupTouchListener() {
-        val params = layoutParams ?: return
-        var initialX = 0
-        var initialY = 0
-        var initialTouchX = 0f
-        var initialTouchY = 0f
-        var isDragging = false
-        var longPressTriggered = false
-        var cancelPressed = false
-        var cancelGesture = false
-        var profileTapCandidate = false
-        var pauseTapCandidate = false
-        var errorRetryCandidate = false
-        var errorCancelCandidate = false
-        val tapThreshold = 10 * resources.displayMetrics.density
-        val longPressDelayMs = 400L
-
-        bubbleView?.setOnTouchListener { _, event ->
-            when (event.action) {
-                MotionEvent.ACTION_DOWN -> {
-                    profileTapCandidate = state is ServiceState.Recording && bubbleView?.isProfileHit(event.x, event.y) == true
-                    pauseTapCandidate = state is ServiceState.Recording && bubbleView?.isPauseHit(event.x, event.y) == true
-                    errorRetryCandidate = state is ServiceState.Error && bubbleView?.isErrorRetryHit(event.x, event.y) == true
-                    errorCancelCandidate = state is ServiceState.Error && bubbleView?.isErrorCancelHit(event.x, event.y) == true
-                    cancelPressed = state is ServiceState.Recording && (bubbleView?.isCancelHit(event.x, event.y) == true)
-                    cancelGesture = cancelPressed
-                    if (cancelPressed) {
-                        longPressJob?.cancel()
-                        return@setOnTouchListener true
-                    }
-                    initialX = params.x
-                    initialY = params.y
-                    initialTouchX = event.rawX
-                    initialTouchY = event.rawY
-                    isDragging = false
-                    longPressTriggered = false
-                    longPressJob?.cancel()
-                    if (state is ServiceState.Idle) {
-                        longPressJob = scope.launch {
-                            delay(longPressDelayMs)
-                            if (!isDragging) longPressTriggered = true
-                        }
-                    }
-                    true
-                }
-                MotionEvent.ACTION_MOVE -> {
-                    if (cancelGesture) {
-                        cancelPressed = bubbleView?.isCancelHit(event.x, event.y) == true
-                        return@setOnTouchListener true
-                    }
-                    val dx = event.rawX - initialTouchX
-                    val dy = event.rawY - initialTouchY
-                    if (dx * dx + dy * dy > tapThreshold * tapThreshold) {
-                        isDragging = true
-                        profileTapCandidate = false
-                        pauseTapCandidate = false
-                        errorRetryCandidate = false
-                        errorCancelCandidate = false
-                        longPressJob?.cancel()
-                    }
-                    if (isDragging && bubbleAdded) {
-                        params.x = initialX + dx.toInt()
-                        params.y = initialY + dy.toInt()
-                        try { windowManager?.updateViewLayout(bubbleView, params) } catch (_: Exception) {}
-                    }
-                    true
-                }
-                MotionEvent.ACTION_UP -> {
-                    if (profileTapCandidate && !isDragging) {
-                        val profileAnchorX = params.x + (bubbleView?.profileSegmentCenterXPx() ?: event.x)
-                        fanMenuController?.show(profileAnchorX, params.y.toFloat())
-                        profileTapCandidate = false
-                        return@setOnTouchListener true
-                    }
-                    if (pauseTapCandidate && !isDragging) {
-                        toggleRecordingPause()
-                        pauseTapCandidate = false
-                        return@setOnTouchListener true
-                    }
-                    if (errorRetryCandidate && !isDragging) {
-                        retryBubbleError()
-                        errorRetryCandidate = false
-                        return@setOnTouchListener true
-                    }
-                    if (errorCancelCandidate && !isDragging) {
-                        cancelBubbleError()
-                        errorCancelCandidate = false
-                        return@setOnTouchListener true
-                    }
-                    if (cancelGesture) {
-                        longPressJob?.cancel()
-                        if (cancelPressed && bubbleView?.isCancelHit(event.x, event.y) == true) {
-                            cancelRecording()
-                        }
-                        cancelPressed = false
-                        cancelGesture = false
-                        return@setOnTouchListener true
-                    }
-                    longPressJob?.cancel()
-                    if (longPressTriggered) {
-                        // Long press already handled, do nothing
-                    } else if (!isDragging) {
-                        if (fanMenuController?.isShowing == true) {
-                            fanMenuController?.dismiss()
-                        } else {
-                            onBubbleTap()
-                        }
-                    } else {
-                        val displayHeight = resources.displayMetrics.heightPixels
-                        if (params.y > displayHeight - 200) {
-                            stopSelf()
-                        }
-                    }
-                    true
-                }
-                MotionEvent.ACTION_CANCEL -> {
-                    longPressJob?.cancel()
-                    cancelPressed = false
-                    cancelGesture = false
-                    profileTapCandidate = false
-                    pauseTapCandidate = false
-                    errorRetryCandidate = false
-                    errorCancelCandidate = false
-                    isDragging = false
-                    true
-                }
-                else -> false
-            }
-        }
+            uiState = uiState,
+            levels = levels,
+            profiles = profileRepository.profiles.stateIn(scope, SharingStarted.Eagerly, emptyList()),
+            wallpaperColors = preferencesDataStore.preferences
+                .map { it.wallpaperColors }
+                .stateIn(scope, SharingStarted.Eagerly, false),
+            actions = BubbleActions(
+                onStart = ::onBubbleTap,
+                onStop = ::stopRecordingAndTranscribe,
+                onCancel = ::cancelRecording,
+                onTogglePause = ::toggleRecordingPause,
+                onCancelProcessing = ::cancelProcessing,
+                onRetry = ::retryBubbleError,
+                onDismissError = ::cancelBubbleError
+            ),
+            onSelectProfile = { id ->
+                hapticFeedback?.tick()
+                scope.launch { profileRepository.activate(id) }
+            },
+            onRemove = ::stopSelf
+        ).also { it.create() }
     }
 
     private fun onBubbleTap() {
-        when (state) {
+        when (val current = state) {
             is ServiceState.Idle -> startRecording()
             is ServiceState.Recording -> stopRecordingAndTranscribe()
-            is ServiceState.Transcribing -> cancelProcessing()
-            is ServiceState.PostProcessing -> cancelProcessing()
+            is ServiceState.Transcribing, is ServiceState.PostProcessing -> cancelProcessing()
             // Injection is already underway and cannot be meaningfully undone.
             is ServiceState.Injecting -> {}
-            is ServiceState.Error -> {
-                val retryEntryId = (state as ServiceState.Error).retryEntryId
-                if (retryEntryId != null) retrySavedFailure(retryEntryId) else updateState(ServiceState.Idle)
-            }
+            is ServiceState.Error -> current.retryEntryId?.let(::retrySavedFailure) ?: updateState(ServiceState.Idle)
         }
     }
 
@@ -446,6 +276,7 @@ class BubbleService : Service() {
             if (prefs.vibrateOnRecord) hapticFeedback?.recordStart()
         }
 
+        uiState.update { it.copy(elapsedSeconds = 0) }
         updateState(ServiceState.Recording())
         recordingStartTime = System.currentTimeMillis()
         pausedStartedAt = 0
@@ -466,15 +297,16 @@ class BubbleService : Service() {
             }
         }
 
+        levels.value = emptyList()
         levelJob = scope.launch {
             recorder.audioLevel.collect { level ->
-                bubbleView?.updateAudioLevel(level)
+                levels.update { (it + level).takeLast(WAVEFORM_BARS) }
             }
         }
 
         timerJob = scope.launch {
             while (state is ServiceState.Recording) {
-                bubbleView?.updateRecordingElapsed(recordedDurationMs() / 1000)
+                uiState.update { it.copy(elapsedSeconds = recordedDurationMs() / 1000) }
                 delay(250)
             }
         }
@@ -536,7 +368,7 @@ class BubbleService : Service() {
         silenceCheckJob?.cancel()
         levelJob?.cancel()
         timerJob?.cancel()
-        fanMenuController?.dismiss()
+        overlay?.dismissProfileMenu()
 
         scope.launch {
             val prefs = preferencesDataStore.preferences.first()
@@ -575,7 +407,7 @@ class BubbleService : Service() {
                 result.onSuccess { text ->
                     if (text.isNotBlank()) {
                         updateState(ServiceState.Injecting)
-                        textInjectionBridge.inject(text)
+                        if (textInjectionBridge.inject(text)) flashInserted()
                         hapticFeedback?.complete()
                     }
                     updateState(ServiceState.Idle)
@@ -584,7 +416,7 @@ class BubbleService : Service() {
                     val retryEntryId = withContext(Dispatchers.IO) {
                         transcriptionManager.latestRetriableFailureId()
                     }
-                    showError("Transcription failed: ${error.message}", retryEntryId)
+                    showError(describeConnectionError(error), retryEntryId)
                 }
             } catch (e: CancellationException) {
                 // Cancelled by the user; cancelProcessing() owns the state transition.
@@ -594,7 +426,7 @@ class BubbleService : Service() {
                 val retryEntryId = withContext(Dispatchers.IO) {
                     transcriptionManager.latestRetriableFailureId()
                 }
-                showError(e.message ?: "Unknown error", retryEntryId)
+                showError(describeConnectionError(e), retryEntryId)
             } finally {
                 abandonRecordingAudioFocus()
                 currentPcmFile?.delete()
@@ -633,7 +465,7 @@ class BubbleService : Service() {
         silenceCheckJob?.cancel()
         levelJob?.cancel()
         timerJob?.cancel()
-        fanMenuController?.dismiss()
+        overlay?.dismissProfileMenu()
 
         scope.launch {
             val prefs = preferencesDataStore.preferences.first()
@@ -677,12 +509,12 @@ class BubbleService : Service() {
             result.onSuccess { text ->
                 if (text.isNotBlank()) {
                     updateState(ServiceState.Injecting)
-                    textInjectionBridge.inject(text)
+                    if (textInjectionBridge.inject(text)) flashInserted()
                     hapticFeedback?.complete()
                 }
                 updateState(ServiceState.Idle)
             }.onFailure { error ->
-                showError("Retry failed: ${error.message}", entryId)
+                showError(describeConnectionError(error), entryId)
             }
         }
     }
@@ -703,66 +535,32 @@ class BubbleService : Service() {
     private fun showError(message: String, retryEntryId: Long? = null) {
         updateState(ServiceState.Error(message, retryEntryId))
         hapticFeedback?.error()
-        val retryHint = if (retryEntryId != null) " Tap bubble to retry." else ""
-        Toast.makeText(this@BubbleService, message + retryHint, Toast.LENGTH_SHORT).show()
         scope.launch {
-            delay(if (retryEntryId == null) 2500 else 6000)
+            delay(if (retryEntryId == null) 4000 else 8000)
             if (state is ServiceState.Error) {
                 updateState(ServiceState.Idle)
             }
         }
     }
 
+    private fun flashInserted() {
+        uiState.update { it.copy(justInserted = true) }
+        scope.launch {
+            delay(INSERTED_FLASH_MS)
+            uiState.update { it.copy(justInserted = false) }
+        }
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        overlay?.onDisplayChanged()
+    }
+
     private fun updateState(newState: ServiceState) {
         state = newState
-        scope.launch(Dispatchers.Main) {
-            bubbleView?.updateState(newState)
-            syncBubbleLayout()
-            // When done transcribing, hide bubble if keyboard is gone
-            if (newState is ServiceState.Idle && !TextInjectorService.isKeyboardVisible) {
-                hideBubble()
-            }
-        }
+        uiState.update { it.copy(phase = newState.toPhase()) }
+        if (newState is ServiceState.Idle && !TextInjectorService.isKeyboardVisible) overlay?.hide()
     }
-
-    private fun syncBubbleLayout() {
-        val params = layoutParams ?: return
-        val view = bubbleView ?: return
-        val wasRecording = params.width == view.recordingWidthPx()
-        val isRecording = state is ServiceState.Recording
-        val targetWidth = view.collapsedWidthPx()
-        val targetHeight = view.collapsedHeightPx()
-
-        if (params.width == targetWidth && params.height == targetHeight) return
-        val previousWidth = params.width
-        val previousHeight = params.height
-        if (!wasRecording && isRecording) {
-            collapsedBubbleX = params.x
-            collapsedBubbleY = params.y
-        }
-        val centerX = params.x + previousWidth / 2
-        params.width = targetWidth
-        params.height = targetHeight
-        val restoredX = if (wasRecording && !isRecording) collapsedBubbleX else null
-        val restoredY = if (wasRecording && !isRecording) collapsedBubbleY else null
-        params.x = restoredX ?: (centerX - targetWidth / 2)
-        params.y = restoredY ?: (params.y - (targetHeight - previousHeight))
-        val maxX = (resources.displayMetrics.widthPixels - targetWidth).coerceAtLeast(0)
-        params.x = params.x.coerceIn(0, maxX)
-        if (wasRecording && !isRecording) {
-            collapsedBubbleX = null
-            collapsedBubbleY = null
-        }
-        if (bubbleAdded) {
-            try {
-                windowManager?.updateViewLayout(view, params)
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to resize bubble", e)
-            }
-        }
-    }
-
-    private fun Int.dpToPx(): Int = (this * resources.displayMetrics.density).toInt()
 
     private fun requestRecordingAudioFocus() {
         val manager = audioManager ?: return

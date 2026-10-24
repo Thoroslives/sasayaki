@@ -8,6 +8,7 @@ sealed interface BubblePhase {
     data class Recording(val paused: Boolean) : BubblePhase
     data class Processing(val cleaningUp: Boolean) : BubblePhase
     data class Failed(val message: String, val canRetry: Boolean) : BubblePhase
+    data object NoSpeech : BubblePhase
 }
 
 @Immutable
@@ -24,4 +25,5 @@ fun ServiceState.toPhase(): BubblePhase = when (this) {
     ServiceState.Transcribing -> BubblePhase.Processing(cleaningUp = false)
     ServiceState.PostProcessing -> BubblePhase.Processing(cleaningUp = true)
     is ServiceState.Error -> BubblePhase.Failed(message, canRetry = retryEntryId != null)
+    ServiceState.NoSpeech -> BubblePhase.NoSpeech
 }

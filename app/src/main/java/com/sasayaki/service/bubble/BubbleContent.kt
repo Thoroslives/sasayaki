@@ -83,7 +83,8 @@ enum class BubbleMode(val windowWidth: Dp, val windowHeight: Dp) {
     IDLE(68.dp, 68.dp),
     RECORDING(284.dp, 72.dp),
     PROCESSING(224.dp, 72.dp),
-    FAILED(332.dp, 72.dp)
+    FAILED(332.dp, 72.dp),
+    NO_SPEECH(244.dp, 72.dp)
 }
 
 val BubblePhase.mode: BubbleMode
@@ -92,6 +93,7 @@ val BubblePhase.mode: BubbleMode
         is BubblePhase.Recording -> BubbleMode.RECORDING
         is BubblePhase.Processing -> BubbleMode.PROCESSING
         is BubblePhase.Failed -> BubbleMode.FAILED
+        BubblePhase.NoSpeech -> BubbleMode.NO_SPEECH
     }
 
 @Composable
@@ -129,6 +131,7 @@ fun BubbleContent(
                     BubbleMode.RECORDING -> RecordingPill(state, levels, actions, onShowProfiles)
                     BubbleMode.PROCESSING -> ProcessingPill((state.phase as? BubblePhase.Processing)?.cleaningUp == true, actions)
                     BubbleMode.FAILED -> (state.phase as? BubblePhase.Failed)?.let { FailedPill(it, actions) }
+                    BubbleMode.NO_SPEECH -> NoSpeechPill(actions.onStart)
                 }
             }
         }
@@ -305,6 +308,23 @@ private fun FailedPill(phase: BubblePhase.Failed, actions: BubbleActions) {
             IconButton(onClick = actions.onDismissError) {
                 Icon(SasayakiIcons.Close, contentDescription = "Dismiss")
             }
+        }
+    }
+}
+
+@Composable
+private fun NoSpeechPill(onTryAgain: () -> Unit) {
+    PillSurface {
+        Row(
+            modifier = Modifier
+                .height(PillHeight)
+                .clickable(onClickLabel = "Dictate again", onClick = onTryAgain)
+                .padding(horizontal = Spacing.l),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(Spacing.s)
+        ) {
+            Icon(SasayakiIcons.MicOff, contentDescription = null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Didn't catch anything", style = MaterialTheme.typography.labelLarge)
         }
     }
 }

@@ -22,6 +22,7 @@ import com.sasayaki.data.repository.ProfileRepository
 import com.sasayaki.domain.model.AppContext
 import com.sasayaki.domain.provider.describeConnectionError
 import com.sasayaki.domain.transcription.AudioConverter
+import com.sasayaki.domain.transcription.SpeechDetector
 import com.sasayaki.domain.transcription.TranscriptionManager
 import com.sasayaki.service.bubble.BubbleActions
 import com.sasayaki.service.bubble.BubbleOverlay
@@ -54,6 +55,7 @@ class BubbleService : Service() {
     companion object {
         private const val TAG = "BubbleService"
         private const val INSERTED_FLASH_MS = 700L
+        private const val NO_SPEECH_NOTICE_MS = 2500L
         const val ACTION_START = "com.sasayaki.ACTION_START_BUBBLE"
 
         @Volatile
@@ -220,7 +222,7 @@ class BubbleService : Service() {
 
     private fun onBubbleTap() {
         when (val current = state) {
-            is ServiceState.Idle -> startRecording()
+            is ServiceState.Idle, ServiceState.NoSpeech -> startRecording()
             is ServiceState.Recording -> stopRecordingAndTranscribe()
             is ServiceState.Transcribing, is ServiceState.PostProcessing -> cancelProcessing()
             // Injection is already underway and cannot be meaningfully undone.
@@ -395,6 +397,16 @@ class BubbleService : Service() {
                     return@launch
                 }
 
+                val heardSpeech = withContext(Dispatchers.IO) {
+                    currentPcmFile.inputStream().buffered().use { pcm ->
+                        SpeechDetector.containsSpeech(SpeechDetector.frameLevels(pcm, AudioRecorder.SAMPLE_RATE))
+                    }
+                }
+                if (!heardSpeech) {
+                    showNoSpeech()
+                    return@launch
+                }
+
                 wavFile = File(cacheDir, "recording_${System.currentTimeMillis()}.wav")
                 withContext(Dispatchers.IO) {
                     AudioConverter.pcmToWav(currentPcmFile, wavFile)
@@ -534,6 +546,14 @@ class BubbleService : Service() {
 
     private fun cancelBubbleError() {
         updateState(ServiceState.Idle)
+    }
+
+    private fun showNoSpeech() {
+        updateState(ServiceState.NoSpeech)
+        scope.launch {
+            delay(NO_SPEECH_NOTICE_MS)
+            if (state is ServiceState.NoSpeech) updateState(ServiceState.Idle)
+        }
     }
 
     private fun showError(message: String, retryEntryId: Long? = null) {

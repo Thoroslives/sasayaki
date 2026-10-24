@@ -62,7 +62,8 @@ class BubbleScreenshotTest {
                     BubbleUiState(BubblePhase.Recording(paused = true), elapsedSeconds = 12, profileName = "Email"),
                     BubbleUiState(BubblePhase.Processing(cleaningUp = false)),
                     BubbleUiState(BubblePhase.Processing(cleaningUp = true)),
-                    BubbleUiState(BubblePhase.Failed("The server rejected the API key.", canRetry = true))
+                    BubbleUiState(BubblePhase.Failed("The server rejected the API key.", canRetry = true)),
+                    BubbleUiState(BubblePhase.NoSpeech)
                 ).forEach { state -> Window(state) }
                 Window(BubbleUiState(BubblePhase.Recording(paused = false), elapsedSeconds = 3, profileName = "Chat"), scale = BubbleSize.LARGER.scale)
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {

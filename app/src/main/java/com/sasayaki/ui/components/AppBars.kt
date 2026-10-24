@@ -59,22 +59,6 @@ fun LargeTitleBar(
 }
 
 @Composable
-fun TitleBar(
-    title: String,
-    scrollBehavior: TopAppBarScrollBehavior,
-    onBack: (() -> Unit)? = null,
-    actions: @Composable RowScope.() -> Unit = {}
-) {
-    TopAppBar(
-        title = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-        navigationIcon = { onBack?.let { BackButton(it) } },
-        actions = actions,
-        colors = titleBarColors(),
-        scrollBehavior = scrollBehavior
-    )
-}
-
-@Composable
 private fun BackButton(onBack: () -> Unit) {
     IconButton(onClick = onBack) {
         Icon(SasayakiIcons.ArrowBack, contentDescription = "Back")

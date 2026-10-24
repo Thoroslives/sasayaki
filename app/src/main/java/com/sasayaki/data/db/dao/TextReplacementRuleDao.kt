@@ -1,7 +1,6 @@
 package com.sasayaki.data.db.dao
 
 import androidx.room.Dao
-import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
@@ -17,17 +16,11 @@ interface TextReplacementRuleDao {
     @Update
     suspend fun update(rule: TextReplacementRuleEntity)
 
-    @Delete
-    suspend fun delete(rule: TextReplacementRuleEntity)
-
     @Query("SELECT * FROM text_replacement_rules ORDER BY createdAt ASC")
     fun observeAll(): Flow<List<TextReplacementRuleEntity>>
 
     @Query("SELECT * FROM text_replacement_rules ORDER BY createdAt ASC")
     suspend fun getAll(): List<TextReplacementRuleEntity>
-
-    @Query("SELECT * FROM text_replacement_rules WHERE id = :id")
-    suspend fun getById(id: Long): TextReplacementRuleEntity?
 
     @Query("DELETE FROM text_replacement_rules WHERE id = :id")
     suspend fun deleteById(id: Long)

@@ -5,7 +5,6 @@ import androidx.navigation.NavController
 import androidx.navigation.NavDestination
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavDestination.Companion.hierarchy
-import androidx.navigation.NavGraph.Companion.findStartDestination
 import com.sasayaki.ui.theme.SasayakiIcons
 import kotlin.reflect.KClass
 
@@ -31,9 +30,11 @@ fun NavDestination?.topLevelDestination(): TopLevelDestination? =
 fun NavDestination?.isIn(destination: TopLevelDestination): Boolean =
     this?.hierarchy?.any { it.hasRoute(destination.routeClass) } == true
 
+// Tabs pop back to Home rather than the graph's start destination, which is onboarding
+// on a first launch and is gone from the back stack once it finishes.
 fun NavController.navigateToTopLevel(destination: TopLevelDestination) {
     navigate(destination.route) {
-        popUpTo(graph.findStartDestination().id) { saveState = true }
+        popUpTo<HomeDestination> { saveState = true }
         launchSingleTop = true
         restoreState = true
     }

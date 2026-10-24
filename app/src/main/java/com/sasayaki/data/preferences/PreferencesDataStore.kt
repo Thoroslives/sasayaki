@@ -153,6 +153,10 @@ class PreferencesDataStore @Inject constructor(
         }
     }
 
+    suspend fun setHistoryEnabled(enabled: Boolean) {
+        context.dataStore.edit { prefs -> prefs[Keys.HISTORY_ENABLED] = enabled }
+    }
+
     suspend fun toggleHistoryEnabled() {
         context.dataStore.edit { prefs ->
             prefs[Keys.HISTORY_ENABLED] = !(prefs[Keys.HISTORY_ENABLED] ?: true)

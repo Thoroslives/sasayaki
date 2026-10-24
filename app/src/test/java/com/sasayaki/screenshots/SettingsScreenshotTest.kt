@@ -38,7 +38,7 @@ class SettingsScreenshotTest {
 
     private val providers = listOf(
         Provider(1, "Home server", "https://asr.home.lan", speechModel = "deepdml/faster-whisper-large-v3-turbo-ct2"),
-        Provider(2, "llama-swap", "https://llm.home.lan", cleanupModel = "qwen3.5-2b-sasayaki"),
+        Provider(2, "llama-swap", "https://llm.home.lan", cleanupModel = "gpt-oss-120b"),
         Provider(3, "OpenAI", "https://api.openai.com", apiKey = "sk", speechModel = "whisper-1", cleanupModel = "gpt-4o-mini")
     )
 
@@ -103,7 +103,7 @@ class SettingsScreenshotTest {
         val models = listOf(
             ModelInfo("deepdml/faster-whisper-large-v3-turbo-ct2", ModelKind.SPEECH),
             ModelInfo("Systran/faster-whisper-small", ModelKind.SPEECH),
-            ModelInfo("qwen3.5-2b-sasayaki", ModelKind.CHAT),
+            ModelInfo("gpt-oss-120b", ModelKind.CHAT),
             ModelInfo("kokoro", ModelKind.OTHER)
         )
         ProviderEditorScreen(

@@ -28,7 +28,7 @@ class ProfilesScreenshotTest {
 
     private val providers = listOf(
         Provider(1, "Home server", "https://asr.home.lan", speechModel = "deepdml/faster-whisper-large-v3-turbo-ct2"),
-        Provider(2, "llama-swap", "https://llm.home.lan", cleanupModel = "qwen3.5-2b-sasayaki")
+        Provider(2, "llama-swap", "https://llm.home.lan", cleanupModel = "gpt-oss-120b")
     )
 
     private val chat = Profile(id = 1, name = "Chat", isActive = true, language = "en", llmEnabled = true, selectedRuleIds = setOf(1))

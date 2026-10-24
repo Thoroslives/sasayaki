@@ -11,11 +11,11 @@ import com.sasayaki.R
 import com.sasayaki.data.preferences.PreferencesDataStore
 import com.sasayaki.domain.model.AppContext
 import dagger.hilt.android.qualifiers.ApplicationContext
+import javax.inject.Inject
+import javax.inject.Singleton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
-import javax.inject.Inject
-import javax.inject.Singleton
 
 @Singleton
 class TextInjectionBridge @Inject constructor(

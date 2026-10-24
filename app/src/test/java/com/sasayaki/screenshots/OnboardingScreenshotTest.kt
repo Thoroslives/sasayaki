@@ -30,15 +30,47 @@ class OnboardingScreenshotTest {
     private val models = listOf(ModelInfo("whisper-1", ModelKind.SPEECH), ModelInfo("gpt-4o-mini", ModelKind.CHAT))
     private val actions = ProviderEditorActions({}, {}, {}, {}, {}, {}, {}, {}, {})
     private val permissions = listOf(
-        SetupItem("microphone", "Microphone", "Records your voice while the bubble is listening.", SasayakiIcons.Mic, true, true, "Allow") {},
-        SetupItem("overlay", "Display over other apps", "Lets the bubble float above your keyboard.", SasayakiIcons.Layers, false, true, "Allow") {},
-        SetupItem("accessibility", "Text insertion", "Types the result into the field you are using.", SasayakiIcons.Keyboard, false, true, "Allow") {},
-        SetupItem("notifications", "Notifications", "Keeps the bubble running reliably.", SasayakiIcons.Notifications, false, false, "Allow") {}
+        SetupItem("microphone", "Microphone", "Records your voice while the bubble is listening.", SasayakiIcons.Mic, true, true, "Allow") {
+        },
+        SetupItem(
+            "overlay",
+            "Display over other apps",
+            "Lets the bubble float above your keyboard.",
+            SasayakiIcons.Layers,
+            false,
+            true,
+            "Allow"
+        ) {
+        },
+        SetupItem(
+            "accessibility",
+            "Text insertion",
+            "Types the result into the field you are using.",
+            SasayakiIcons.Keyboard,
+            false,
+            true,
+            "Allow"
+        ) {
+        },
+        SetupItem(
+            "notifications",
+            "Notifications",
+            "Keeps the bubble running reliably.",
+            SasayakiIcons.Notifications,
+            false,
+            false,
+            "Allow"
+        ) {
+        }
     )
 
     @Composable
-    private fun onboarding(step: OnboardingStep, form: ProviderForm = ProviderForm("", "", "", null, null), state: ProviderEditorUiState = ProviderEditorUiState(loaded = true)) =
-        OnboardingScreen(step, form, state, actions, permissions, restrictedSettingsLikely = false, bubbleRunning = false, onStep = {}, onSaveProvider = {}, onFinish = {})
+    private fun onboarding(
+        step: OnboardingStep,
+        form: ProviderForm = ProviderForm("", "", "", null, null),
+        state: ProviderEditorUiState = ProviderEditorUiState(loaded = true)
+    ) = OnboardingScreen(step, form, state, actions, permissions, restrictedSettingsLikely = false, bubbleRunning = false, onStep = {
+    }, onSaveProvider = {}, onFinish = {})
 
     @Test
     fun welcome() = compose.screenshot("onboarding_welcome_light") { onboarding(OnboardingStep.WELCOME) }

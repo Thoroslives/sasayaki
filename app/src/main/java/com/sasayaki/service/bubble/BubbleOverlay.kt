@@ -21,13 +21,15 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
+import androidx.compose.ui.unit.Dp
 import androidx.core.content.edit
 import androidx.core.graphics.Insets
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sasayaki.domain.model.Profile
+import kotlin.math.hypot
+import kotlin.math.roundToInt
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -37,8 +39,6 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
-import kotlin.math.hypot
-import kotlin.math.roundToInt
 
 /**
  * BubbleOverlay owns the overlay windows: the bubble itself, the drag-to-remove target shown while
@@ -391,22 +391,25 @@ class BubbleOverlay(
 
     private fun bottomInset(): Int = systemBarInsets()?.bottom ?: (48 * density).roundToInt()
 
-    private fun systemBarInsets(): Insets? =
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            val insets = windowManager.currentWindowMetrics.windowInsets
-                .getInsetsIgnoringVisibility(WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout())
-            Insets.toCompatInsets(insets)
-        } else {
-            null
-        }
+    private fun systemBarInsets(): Insets? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        val insets = windowManager.currentWindowMetrics.windowInsets
+            .getInsetsIgnoringVisibility(WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout())
+        Insets.toCompatInsets(insets)
+    } else {
+        null
+    }
 
-    private fun screenWidth(): Int =
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) windowManager.currentWindowMetrics.bounds.width()
-        else context.resources.displayMetrics.widthPixels
+    private fun screenWidth(): Int = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        windowManager.currentWindowMetrics.bounds.width()
+    } else {
+        context.resources.displayMetrics.widthPixels
+    }
 
-    private fun screenHeight(): Int =
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) windowManager.currentWindowMetrics.bounds.height()
-        else context.resources.displayMetrics.heightPixels
+    private fun screenHeight(): Int = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        windowManager.currentWindowMetrics.bounds.height()
+    } else {
+        context.resources.displayMetrics.heightPixels
+    }
 
     private val Side.gravity: Int get() = if (this == Side.START) Gravity.START else Gravity.END
 

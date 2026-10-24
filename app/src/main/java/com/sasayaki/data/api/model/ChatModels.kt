@@ -12,14 +12,9 @@ data class ChatCompletionRequest(
     @SerializedName("chat_template_kwargs") val chatTemplateKwargs: Map<String, Any>? = null
 )
 
-data class ChatMessage(
-    @SerializedName("role") val role: String,
-    @SerializedName("content") val content: String
-)
+data class ChatMessage(@SerializedName("role") val role: String, @SerializedName("content") val content: String)
 
-data class ChatCompletionResponse(
-    @SerializedName("choices") val choices: List<Choice>
-) {
+data class ChatCompletionResponse(@SerializedName("choices") val choices: List<Choice>) {
     val text: String get() = choices.firstOrNull()?.message?.content ?: ""
     val finishReason: String? get() = choices.firstOrNull()?.finishReason
 }

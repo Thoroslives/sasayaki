@@ -36,9 +36,9 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedListItem
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.toShape
@@ -53,9 +53,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -65,11 +65,11 @@ import com.sasayaki.data.db.entity.DictationStats
 import com.sasayaki.data.db.entity.DictationSummary
 import com.sasayaki.domain.model.DictationStatus
 import com.sasayaki.domain.model.Profile
+import com.sasayaki.ui.common.SetupItem
 import com.sasayaki.ui.common.copyText
 import com.sasayaki.ui.common.displaySourceApp
 import com.sasayaki.ui.common.formatCompactNumber
 import com.sasayaki.ui.common.formatDuration
-import com.sasayaki.ui.common.SetupItem
 import com.sasayaki.ui.common.minutesSaved
 import com.sasayaki.ui.common.rememberPermissionItems
 import com.sasayaki.ui.common.rememberRestrictedSettingsLikely
@@ -82,11 +82,11 @@ import com.sasayaki.ui.components.segmentedItemColors
 import com.sasayaki.ui.theme.SasayakiIcons
 import com.sasayaki.ui.theme.SasayakiTheme
 import com.sasayaki.ui.theme.Spacing
-import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
+import kotlinx.coroutines.launch
 
 @Composable
 fun HomeRoute(
@@ -232,7 +232,9 @@ private fun HomeHeader(activeProfile: Profile?, onOpenProfiles: () -> Unit) {
                 onClick = onOpenProfiles,
                 label = { Text(activeProfile.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 leadingIcon = { Icon(SasayakiIcons.Tune, contentDescription = null, Modifier.size(AssistChipDefaults.IconSize)) },
-                trailingIcon = { Icon(SasayakiIcons.ExpandMore, contentDescription = "Switch profile", Modifier.size(AssistChipDefaults.IconSize)) },
+                trailingIcon = {
+                    Icon(SasayakiIcons.ExpandMore, contentDescription = "Switch profile", Modifier.size(AssistChipDefaults.IconSize))
+                },
                 shape = MaterialTheme.shapes.extraLarge
             )
         }
@@ -292,8 +294,11 @@ private fun StatusHero(
                 }
                 when (heroMode) {
                     HeroMode.LOADING -> HeroText("Sasayaki", "Getting things ready…")
+
                     HeroMode.ON -> HeroText("Speak, don’t type", "Tap the bubble in any text field.")
+
                     HeroMode.OFF -> HeroText("The bubble is off", "Turn it on to dictate into any app.")
+
                     HeroMode.SETUP -> {
                         val required = setupSteps.filter(SetupItem::required)
                         val done = required.count(SetupItem::done)
@@ -475,12 +480,7 @@ private fun RecentSection(
 private val timeFormatter = DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT)
 
 @Composable
-private fun RecentItem(
-    dictation: DictationSummary,
-    shapes: ListItemShapes,
-    onOpen: () -> Unit,
-    onCopy: (DictationSummary) -> Unit
-) {
+private fun RecentItem(dictation: DictationSummary, shapes: ListItemShapes, onOpen: () -> Unit, onCopy: (DictationSummary) -> Unit) {
     val failed = dictation.status == DictationStatus.FAILURE.name
     val time = remember(dictation.timestamp) {
         timeFormatter.format(Instant.ofEpochMilli(dictation.timestamp).atZone(ZoneId.systemDefault()))
@@ -497,7 +497,9 @@ private fun RecentItem(
                 color = if (failed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
             )
         },
-        trailingContent = if (failed || dictation.text.isBlank()) null else {
+        trailingContent = if (failed || dictation.text.isBlank()) {
+            null
+        } else {
             {
                 IconButton(onClick = { onCopy(dictation) }) {
                     Icon(SasayakiIcons.ContentCopy, contentDescription = "Copy")
@@ -514,12 +516,7 @@ private fun RecentItem(
 }
 
 @Composable
-private fun ProfileSwitcherSheet(
-    profiles: List<Profile>,
-    onSelect: (Long) -> Unit,
-    onManage: () -> Unit,
-    onDismiss: () -> Unit
-) {
+private fun ProfileSwitcherSheet(profiles: List<Profile>, onSelect: (Long) -> Unit, onManage: () -> Unit, onDismiss: () -> Unit) {
     ModalBottomSheet(onDismissRequest = onDismiss, containerColor = MaterialTheme.colorScheme.surfaceContainer) {
         Column(
             modifier = Modifier.padding(start = Spacing.l, end = Spacing.l, bottom = Spacing.xl),
@@ -567,7 +564,19 @@ private fun HomeScreenPreview() {
                 today = DictationStats(count = 12, wordCount = 640, durationMs = 240_000),
                 lifetime = DictationStats(count = 340, wordCount = 18_200, durationMs = 7_800_000),
                 recent = listOf(
-                    DictationSummary(1, "Let's meet at nine tomorrow at the usual place.", 9, 0, "Signal", null, 4000, "SUCCESS", null, 1, null)
+                    DictationSummary(
+                        id = 1,
+                        text = "Let's meet at nine tomorrow at the usual place.",
+                        wordCount = 9,
+                        timestamp = 0,
+                        sourceApp = "Signal",
+                        sourceAppPackage = null,
+                        durationMs = 4000,
+                        status = "SUCCESS",
+                        errorMessage = null,
+                        profileId = 1,
+                        audioPath = null
+                    )
                 )
             ),
             setupSteps = emptyList(),

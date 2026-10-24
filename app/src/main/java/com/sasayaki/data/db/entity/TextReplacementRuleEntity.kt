@@ -31,4 +31,3 @@ fun TextReplacementRule.toEntity(): TextReplacementRuleEntity = TextReplacementR
     isRegex = isRegex,
     createdAt = createdAt
 )
-

@@ -32,4 +32,3 @@ interface TextReplacementRuleDao {
     @Query("DELETE FROM text_replacement_rules WHERE id = :id")
     suspend fun deleteById(id: Long)
 }
-

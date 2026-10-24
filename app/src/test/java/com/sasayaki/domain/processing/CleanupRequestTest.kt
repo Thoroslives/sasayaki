@@ -51,7 +51,11 @@ class CleanupRequestTest {
             seen += omitted
             when {
                 OptionalField.TEMPERATURE !in omitted -> throw Refused("Unsupported value: 'temperature' does not support 0")
-                OptionalField.CHAT_TEMPLATE_KWARGS !in omitted -> throw Refused("Unrecognized request argument supplied: chat_template_kwargs")
+
+                OptionalField.CHAT_TEMPLATE_KWARGS !in omitted -> throw Refused(
+                    "Unrecognized request argument supplied: chat_template_kwargs"
+                )
+
                 else -> "ok"
             }
         }

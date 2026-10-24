@@ -3,11 +3,11 @@ package com.sasayaki.data.audio
 import android.content.Context
 import android.util.Log
 import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * RetainedAudioStore keeps the recordings that history entries can be retried from. It
@@ -40,8 +40,7 @@ class RetainedAudioStore internal constructor(private val directory: File) {
         }
     }
 
-    private fun owns(file: File): Boolean =
-        runCatching { file.canonicalFile.parentFile == directory.canonicalFile }.getOrDefault(false)
+    private fun owns(file: File): Boolean = runCatching { file.canonicalFile.parentFile == directory.canonicalFile }.getOrDefault(false)
 
     private companion object {
         const val TAG = "RetainedAudioStore"

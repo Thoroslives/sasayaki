@@ -10,6 +10,7 @@ import com.sasayaki.data.repository.ProviderRepository
 import com.sasayaki.ui.navigation.HomeDestination
 import com.sasayaki.ui.navigation.OnboardingDestination
 import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -17,13 +18,9 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
-import javax.inject.Inject
 
 @Immutable
-data class Appearance(
-    val themeMode: ThemeMode = ThemeMode.SYSTEM,
-    val wallpaperColors: Boolean = false
-)
+data class Appearance(val themeMode: ThemeMode = ThemeMode.SYSTEM, val wallpaperColors: Boolean = false)
 
 @HiltViewModel
 class MainViewModel @Inject constructor(

@@ -8,7 +8,15 @@ import org.junit.Test
 class ProviderLogicTest {
     private val speaches = Provider(id = 1, name = "Home", baseUrl = "https://asr.home", speechModel = "large-v3-turbo")
     private val llama = Provider(id = 2, name = "llama", baseUrl = "https://llm.home", cleanupModel = "qwen")
-    private val openai = Provider(id = 3, name = "OpenAI", baseUrl = "https://api.openai.com", apiKey = "k", speechModel = "whisper-1", cleanupModel = "gpt-4o-mini")
+    private val openai =
+        Provider(
+            id = 3,
+            name = "OpenAI",
+            baseUrl = "https://api.openai.com",
+            apiKey = "k",
+            speechModel = "whisper-1",
+            cleanupModel = "gpt-4o-mini"
+        )
 
     @Test
     fun `chosen provider and its default model are used`() {

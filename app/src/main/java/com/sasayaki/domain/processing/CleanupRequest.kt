@@ -49,11 +49,7 @@ class OptionalFieldMemory {
      * send calls [attempt] with the fields to leave out. [rejection] returns the error
      * text of a refused request, or null for any other failure, which is rethrown.
      */
-    suspend fun <T> send(
-        serverModel: String,
-        rejection: (Throwable) -> String?,
-        attempt: suspend (omitted: Set<OptionalField>) -> T
-    ): T {
+    suspend fun <T> send(serverModel: String, rejection: (Throwable) -> String?, attempt: suspend (omitted: Set<OptionalField>) -> T): T {
         var omitted = refused[serverModel].orEmpty()
         var fallback = false
         while (true) {
@@ -64,10 +60,12 @@ class OptionalFieldMemory {
                 val named = sentFields(omitted).filter { it.namedIn(error) }
                 when {
                     named.isNotEmpty() && !fallback -> omitted = omitted + named
+
                     !fallback && omitted != OptionalField.ALL -> {
                         omitted = OptionalField.ALL
                         fallback = true
                     }
+
                     else -> throw e
                 }
             }
@@ -94,25 +92,23 @@ private val CLEANUP_EXAMPLES: List<Pair<String, String>> = listOf(
 fun transcriptMessage(transcript: String): String =
     "<transcript>\n${transcriptTag.replace(transcript, "")}\n</transcript>\n$TRANSCRIPT_REMINDER"
 
-fun cleanupMaxTokens(transcript: String): Int =
-    (transcript.length + REASONING_ALLOWANCE).coerceAtMost(MAX_TOKENS_CAP)
+fun cleanupMaxTokens(transcript: String): Int = (transcript.length + REASONING_ALLOWANCE).coerceAtMost(MAX_TOKENS_CAP)
 
 /**
  * cleanupMessages leaves the examples out when [withExamples] is false: custom prompts may
  * translate or reshape the text, and examples that keep every language as spoken would
  * pull against them.
  */
-fun cleanupMessages(systemPrompt: String, transcript: String, style: OutputStyle, withExamples: Boolean): List<ChatMessage> =
-    buildList {
-        add(ChatMessage(role = "system", content = systemPrompt))
-        if (withExamples) {
-            CLEANUP_EXAMPLES.forEach { (spoken, cleaned) ->
-                add(ChatMessage(role = "user", content = transcriptMessage(spoken)))
-                add(ChatMessage(role = "assistant", content = applyPunctuationStyle(cleaned, style)))
-            }
+fun cleanupMessages(systemPrompt: String, transcript: String, style: OutputStyle, withExamples: Boolean): List<ChatMessage> = buildList {
+    add(ChatMessage(role = "system", content = systemPrompt))
+    if (withExamples) {
+        CLEANUP_EXAMPLES.forEach { (spoken, cleaned) ->
+            add(ChatMessage(role = "user", content = transcriptMessage(spoken)))
+            add(ChatMessage(role = "assistant", content = applyPunctuationStyle(cleaned, style)))
         }
-        add(ChatMessage(role = "user", content = transcriptMessage(transcript)))
     }
+    add(ChatMessage(role = "user", content = transcriptMessage(transcript)))
+}
 
 fun cleanupRequest(
     model: String,

@@ -26,12 +26,7 @@ import com.sasayaki.ui.theme.SasayakiIcons
 import com.sasayaki.ui.theme.Spacing
 
 @Composable
-fun SetupGroup(
-    items: List<SetupItem>,
-    restrictedSettingsLikely: Boolean,
-    modifier: Modifier = Modifier,
-    title: String? = null
-) {
+fun SetupGroup(items: List<SetupItem>, restrictedSettingsLikely: Boolean, modifier: Modifier = Modifier, title: String? = null) {
     val context = LocalContext.current
     val rows = buildList<SegmentedItem> {
         items.forEach { item ->
@@ -39,6 +34,7 @@ fun SetupGroup(
             if (item.key == ACCESSIBILITY_KEY && !item.done) {
                 when {
                     restrictedSettingsLikely -> add { shapes -> RestrictedSettingsRow(shapes) { openAppInfo(context) } }
+
                     // Installs from a store or another installer can still be blocked, so they get a hint.
                     Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU -> add { shapes ->
                         RestrictedSettingsHint(shapes) { openAppInfo(context) }
@@ -57,7 +53,11 @@ private fun SetupRow(item: SetupItem, shapes: ListItemShapes) {
             shapes = shapes,
             colors = segmentedItemColors(),
             leadingContent = {
-                ItemIcon(SasayakiIcons.Check, containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary)
+                ItemIcon(
+                    SasayakiIcons.Check,
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                )
             },
             supportingContent = { Text(item.description) }
         ) {
@@ -107,7 +107,9 @@ private fun RestrictedSettingsRow(shapes: ListItemShapes, onOpenAppInfo: () -> U
         supportingContent = {
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
                 Text("Android blocks this for apps installed from a file until you allow it. If the switch is greyed out:")
-                Text("1. Open App info\n2. Tap ⋮ in the top corner\n3. Tap Allow restricted settings and confirm\n4. Come back and allow Text insertion")
+                Text(
+                    "1. Open App info\n2. Tap ⋮ in the top corner\n3. Tap Allow restricted settings and confirm\n4. Come back and allow Text insertion"
+                )
                 Button(onClick = onOpenAppInfo, contentPadding = PaddingValues(horizontal = Spacing.l)) {
                     Text("Open App info")
                 }

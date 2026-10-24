@@ -1,3 +1,5 @@
+@file:Suppress("ktlint:standard:max-line-length") // Prose and fixture rows read better unwrapped.
+
 package com.sasayaki.domain.processing
 
 /**

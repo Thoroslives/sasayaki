@@ -31,6 +31,7 @@ internal class DraggableOverlayLayout(
                 downY = event.rawY
                 dragging = false
             }
+
             MotionEvent.ACTION_MOVE -> if (!dragging && hypot(event.rawX - downX, event.rawY - downY) > touchSlop) {
                 dragging = true
                 parent?.requestDisallowInterceptTouchEvent(true)
@@ -48,6 +49,7 @@ internal class DraggableOverlayLayout(
                 downX = event.rawX
                 downY = event.rawY
             }
+
             MotionEvent.ACTION_MOVE -> {
                 if (!dragging && hypot(event.rawX - downX, event.rawY - downY) > touchSlop) {
                     dragging = true
@@ -55,6 +57,7 @@ internal class DraggableOverlayLayout(
                 }
                 if (dragging) onDrag(event.rawX - downX, event.rawY - downY)
             }
+
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                 if (dragging) onDragEnd()
                 dragging = false

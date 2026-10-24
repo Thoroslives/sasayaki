@@ -36,12 +36,7 @@ fun ProfilesRoute(onOpenProfile: (Long) -> Unit, viewModel: ProfilesViewModel = 
 }
 
 @Composable
-fun ProfilesScreen(
-    state: ProfilesUiState,
-    onActivate: (Long) -> Unit,
-    onOpenProfile: (Long) -> Unit,
-    onCreate: () -> Unit
-) {
+fun ProfilesScreen(state: ProfilesUiState, onActivate: (Long) -> Unit, onOpenProfile: (Long) -> Unit, onCreate: () -> Unit) {
     SettingsPage(
         title = "Profiles",
         onBack = null,

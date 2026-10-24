@@ -46,5 +46,4 @@ internal fun decodeAppProfiles(entries: Set<String>): Map<String, Long> = entrie
     if (packageName.isEmpty() || id == null) null else packageName to id
 }.toMap()
 
-fun UserPreferences.rememberedProfileFor(packageName: String?): Long? =
-    packageName?.takeIf { rememberProfilePerApp }?.let(appProfiles::get)
+fun UserPreferences.rememberedProfileFor(packageName: String?): Long? = packageName?.takeIf { rememberProfilePerApp }?.let(appProfiles::get)

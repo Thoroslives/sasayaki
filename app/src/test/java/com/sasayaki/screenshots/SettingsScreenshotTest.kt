@@ -153,10 +153,46 @@ class SettingsScreenshotTest {
             item {
                 SetupGroup(
                     items = listOf(
-                        SetupItem("microphone", "Microphone", "Records your voice while the bubble is listening.", SasayakiIcons.Mic, true, true, "Allow") {},
-                        SetupItem("overlay", "Display over other apps", "Lets the bubble float above your keyboard.", SasayakiIcons.Layers, true, true, "Allow") {},
-                        SetupItem("accessibility", "Text insertion", "Types the result into the field you are using.", SasayakiIcons.Keyboard, false, true, "Allow") {},
-                        SetupItem("notifications", "Notifications", "Keeps the bubble running reliably.", SasayakiIcons.Notifications, false, false, "Allow") {}
+                        SetupItem(
+                            "microphone",
+                            "Microphone",
+                            "Records your voice while the bubble is listening.",
+                            SasayakiIcons.Mic,
+                            true,
+                            true,
+                            "Allow"
+                        ) {
+                        },
+                        SetupItem(
+                            "overlay",
+                            "Display over other apps",
+                            "Lets the bubble float above your keyboard.",
+                            SasayakiIcons.Layers,
+                            true,
+                            true,
+                            "Allow"
+                        ) {
+                        },
+                        SetupItem(
+                            "accessibility",
+                            "Text insertion",
+                            "Types the result into the field you are using.",
+                            SasayakiIcons.Keyboard,
+                            false,
+                            true,
+                            "Allow"
+                        ) {
+                        },
+                        SetupItem(
+                            "notifications",
+                            "Notifications",
+                            "Keeps the bubble running reliably.",
+                            SasayakiIcons.Notifications,
+                            false,
+                            false,
+                            "Allow"
+                        ) {
+                        }
                     ),
                     restrictedSettingsLikely = true
                 )

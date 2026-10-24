@@ -50,12 +50,7 @@ fun SettingsRoute(destinations: SettingsDestinations, viewModel: SettingsViewMod
 }
 
 @Composable
-fun SettingsScreen(
-    state: SettingsUiState,
-    missingPermissions: Int,
-    destinations: SettingsDestinations,
-    onOpenSource: () -> Unit
-) {
+fun SettingsScreen(state: SettingsUiState, missingPermissions: Int, destinations: SettingsDestinations, onOpenSource: () -> Unit) {
     val prefs = state.preferences
     SettingsPage(title = "Settings", onBack = null) {
         if (!state.loaded) return@SettingsPage
@@ -77,7 +72,8 @@ fun SettingsScreen(
                         NavigationItem(
                             shapes = shapes,
                             headline = "Recording",
-                            supporting = "Stops after ${String.format(Locale.getDefault(), "%.1f", prefs.silenceThresholdMs / 1000f)} s of silence",
+                            supporting = "Stops after " +
+                                "${String.format(Locale.getDefault(), "%.1f", prefs.silenceThresholdMs / 1000f)} s of silence",
                             icon = SasayakiIcons.Mic,
                             onClick = destinations.onRecording
                         )
@@ -155,7 +151,11 @@ fun SettingsScreen(
                         NavigationItem(
                             shapes = shapes,
                             headline = "History and privacy",
-                            supporting = if (prefs.historyEnabled) "Keeping the last ${prefs.historyRetentionLimit}" else "Not keeping history",
+                            supporting = if (prefs.historyEnabled) {
+                                "Keeping the last ${prefs.historyRetentionLimit}"
+                            } else {
+                                "Not keeping history"
+                            },
                             icon = SasayakiIcons.History,
                             onClick = destinations.onHistory
                         )

@@ -85,13 +85,7 @@ fun providerEditorActions(draft: ProviderDraft, onAdd: () -> Unit, onDelete: () 
     onBack = onBack
 )
 
-data class ProviderForm(
-    val name: String,
-    val url: String,
-    val apiKey: String,
-    val speechModel: String?,
-    val cleanupModel: String?
-)
+data class ProviderForm(val name: String, val url: String, val apiKey: String, val speechModel: String?, val cleanupModel: String?)
 
 class ProviderEditorActions(
     val onNameChange: (String) -> Unit,
@@ -145,8 +139,11 @@ fun ProviderEditorScreen(isNew: Boolean, form: ProviderForm, state: ProviderEdit
         item(key = "result") {
             AnimatedVisibility(
                 visible = state.result != null,
-                enter = fadeIn(MaterialTheme.motionScheme.defaultEffectsSpec()) + expandVertically(MaterialTheme.motionScheme.defaultSpatialSpec()),
-                exit = fadeOut(MaterialTheme.motionScheme.fastEffectsSpec()) + shrinkVertically(MaterialTheme.motionScheme.fastSpatialSpec())
+                enter =
+                    fadeIn(MaterialTheme.motionScheme.defaultEffectsSpec()) +
+                        expandVertically(MaterialTheme.motionScheme.defaultSpatialSpec()),
+                exit =
+                    fadeOut(MaterialTheme.motionScheme.fastEffectsSpec()) + shrinkVertically(MaterialTheme.motionScheme.fastSpatialSpec())
             ) {
                 state.result?.let { ConnectionResultCard(it) }
             }
@@ -215,7 +212,11 @@ internal fun ProviderConnectionForm(form: ProviderForm, state: ProviderEditorUiS
                 singleLine = true,
                 supportingText = { Text("Leave empty if your server doesn't use one.") },
                 visualTransformation = if (revealKey) VisualTransformation.None else PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Next, autoCorrectEnabled = false),
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Password,
+                    imeAction = ImeAction.Next,
+                    autoCorrectEnabled = false
+                ),
                 trailingIcon = {
                     IconButton(onClick = { revealKey = !revealKey }) {
                         Icon(
@@ -324,7 +325,15 @@ internal fun ConnectionResultCard(result: ConnectionResult) {
                         )
                     }
                     val more = result.models.size - MODEL_PREVIEW_COUNT
-                    if (more > 0) Pill(text = "+$more more", containerColor = Color.Transparent, contentColor = MaterialTheme.colorScheme.onPrimaryContainer)
+                    if (more >
+                        0
+                    ) {
+                        Pill(
+                            text = "+$more more",
+                            containerColor = Color.Transparent,
+                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    }
                 }
             }
         }
@@ -333,6 +342,7 @@ internal fun ConnectionResultCard(result: ConnectionResult) {
 
 private fun resultSummary(result: ConnectionResult): String = when (result) {
     is ConnectionResult.Failed -> result.message
+
     is ConnectionResult.Connected -> {
         val speech = result.models.count { it.kind == ModelKind.SPEECH }
         when {

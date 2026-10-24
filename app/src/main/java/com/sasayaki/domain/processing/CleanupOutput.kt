@@ -24,6 +24,7 @@ private const val LABEL_NOUNS = "text|transcript|transcription|dictation|version
 private const val LABEL =
     "(?:here(?:'s| is)(?: the| your)? (?:(?:$LABEL_ADJECTIVES) )?(?:$LABEL_NOUNS)|(?:$LABEL_ADJECTIVES) (?:$LABEL_NOUNS))"
 private val leadingLabel = Regex("^$LABEL\\s*:\\s*", RegexOption.IGNORE_CASE)
+
 // spokenLabel ignores the colon, which a transcript holds as a word or not at all.
 private val spokenLabel = Regex("^$LABEL\\b", RegexOption.IGNORE_CASE)
 private val noteHeader = Regex("\\n+\\(?notes?\\s*:", RegexOption.IGNORE_CASE)
@@ -32,6 +33,7 @@ private val dictatedQuote = Regex(
     "[\"“”«»„「」]|(?<!\\p{L})(?:(?:un)?quote[sd]?|quotation|comillas|guillemets|virgolette|aspas|cometes|anführungszeichen)(?!\\p{L})",
     setOf(RegexOption.IGNORE_CASE)
 )
+
 // spokenBreak matches a line-break command at the start or end of a transcript, the only
 // reason for a cleanup to begin or end with a line break.
 private const val SPOKEN_BREAK =
@@ -86,7 +88,13 @@ fun stripModelArtifacts(output: String, input: String): String {
     }
     if (text != output.trim()) return text
     val leadingBreak = if (leadingSpokenBreak.containsMatchIn(trimmedInput)) output.trimStart(' ', '\t').takeWhile { it == '\n' } else ""
-    val trailingBreak = if (trailingSpokenBreak.containsMatchIn(trimmedInput)) output.trimEnd(' ', '\t').takeLastWhile { it == '\n' } else ""
+    val trailingBreak = if (trailingSpokenBreak.containsMatchIn(trimmedInput)) {
+        output.trimEnd(' ', '\t').takeLastWhile {
+            it == '\n'
+        }
+    } else {
+        ""
+    }
     return leadingBreak + text + trailingBreak
 }
 
@@ -107,12 +115,17 @@ fun rejectCleanup(input: String, output: String, finishReason: String?, lengthCh
     val outputLength = output.trim().length
     return when {
         finishReason == "length" -> CleanupRejection.TRUNCATED
+
         output.isBlank() -> CleanupRejection.EMPTY
+
         isRepeated(input, output) -> CleanupRejection.REPEATED
+
         lengthCheck != LengthCheck.NONE && outputLength > inputLength * MAX_GROWTH + GROWTH_ALLOWANCE ->
             CleanupRejection.GREW
+
         lengthCheck == LengthCheck.FULL && inputLength >= MIN_LENGTH_FOR_SHRINK_CHECK &&
             outputLength < inputLength * MIN_RETAINED -> CleanupRejection.SHRANK
+
         else -> null
     }
 }
@@ -148,8 +161,7 @@ private fun isRepeated(input: String, output: String): Boolean {
     return first >= 0 && haystack.indexOf(needle, first + needle.length) >= 0
 }
 
-private fun normalizedWords(text: String): List<String> =
-    text.lowercase().split(Regex("[^\\p{L}\\p{N}]+")).filter(String::isNotEmpty)
+private fun normalizedWords(text: String): List<String> = text.lowercase().split(Regex("[^\\p{L}\\p{N}]+")).filter(String::isNotEmpty)
 
 private const val MAX_GROWTH = 2
 private const val GROWTH_ALLOWANCE = 60

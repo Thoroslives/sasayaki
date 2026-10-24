@@ -35,9 +35,9 @@ import com.sasayaki.ui.settings.ProviderEditorRoute
 import com.sasayaki.ui.settings.ProvidersRoute
 import com.sasayaki.ui.settings.RecordingSettingsRoute
 import com.sasayaki.ui.settings.ReplacementRulesRoute
-import com.sasayaki.ui.settings.VocabularyRoute
 import com.sasayaki.ui.settings.SettingsDestinations
 import com.sasayaki.ui.settings.SettingsRoute
+import com.sasayaki.ui.settings.VocabularyRoute
 
 @Composable
 fun SasayakiNavGraph(startDestination: Any) {
@@ -96,7 +96,7 @@ fun SasayakiNavGraph(startDestination: Any) {
                     }
                 )
             }
-                        composable<HomeDestination> {
+            composable<HomeDestination> {
                 HomeRoute(
                     onOpenHistory = { navController.navigateToTopLevel(TopLevelDestination.HISTORY) },
                     onOpenProfiles = { navController.navigateToTopLevel(TopLevelDestination.PROFILES) },

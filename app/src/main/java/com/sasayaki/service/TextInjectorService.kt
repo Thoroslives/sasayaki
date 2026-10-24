@@ -25,11 +25,7 @@ import androidx.annotation.RequiresApi
  * WebView- and Flutter-backed ones especially, report no text selection while holding real
  * typed text, and discarding it on that basis would delete what the user wrote.
  */
-internal fun resolveExistingText(
-    rawText: String,
-    hintText: String,
-    isShowingHintText: Boolean
-): String {
+internal fun resolveExistingText(rawText: String, hintText: String, isShowingHintText: Boolean): String {
     val showsPlaceholder = isShowingHintText ||
         (hintText.isNotBlank() && rawText.trim().equals(hintText.trim(), ignoreCase = true))
     return if (showsPlaceholder) "" else rawText
@@ -46,7 +42,9 @@ internal fun isSensitiveInputType(inputType: Int): Boolean {
             variation == InputType.TYPE_TEXT_VARIATION_PASSWORD ||
                 variation == InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD ||
                 variation == InputType.TYPE_TEXT_VARIATION_WEB_PASSWORD
+
         InputType.TYPE_CLASS_NUMBER -> variation == InputType.TYPE_NUMBER_VARIATION_PASSWORD
+
         else -> false
     }
 }
@@ -110,6 +108,7 @@ class TextInjectorService : AccessibilityService() {
                     }
                 }
             }
+
             AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> {
                 checkKeyboardVisibility()
             }
@@ -153,13 +152,11 @@ class TextInjectorService : AccessibilityService() {
         }
     }
 
-    fun getFocusedAppPackageName(): String? {
-        return findCurrentFocusedEditable()?.packageName?.toString()
-            ?: lastFocusedEditablePackage
-            ?: focusedAppPackage
-            ?: lastFocusedPackage
-            ?: rootInActiveWindow?.packageName?.toString()
-    }
+    fun getFocusedAppPackageName(): String? = findCurrentFocusedEditable()?.packageName?.toString()
+        ?: lastFocusedEditablePackage
+        ?: focusedAppPackage
+        ?: lastFocusedPackage
+        ?: rootInActiveWindow?.packageName?.toString()
 
     /**
      * focusedEditorPackage names the app whose editor has input focus right now, without

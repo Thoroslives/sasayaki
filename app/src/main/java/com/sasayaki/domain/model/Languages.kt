@@ -15,13 +15,15 @@ private val speechLanguageCodes = listOf(
 
 data class SpeechLanguage(val code: String, val name: String)
 
-fun speechLanguages(displayLocale: Locale = Locale.getDefault()): List<SpeechLanguage> =
-    speechLanguageCodes
-        .map { SpeechLanguage(it, languageName(it, displayLocale)) }
-        .sortedBy { it.name.lowercase(displayLocale) }
+fun speechLanguages(displayLocale: Locale = Locale.getDefault()): List<SpeechLanguage> = speechLanguageCodes
+    .map { SpeechLanguage(it, languageName(it, displayLocale)) }
+    .sortedBy { it.name.lowercase(displayLocale) }
 
 fun languageName(code: String, displayLocale: Locale = Locale.getDefault()): String {
     val name = Locale.forLanguageTag(code).getDisplayLanguage(displayLocale)
-    return if (name.isBlank() || name == code) code.uppercase(displayLocale)
-    else name.replaceFirstChar { it.titlecase(displayLocale) }
+    return if (name.isBlank() || name == code) {
+        code.uppercase(displayLocale)
+    } else {
+        name.replaceFirstChar { it.titlecase(displayLocale) }
+    }
 }

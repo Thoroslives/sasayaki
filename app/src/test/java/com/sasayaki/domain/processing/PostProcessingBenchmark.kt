@@ -1,8 +1,8 @@
 package com.sasayaki.domain.processing
 
+import java.io.File
 import org.junit.Assume.assumeTrue
 import org.junit.Test
-import java.io.File
 
 /**
  * LLM-in-the-loop benchmark for the post-processing pipeline.
@@ -23,13 +23,7 @@ class PostProcessingBenchmark {
 
     private val client = BenchmarkClient()
 
-    private data class CheckResult(
-        val model: String,
-        val case: BenchmarkCase,
-        val checkName: String,
-        val passes: Int,
-        val reps: Int
-    ) {
+    private data class CheckResult(val model: String, val case: BenchmarkCase, val checkName: String, val passes: Int, val reps: Int) {
         val rate: Double get() = passes.toDouble() / reps
         val flaky: Boolean get() = passes in 1 until reps
     }
@@ -68,11 +62,16 @@ class PostProcessingBenchmark {
                 // or the app would have fallen back to the raw transcript.
                 val lengthCheck = lengthCheckFor(case.profile.summarizeMode, freeform = false)
                 results += CheckResult(
-                    model, case, "no framing to strip",
-                    completions.count { it.error == null && it.raw.trim() == it.text.trim() }, completions.size
+                    model,
+                    case,
+                    "no framing to strip",
+                    completions.count { it.error == null && it.raw.trim() == it.text.trim() },
+                    completions.size
                 )
                 results += CheckResult(
-                    model, case, "accepted by validation",
+                    model,
+                    case,
+                    "accepted by validation",
                     completions.count {
                         it.error == null && rejectCleanup(case.rawText, it.text, it.finishReason, lengthCheck) == null
                     },

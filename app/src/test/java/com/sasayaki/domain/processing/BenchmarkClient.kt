@@ -4,13 +4,13 @@ import com.google.gson.Gson
 import com.sasayaki.data.api.model.ChatCompletionResponse
 import com.sasayaki.domain.model.OutputStyle
 import com.sasayaki.domain.model.PostProcessingPrompt
+import java.util.concurrent.TimeUnit
+import kotlin.system.measureTimeMillis
+import kotlinx.coroutines.runBlocking
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
-import java.util.concurrent.TimeUnit
-import kotlinx.coroutines.runBlocking
-import kotlin.system.measureTimeMillis
 
 data class Completion(
     val text: String,

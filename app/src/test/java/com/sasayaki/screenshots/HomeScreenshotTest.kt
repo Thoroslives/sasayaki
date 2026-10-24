@@ -1,3 +1,5 @@
+@file:Suppress("ktlint:standard:max-line-length") // Prose and fixture rows read better unwrapped.
+
 package com.sasayaki.screenshots
 
 import android.app.Application
@@ -8,9 +10,9 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.sasayaki.data.db.entity.DictationStats
 import com.sasayaki.data.db.entity.DictationSummary
 import com.sasayaki.domain.model.Profile
+import com.sasayaki.ui.common.SetupItem
 import com.sasayaki.ui.home.HomeScreen
 import com.sasayaki.ui.home.HomeUiState
-import com.sasayaki.ui.common.SetupItem
 import com.sasayaki.ui.theme.SasayakiIcons
 import org.junit.Rule
 import org.junit.Test

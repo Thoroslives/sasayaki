@@ -25,11 +25,11 @@ import com.sasayaki.ui.components.segmentedItemColors
 import com.sasayaki.ui.theme.SasayakiIcons
 import com.sasayaki.ui.theme.Spacing
 import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
-import javax.inject.Inject
 
 @HiltViewModel
 class ProvidersViewModel @Inject constructor(providerRepository: ProviderRepository) : ViewModel() {
@@ -39,11 +39,7 @@ class ProvidersViewModel @Inject constructor(providerRepository: ProviderReposit
 }
 
 @Composable
-fun ProvidersRoute(
-    onOpenProvider: (Long) -> Unit,
-    onBack: () -> Unit,
-    viewModel: ProvidersViewModel = hiltViewModel()
-) {
+fun ProvidersRoute(onOpenProvider: (Long) -> Unit, onBack: () -> Unit, viewModel: ProvidersViewModel = hiltViewModel()) {
     val providers by viewModel.providers.collectAsStateWithLifecycle()
     ProvidersScreen(providers, onOpenProvider, onBack)
 }
@@ -67,6 +63,7 @@ fun ProvidersScreen(providers: List<Provider>?, onOpenProvider: (Long) -> Unit, 
         pageIntro("The servers Sasayaki talks to. Each can offer a speech to text model, a cleanup model, or both.")
         when {
             providers == null -> Unit
+
             providers.isEmpty() -> item(key = "empty") {
                 EmptyState(
                     icon = SasayakiIcons.Dns,
@@ -75,6 +72,7 @@ fun ProvidersScreen(providers: List<Provider>?, onOpenProvider: (Long) -> Unit, 
                     action = { Button(onClick = { onOpenProvider(0) }) { Text("Add provider") } }
                 )
             }
+
             else -> item(key = "list") {
                 SegmentedGroup(
                     items = providers.map { provider ->

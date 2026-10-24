@@ -6,16 +6,19 @@ import com.sasayaki.data.StartupMigrations
 import com.sasayaki.data.repository.HistoryRepository
 import com.sasayaki.di.ApplicationScope
 import dagger.hilt.android.HiltAndroidApp
+import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
 @HiltAndroidApp
 class SasayakiApp : Application() {
     @Inject lateinit var startupMigrations: StartupMigrations
+
     @Inject lateinit var historyRepository: HistoryRepository
-    @Inject @ApplicationScope lateinit var applicationScope: CoroutineScope
+
+    @Inject @ApplicationScope
+    lateinit var applicationScope: CoroutineScope
 
     override fun onCreate() {
         super.onCreate()

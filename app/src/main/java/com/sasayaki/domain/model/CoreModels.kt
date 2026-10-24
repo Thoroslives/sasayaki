@@ -65,10 +65,7 @@ enum class DictationStatus {
 }
 
 @Immutable
-data class AppContext(
-    val label: String?,
-    val packageName: String?
-) {
+data class AppContext(val label: String?, val packageName: String?) {
     val hasData: Boolean
         get() = !label.isNullOrBlank() || !packageName.isNullOrBlank()
 

@@ -1,12 +1,12 @@
 package com.sasayaki.data.repository
 
+import androidx.room.withTransaction
 import com.sasayaki.data.api.ApiClientFactory
 import com.sasayaki.data.api.AsrApiService
 import com.sasayaki.data.api.LlmApiService
 import com.sasayaki.data.api.ModelsApiService
 import com.sasayaki.data.api.model.ChatCompletionRequest
 import com.sasayaki.data.api.model.ChatMessage
-import androidx.room.withTransaction
 import com.sasayaki.data.db.SasayakiDatabase
 import com.sasayaki.data.db.dao.ProfileDao
 import com.sasayaki.data.db.dao.ProviderDao
@@ -24,6 +24,10 @@ import com.sasayaki.domain.provider.describeConnectionError
 import com.sasayaki.domain.provider.planLegacyMigration
 import com.sasayaki.domain.provider.resolveEndpoint
 import com.sasayaki.domain.provider.sameServer
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
+import javax.inject.Inject
+import javax.inject.Singleton
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -38,10 +42,6 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import retrofit2.HttpException
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
-import javax.inject.Inject
-import javax.inject.Singleton
 
 sealed interface ConnectionResult {
     /** Connected.models is empty when the server works but does not publish a model list. */
@@ -129,8 +129,11 @@ class ProviderRepository @Inject constructor(
     } catch (e: CancellationException) {
         throw e
     } catch (e: HttpException) {
-        if (e.code() in MODELS_UNSUPPORTED) probe(baseUrl, apiKey, speechModel, cleanupModel)
-        else ConnectionResult.Failed(describeConnectionError(e))
+        if (e.code() in MODELS_UNSUPPORTED) {
+            probe(baseUrl, apiKey, speechModel, cleanupModel)
+        } else {
+            ConnectionResult.Failed(describeConnectionError(e))
+        }
     } catch (e: Exception) {
         ConnectionResult.Failed(describeConnectionError(e))
     }
@@ -199,10 +202,12 @@ class ProviderRepository @Inject constructor(
                     val file = MultipartBody.Part.createFormData("file", "probe.wav", silentWav().toRequestBody(WAV))
                     service.transcribe(file, speech.toRequestBody(TEXT))
                 }
+
                 cleanup != null -> {
                     val service = apiClientFactory.create(LlmApiService::class.java, baseUrl, apiKey)
                     service.chatCompletion(ChatCompletionRequest(cleanup, listOf(ChatMessage("user", "Reply with OK."))))
                 }
+
                 else -> return ConnectionResult.Failed(
                     "This server doesn't list its models. Enter a model name below, then test again."
                 )
@@ -242,10 +247,19 @@ class ProviderRepository @Inject constructor(
             val sampleRate = 16_000
             val dataSize = sampleRate / 10 * 2
             return ByteBuffer.allocate(44 + dataSize).order(ByteOrder.LITTLE_ENDIAN).apply {
-                put("RIFF".toByteArray()); putInt(36 + dataSize); put("WAVE".toByteArray())
-                put("fmt ".toByteArray()); putInt(16); putShort(1); putShort(1)
-                putInt(sampleRate); putInt(sampleRate * 2); putShort(2); putShort(16)
-                put("data".toByteArray()); putInt(dataSize)
+                put("RIFF".toByteArray())
+                putInt(36 + dataSize)
+                put("WAVE".toByteArray())
+                put("fmt ".toByteArray())
+                putInt(16)
+                putShort(1)
+                putShort(1)
+                putInt(sampleRate)
+                putInt(sampleRate * 2)
+                putShort(2)
+                putShort(16)
+                put("data".toByteArray())
+                putInt(dataSize)
             }.array()
         }
     }

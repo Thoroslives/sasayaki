@@ -15,16 +15,16 @@ import androidx.datastore.preferences.preferencesDataStore
 import com.sasayaki.domain.processing.sortedVocabulary
 import com.sasayaki.domain.provider.LegacyEndpoint
 import dagger.hilt.android.qualifiers.ApplicationContext
+import java.io.IOException
+import javax.inject.Inject
+import javax.inject.Singleton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
-import java.io.IOException
-import javax.inject.Inject
-import javax.inject.Singleton
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
 
@@ -74,31 +74,31 @@ class PreferencesDataStore @Inject constructor(
             }
         }
         .map { prefs ->
-        UserPreferences(
-            autoClipboard = prefs[Keys.AUTO_CLIPBOARD] ?: true,
-            vibrateOnRecord = prefs[Keys.VIBRATE_ON_RECORD] ?: true,
-            pauseOtherAudio = prefs[Keys.PAUSE_OTHER_AUDIO] ?: false,
-            silenceThresholdMs = prefs[Keys.SILENCE_THRESHOLD_MS] ?: 2000L,
-            preferredLanguages = parsePreferredLanguages(prefs),
-            activeLanguage = resolveActiveLanguage(prefs),
-            historyEnabled = prefs[Keys.HISTORY_ENABLED] ?: true,
-            keepStatsWithoutHistory = prefs[Keys.KEEP_STATS_WITHOUT_HISTORY] ?: false,
-            historyRetentionLimit = (prefs[Keys.HISTORY_RETENTION_LIMIT] ?: 500).coerceIn(1, 5000),
-            startOnBoot = prefs[Keys.START_ON_BOOT] ?: true,
-            themeMode = ThemeMode.entries.firstOrNull { it.name == prefs[Keys.THEME_MODE] } ?: ThemeMode.SYSTEM,
-            wallpaperColors = prefs[Keys.WALLPAPER_COLORS] ?: false,
-            onboardingCompleted = prefs[Keys.ONBOARDING_COMPLETED] ?: false,
-            bubbleSize = BubbleSize.entries.firstOrNull { it.name == prefs[Keys.BUBBLE_SIZE] } ?: BubbleSize.STANDARD,
-            bubbleTranslucent = prefs[Keys.BUBBLE_TRANSLUCENT] ?: false,
-            bubbleMonochrome = prefs[Keys.BUBBLE_MONOCHROME] ?: false,
-            rememberProfilePerApp = prefs[Keys.REMEMBER_PROFILE_PER_APP] ?: true,
-            skipCleanupInAiChats = prefs[Keys.SKIP_CLEANUP_IN_AI_CHATS] ?: true,
-            appProfiles = decodeAppProfiles(prefs[Keys.APP_PROFILES].orEmpty()),
-            vocabulary = sortedVocabulary(prefs[Keys.VOCABULARY].orEmpty())
-        )
-    }
-    .distinctUntilChanged()
-    .flowOn(Dispatchers.IO)
+            UserPreferences(
+                autoClipboard = prefs[Keys.AUTO_CLIPBOARD] ?: true,
+                vibrateOnRecord = prefs[Keys.VIBRATE_ON_RECORD] ?: true,
+                pauseOtherAudio = prefs[Keys.PAUSE_OTHER_AUDIO] ?: false,
+                silenceThresholdMs = prefs[Keys.SILENCE_THRESHOLD_MS] ?: 2000L,
+                preferredLanguages = parsePreferredLanguages(prefs),
+                activeLanguage = resolveActiveLanguage(prefs),
+                historyEnabled = prefs[Keys.HISTORY_ENABLED] ?: true,
+                keepStatsWithoutHistory = prefs[Keys.KEEP_STATS_WITHOUT_HISTORY] ?: false,
+                historyRetentionLimit = (prefs[Keys.HISTORY_RETENTION_LIMIT] ?: 500).coerceIn(1, 5000),
+                startOnBoot = prefs[Keys.START_ON_BOOT] ?: true,
+                themeMode = ThemeMode.entries.firstOrNull { it.name == prefs[Keys.THEME_MODE] } ?: ThemeMode.SYSTEM,
+                wallpaperColors = prefs[Keys.WALLPAPER_COLORS] ?: false,
+                onboardingCompleted = prefs[Keys.ONBOARDING_COMPLETED] ?: false,
+                bubbleSize = BubbleSize.entries.firstOrNull { it.name == prefs[Keys.BUBBLE_SIZE] } ?: BubbleSize.STANDARD,
+                bubbleTranslucent = prefs[Keys.BUBBLE_TRANSLUCENT] ?: false,
+                bubbleMonochrome = prefs[Keys.BUBBLE_MONOCHROME] ?: false,
+                rememberProfilePerApp = prefs[Keys.REMEMBER_PROFILE_PER_APP] ?: true,
+                skipCleanupInAiChats = prefs[Keys.SKIP_CLEANUP_IN_AI_CHATS] ?: true,
+                appProfiles = decodeAppProfiles(prefs[Keys.APP_PROFILES].orEmpty()),
+                vocabulary = sortedVocabulary(prefs[Keys.VOCABULARY].orEmpty())
+            )
+        }
+        .distinctUntilChanged()
+        .flowOn(Dispatchers.IO)
 
     /**
      * legacyEndpoints returns the single speech and cleanup endpoints from before
@@ -232,5 +232,4 @@ class PreferencesDataStore @Inject constructor(
             mutablePrefs.remove(Keys.LLM_API_KEY)
         }
     }
-
 }

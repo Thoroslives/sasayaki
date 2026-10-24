@@ -1,12 +1,12 @@
 package com.sasayaki.domain.provider
 
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
 import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import retrofit2.HttpException
 import retrofit2.Response
-import java.net.SocketTimeoutException
-import java.net.UnknownHostException
 
 class ConnectionErrorsTest {
     private fun http(code: Int) = HttpException(Response.error<Unit>(code, "".toResponseBody()))

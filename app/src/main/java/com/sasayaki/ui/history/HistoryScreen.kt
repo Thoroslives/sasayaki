@@ -60,11 +60,11 @@ import com.sasayaki.ui.components.Pill
 import com.sasayaki.ui.components.SasayakiScaffold
 import com.sasayaki.ui.theme.SasayakiIcons
 import com.sasayaki.ui.theme.Spacing
-import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
+import kotlinx.coroutines.launch
 
 @Composable
 fun HistoryRoute(viewModel: HistoryViewModel = hiltViewModel()) {
@@ -154,6 +154,7 @@ fun HistoryScreen(
             }
             when {
                 !state.loaded -> Unit
+
                 !state.hasHistory -> item(key = "empty") {
                     EmptyState(
                         icon = SasayakiIcons.History,
@@ -165,6 +166,7 @@ fun HistoryScreen(
                         }
                     )
                 }
+
                 state.groups.isEmpty() -> item(key = "no-match") {
                     EmptyState(
                         icon = SasayakiIcons.Search,
@@ -172,6 +174,7 @@ fun HistoryScreen(
                         body = "Nothing you dictated contains “${state.query.trim()}”."
                     )
                 }
+
                 else -> dayGroups(state, onCopy, onRetry, onDelete, loadRawText)
             }
         }
@@ -410,9 +413,11 @@ private fun HistoryActions(
         retrying -> Box(modifier = Modifier.size(48.dp), contentAlignment = Alignment.Center) {
             LoadingIndicator(modifier = Modifier.size(28.dp))
         }
+
         canRetry && emphasizeRetry -> FilledTonalIconButton(onClick = onRetry) {
             Icon(SasayakiIcons.Refresh, contentDescription = "Retry", modifier = Modifier.size(20.dp))
         }
+
         canRetry -> IconButton(onClick = onRetry) {
             Icon(SasayakiIcons.Refresh, contentDescription = "Retry", modifier = Modifier.size(20.dp))
         }

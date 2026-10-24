@@ -19,10 +19,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SegmentedListItem
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.SheetValue
 import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -97,6 +97,7 @@ fun ReplacementRulesScreen(
             }
             when {
                 rules == null -> Unit
+
                 rules.isEmpty() -> item(key = "empty") {
                     EmptyState(
                         icon = SasayakiIcons.FindReplace,
@@ -104,6 +105,7 @@ fun ReplacementRulesScreen(
                         body = "Add one for a name or term your speech model keeps getting wrong."
                     )
                 }
+
                 else -> itemsIndexed(rules, key = { _, rule -> rule.id }) { index, rule ->
                     SegmentedListItem(
                         onClick = { editing = rule },
@@ -132,7 +134,16 @@ fun ReplacementRulesScreen(
                 onSave(it)
                 editing = null
             },
-            onDelete = if (rule.id != 0L) ({ onDelete(rule.id); editing = null }) else null,
+            onDelete = if (rule.id != 0L) {
+                (
+                    {
+                        onDelete(rule.id)
+                        editing = null
+                    }
+                    )
+            } else {
+                null
+            },
             onDismiss = { editing = null }
         )
     }
@@ -156,7 +167,10 @@ private fun RuleEditorSheet(
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        sheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden, enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded)),
+        sheetState = rememberBottomSheetState(
+            initialValue = SheetValue.Hidden,
+            enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded)
+        ),
         containerColor = MaterialTheme.colorScheme.surfaceContainerLow
     ) {
         Column(

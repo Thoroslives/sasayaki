@@ -32,7 +32,16 @@ class ProfilesScreenshotTest {
     )
 
     private val chat = Profile(id = 1, name = "Chat", isActive = true, language = "en", llmEnabled = true, selectedRuleIds = setOf(1))
-    private val email = Profile(id = 2, name = "Email", language = "es", llmEnabled = true, rewriteMode = RewriteMode.POLISH, speechProviderId = 1, asrModel = "Systran/faster-whisper-small")
+    private val email =
+        Profile(
+            id = 2,
+            name = "Email",
+            language = "es",
+            llmEnabled = true,
+            rewriteMode = RewriteMode.POLISH,
+            speechProviderId = 1,
+            asrModel = "Systran/faster-whisper-small"
+        )
     private val notes = Profile(id = 3, name = "Raw notes")
 
     private val navigation = ProfileEditorNavigation({}, {}, {}, {}, {})

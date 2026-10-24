@@ -1,10 +1,10 @@
 package com.sasayaki.ui.history
 
 import com.sasayaki.data.db.entity.DictationSummary
-import org.junit.Assert.assertEquals
-import org.junit.Test
 import java.time.LocalDate
 import java.time.ZoneOffset
+import org.junit.Assert.assertEquals
+import org.junit.Test
 
 class HistoryGroupingTest {
     private val zone = ZoneOffset.UTC

@@ -11,11 +11,11 @@ import com.sasayaki.data.preferences.rememberedProfileFor
 import com.sasayaki.domain.model.Profile
 import com.sasayaki.domain.processing.BuiltInPrompt
 import com.sasayaki.domain.processing.BuiltInPrompts
+import javax.inject.Inject
+import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
-import javax.inject.Inject
-import javax.inject.Singleton
 
 @Singleton
 class ProfileRepository @Inject constructor(
@@ -96,15 +96,13 @@ class ProfileRepository @Inject constructor(
         preferencesDataStore.rememberAppProfile(packageName, profileId)
     }
 
-    suspend fun duplicate(profile: Profile): Long {
-        return profileDao.insert(
-            profile.copy(
-                id = 0,
-                name = "${profile.name} copy",
-                isActive = false
-            ).toEntity()
-        )
-    }
+    suspend fun duplicate(profile: Profile): Long = profileDao.insert(
+        profile.copy(
+            id = 0,
+            name = "${profile.name} copy",
+            isActive = false
+        ).toEntity()
+    )
 
     suspend fun delete(id: Long) {
         val wasActive = profileDao.getProfile(id)?.isActive == true

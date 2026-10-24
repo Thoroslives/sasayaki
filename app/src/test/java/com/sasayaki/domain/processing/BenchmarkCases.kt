@@ -46,8 +46,7 @@ private fun word(text: String, term: String): Boolean =
     Regex("(?iu)(?<![\\p{L}\\p{N}])${Regex.escape(term)}(?![\\p{L}\\p{N}])").containsMatchIn(text)
 
 fun mustContain(term: String) = Check("contains '$term'") { word(it, term) }
-fun mustContainAny(vararg terms: String) =
-    Check("contains any of ${terms.toList()}") { out -> terms.any { word(out, it) } }
+fun mustContainAny(vararg terms: String) = Check("contains any of ${terms.toList()}") { out -> terms.any { word(out, it) } }
 
 fun mustNotContain(term: String) = Check("drops '$term'") { !word(it, term) }
 
@@ -55,10 +54,9 @@ val noEmoji = Check("no emoji added") { out -> Metrics.emojiCount(out) == 0.0 }
 
 val allLowercase = Check("all lowercase") { out -> out.none(Char::isUpperCase) }
 
-fun shorterThan(ratio: Double, sourceWords: Int) =
-    Check("condensed below ${(ratio * 100).toInt()}% of $sourceWords words") { out ->
-        out.trim().split(Regex("\\s+")).count { it.isNotBlank() } < sourceWords * ratio
-    }
+fun shorterThan(ratio: Double, sourceWords: Int) = Check("condensed below ${(ratio * 100).toInt()}% of $sourceWords words") { out ->
+    out.trim().split(Regex("\\s+")).count { it.isNotBlank() } < sourceWords * ratio
+}
 
 private const val RAMBLE_EN =
     "so um basically what i wanted to say is that the deployment went out yesterday evening " +

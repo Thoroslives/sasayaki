@@ -11,6 +11,10 @@ import com.sasayaki.data.preferences.UserPreferences
 import com.sasayaki.domain.model.AppContext
 import com.sasayaki.domain.model.DictationStatus
 import com.sasayaki.domain.model.Profile
+import java.io.File
+import java.time.Clock
+import java.time.Instant
+import java.time.ZoneOffset
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
@@ -27,10 +31,6 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
-import java.io.File
-import java.time.Clock
-import java.time.Instant
-import java.time.ZoneOffset
 
 @RunWith(AndroidJUnit4::class)
 @Config(sdk = [35], application = Application::class)

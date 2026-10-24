@@ -33,13 +33,15 @@ class NotificationHelper(private val context: Context) {
 
     fun buildForegroundNotification(): Notification {
         val openIntent = PendingIntent.getActivity(
-            context, 0,
+            context,
+            0,
             Intent(context, MainActivity::class.java),
             PendingIntent.FLAG_IMMUTABLE
         )
 
         val stopIntent = PendingIntent.getBroadcast(
-            context, 0,
+            context,
+            0,
             Intent(ACTION_STOP).setPackage(context.packageName),
             PendingIntent.FLAG_IMMUTABLE
         )

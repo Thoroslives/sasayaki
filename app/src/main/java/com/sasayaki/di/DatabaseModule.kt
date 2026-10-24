@@ -1,15 +1,15 @@
 package com.sasayaki.di
 
 import android.content.Context
-import androidx.room.migration.Migration
 import androidx.room.Room
+import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.sasayaki.data.db.SasayakiDatabase
 import com.sasayaki.data.db.dao.DictationDao
 import com.sasayaki.data.db.dao.LifetimeStatsDao
-import com.sasayaki.data.db.dao.ProviderDao
 import com.sasayaki.data.db.dao.PostProcessingPromptDao
 import com.sasayaki.data.db.dao.ProfileDao
+import com.sasayaki.data.db.dao.ProviderDao
 import com.sasayaki.data.db.dao.TextReplacementRuleDao
 import dagger.Module
 import dagger.Provides
@@ -168,15 +168,13 @@ object DatabaseModule {
 
     @Provides
     @Singleton
-    fun provideDatabase(@ApplicationContext context: Context): SasayakiDatabase {
-        return Room.databaseBuilder(
-            context,
-            SasayakiDatabase::class.java,
-            "sasayaki.db"
-        ).addMigrations(*migrations)
-            .fallbackToDestructiveMigrationOnDowngrade(dropAllTables = true)
-            .build()
-    }
+    fun provideDatabase(@ApplicationContext context: Context): SasayakiDatabase = Room.databaseBuilder(
+        context,
+        SasayakiDatabase::class.java,
+        "sasayaki.db"
+    ).addMigrations(*migrations)
+        .fallbackToDestructiveMigrationOnDowngrade(dropAllTables = true)
+        .build()
 
     @Provides
     fun provideDictationDao(db: SasayakiDatabase): DictationDao = db.dictationDao()

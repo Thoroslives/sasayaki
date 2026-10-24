@@ -16,10 +16,10 @@ import com.sasayaki.domain.processing.speechPrompt
 import com.sasayaki.domain.processing.withoutRecitedGlossary
 import com.sasayaki.domain.provider.Purpose
 import com.sasayaki.domain.provider.Resolution
-import kotlinx.coroutines.flow.first
 import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.flow.first
 
 /** DictationFailure carries the history entry a failed dictation can be retried from, if one was kept. */
 class DictationFailure(override val cause: Throwable, val retryEntryId: Long?) : Exception(cause.message, cause)

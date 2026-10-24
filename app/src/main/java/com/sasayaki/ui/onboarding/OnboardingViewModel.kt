@@ -10,10 +10,10 @@ import com.sasayaki.service.BubbleServiceController
 import com.sasayaki.ui.settings.ProviderDraft
 import com.sasayaki.ui.settings.ProviderEditorUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
 @HiltViewModel
 class OnboardingViewModel @Inject constructor(

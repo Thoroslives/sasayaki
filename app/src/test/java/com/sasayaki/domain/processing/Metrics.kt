@@ -9,8 +9,7 @@ package com.sasayaki.domain.processing
  */
 object Metrics {
 
-    fun wordCount(text: String): Double =
-        text.trim().split(Regex("\\s+")).count { it.isNotBlank() }.toDouble()
+    fun wordCount(text: String): Double = text.trim().split(Regex("\\s+")).count { it.isNotBlank() }.toDouble()
 
     /** Punctuation marks per word, so the figure does not simply track length. */
     fun punctuationDensity(text: String): Double {
@@ -41,6 +40,7 @@ object Metrics {
             Character.UnicodeBlock.TRANSPORT_AND_MAP_SYMBOLS,
             Character.UnicodeBlock.SUPPLEMENTAL_SYMBOLS_AND_PICTOGRAPHS,
             Character.UnicodeBlock.DINGBATS -> true
+
             else -> false
         }
     }.count().toDouble()

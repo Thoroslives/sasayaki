@@ -5,15 +5,15 @@ import com.sasayaki.data.api.ApiClientFactory
 import com.sasayaki.data.api.LlmApiService
 import com.sasayaki.data.repository.ProcessingRepository
 import com.sasayaki.data.repository.ProviderRepository
-import com.sasayaki.domain.provider.Purpose
-import com.sasayaki.domain.provider.Resolution
 import com.sasayaki.domain.model.AppContext
 import com.sasayaki.domain.model.Profile
+import com.sasayaki.domain.provider.Purpose
+import com.sasayaki.domain.provider.Resolution
+import javax.inject.Inject
+import javax.inject.Singleton
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 import retrofit2.HttpException
-import javax.inject.Inject
-import javax.inject.Singleton
 
 @Singleton
 class TextProcessor @Inject constructor(
@@ -55,8 +55,12 @@ class TextProcessor @Inject constructor(
             val response = optionalFields.send("${endpoint.baseUrl}|${endpoint.model}", ::refusal) { omitted ->
                 service.chatCompletion(
                     cleanupRequest(
-                        endpoint.model, plan.systemPrompt, ruleProcessedText, profile.outputStyle,
-                        withExamples = !plan.freeform, omitted = omitted
+                        endpoint.model,
+                        plan.systemPrompt,
+                        ruleProcessedText,
+                        profile.outputStyle,
+                        withExamples = !plan.freeform,
+                        omitted = omitted
                     )
                 )
             }
@@ -82,10 +86,9 @@ class TextProcessor @Inject constructor(
 
     private val optionalFields = OptionalFieldMemory()
 
-    private fun refusal(error: Throwable): String? =
-        (error as? HttpException)?.takeIf { it.code() in REJECTED_REQUEST_CODES }?.let {
-            it.response()?.errorBody()?.string().orEmpty()
-        }
+    private fun refusal(error: Throwable): String? = (error as? HttpException)?.takeIf { it.code() in REJECTED_REQUEST_CODES }?.let {
+        it.response()?.errorBody()?.string().orEmpty()
+    }
 
     private companion object {
         const val TAG = "TextProcessor"

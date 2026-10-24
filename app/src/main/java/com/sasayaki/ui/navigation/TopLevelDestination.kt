@@ -8,12 +8,7 @@ import androidx.navigation.NavDestination.Companion.hierarchy
 import com.sasayaki.ui.theme.SasayakiIcons
 import kotlin.reflect.KClass
 
-enum class TopLevelDestination(
-    val route: Any,
-    val label: String,
-    val icon: ImageVector,
-    val selectedIcon: ImageVector
-) {
+enum class TopLevelDestination(val route: Any, val label: String, val icon: ImageVector, val selectedIcon: ImageVector) {
     HOME(HomeDestination, "Home", SasayakiIcons.Home, SasayakiIcons.HomeFilled),
     HISTORY(HistoryDestination, "History", SasayakiIcons.History, SasayakiIcons.HistoryFilled),
     PROFILES(ProfilesDestination, "Profiles", SasayakiIcons.Tune, SasayakiIcons.TuneFilled),
@@ -22,13 +17,11 @@ enum class TopLevelDestination(
     val routeClass: KClass<*> get() = route::class
 }
 
-fun NavDestination?.topLevelDestination(): TopLevelDestination? =
-    this?.let { destination ->
-        TopLevelDestination.entries.firstOrNull { destination.hasRoute(it.routeClass) }
-    }
+fun NavDestination?.topLevelDestination(): TopLevelDestination? = this?.let { destination ->
+    TopLevelDestination.entries.firstOrNull { destination.hasRoute(it.routeClass) }
+}
 
-fun NavDestination?.isIn(destination: TopLevelDestination): Boolean =
-    this?.hierarchy?.any { it.hasRoute(destination.routeClass) } == true
+fun NavDestination?.isIn(destination: TopLevelDestination): Boolean = this?.hierarchy?.any { it.hasRoute(destination.routeClass) } == true
 
 // Tabs pop back to Home rather than the graph's start destination, which is onboarding
 // on a first launch and is gone from the back stack once it finishes.

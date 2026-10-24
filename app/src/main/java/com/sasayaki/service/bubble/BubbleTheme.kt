@@ -13,11 +13,7 @@ import com.sasayaki.ui.theme.Graphite90
 import com.sasayaki.ui.theme.SasayakiTheme
 import com.sasayaki.ui.theme.sasayakiColorScheme
 
-data class BubbleAppearance(
-    val wallpaperColors: Boolean = false,
-    val translucent: Boolean = false,
-    val monochrome: Boolean = false
-)
+data class BubbleAppearance(val wallpaperColors: Boolean = false, val translucent: Boolean = false, val monochrome: Boolean = false)
 
 internal val LocalBubbleTranslucent = staticCompositionLocalOf { false }
 

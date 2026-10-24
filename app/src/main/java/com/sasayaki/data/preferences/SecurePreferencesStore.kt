@@ -9,9 +9,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class SecurePreferencesStore @Inject constructor(
-    @ApplicationContext private val context: Context
-) {
+class SecurePreferencesStore @Inject constructor(@ApplicationContext private val context: Context) {
     companion object {
         private const val FILE_NAME = "secure_settings"
         private const val ASR_API_KEY = "asr_api_key"
@@ -46,8 +44,7 @@ class SecurePreferencesStore @Inject constructor(
         sharedPreferences.edit().remove(ASR_API_KEY).remove(LLM_API_KEY).apply()
     }
 
-    fun getProviderApiKey(providerId: Long): String =
-        sharedPreferences.getString(providerKey(providerId), "") ?: ""
+    fun getProviderApiKey(providerId: Long): String = sharedPreferences.getString(providerKey(providerId), "") ?: ""
 
     // Committed synchronously: callers are on IO, and a key lost to process death after
     // its provider row was written would silently break that provider.

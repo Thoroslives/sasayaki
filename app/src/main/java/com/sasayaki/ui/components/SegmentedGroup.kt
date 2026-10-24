@@ -1,5 +1,6 @@
 package com.sasayaki.ui.components
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,7 +20,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.foundation.background
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
@@ -29,11 +29,7 @@ import com.sasayaki.ui.theme.Spacing
 typealias SegmentedItem = @Composable (ListItemShapes) -> Unit
 
 @Composable
-fun SegmentedGroup(
-    items: List<SegmentedItem>,
-    modifier: Modifier = Modifier,
-    title: String? = null
-) {
+fun SegmentedGroup(items: List<SegmentedItem>, modifier: Modifier = Modifier, title: String? = null) {
     Column(modifier = modifier) {
         if (title != null) SectionLabel(title)
         Column(verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap)) {
@@ -45,11 +41,8 @@ fun SegmentedGroup(
 }
 
 @Composable
-fun SegmentedGroup(
-    vararg items: SegmentedItem,
-    modifier: Modifier = Modifier,
-    title: String? = null
-) = SegmentedGroup(items.toList(), modifier, title)
+fun SegmentedGroup(vararg items: SegmentedItem, modifier: Modifier = Modifier, title: String? = null) =
+    SegmentedGroup(items.toList(), modifier, title)
 
 @Composable
 fun SectionLabel(text: String, modifier: Modifier = Modifier) {

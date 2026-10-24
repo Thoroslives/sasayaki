@@ -1,24 +1,24 @@
 package com.sasayaki.data.repository
 
 import com.sasayaki.data.db.dao.PostProcessingPromptDao
-import com.sasayaki.data.preferences.PreferencesDataStore
 import com.sasayaki.data.db.dao.TextReplacementRuleDao
 import com.sasayaki.data.db.entity.PostProcessingPromptEntity
 import com.sasayaki.data.db.entity.TextReplacementRuleEntity
 import com.sasayaki.data.db.entity.toEntity
+import com.sasayaki.data.preferences.PreferencesDataStore
 import com.sasayaki.domain.model.AppContext
 import com.sasayaki.domain.model.PostProcessingPrompt
 import com.sasayaki.domain.model.Profile
 import com.sasayaki.domain.model.TextReplacementRule
-import com.sasayaki.domain.processing.applyReplacementRules
 import com.sasayaki.domain.processing.CleanupPlan
 import com.sasayaki.domain.processing.SystemPromptBuilder
+import com.sasayaki.domain.processing.applyReplacementRules
 import com.sasayaki.domain.processing.hasFreeformPrompts
+import javax.inject.Inject
+import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
-import javax.inject.Inject
-import javax.inject.Singleton
 
 @Singleton
 class ProcessingRepository @Inject constructor(
@@ -32,11 +32,11 @@ class ProcessingRepository @Inject constructor(
     val prompts: Flow<List<PostProcessingPrompt>> = promptDao.observeAll()
         .map { prompts -> prompts.map(PostProcessingPromptEntity::toDomain) }
 
-    suspend fun saveRule(rule: TextReplacementRule): Long {
-        return if (rule.id == 0L) ruleDao.insert(rule.toEntity()) else {
-            ruleDao.update(rule.toEntity())
-            rule.id
-        }
+    suspend fun saveRule(rule: TextReplacementRule): Long = if (rule.id == 0L) {
+        ruleDao.insert(rule.toEntity())
+    } else {
+        ruleDao.update(rule.toEntity())
+        rule.id
     }
 
     suspend fun deleteRule(id: Long) {
@@ -44,7 +44,9 @@ class ProcessingRepository @Inject constructor(
     }
 
     suspend fun savePrompt(prompt: PostProcessingPrompt): Long {
-        return if (prompt.id == 0L) promptDao.insert(prompt.toEntity()) else {
+        return if (prompt.id == 0L) {
+            promptDao.insert(prompt.toEntity())
+        } else {
             val existing = promptDao.getById(prompt.id) ?: return 0L
             if (!existing.builtIn) promptDao.update(prompt.copy(builtIn = false).toEntity())
             prompt.id

@@ -18,8 +18,7 @@ fun parseVocabulary(input: String): List<String> = vocabularyCandidates(input)
 
 fun hasOverlongTerm(input: String): Boolean = vocabularyCandidates(input).any { it.length > MAX_VOCABULARY_TERM_LENGTH }
 
-private fun vocabularyCandidates(input: String): List<String> =
-    input.split(',', ';', '\n').map(String::trim).filter(String::isNotEmpty)
+private fun vocabularyCandidates(input: String): List<String> = input.split(',', ';', '\n').map(String::trim).filter(String::isNotEmpty)
 
 fun sortedVocabulary(terms: Collection<String>): List<String> = terms.sortedBy(String::lowercase)
 

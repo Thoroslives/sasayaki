@@ -15,6 +15,9 @@ import com.sasayaki.domain.model.Profile
 import com.sasayaki.domain.provider.Purpose
 import com.sasayaki.service.BubbleServiceController
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.time.LocalDate
+import java.time.ZoneId
+import javax.inject.Inject
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -27,9 +30,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import java.time.LocalDate
-import java.time.ZoneId
-import javax.inject.Inject
 
 private const val RECENT_LIMIT = 3
 private val EMPTY_STATS = DictationStats(count = 0, wordCount = 0, durationMs = 0L)

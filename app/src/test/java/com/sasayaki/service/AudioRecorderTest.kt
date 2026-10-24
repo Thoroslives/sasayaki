@@ -1,11 +1,11 @@
 package com.sasayaki.service
 
+import java.io.File
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertFalse
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
-import java.io.File
 
 class AudioRecorderTest {
     @get:Rule

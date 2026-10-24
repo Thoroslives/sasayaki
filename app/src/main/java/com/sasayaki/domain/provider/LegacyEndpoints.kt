@@ -2,11 +2,7 @@ package com.sasayaki.domain.provider
 
 data class LegacyEndpoint(val baseUrl: String, val apiKey: String, val model: String)
 
-data class LegacyMigrationPlan(
-    val providers: List<Provider>,
-    val speechProviderIndex: Int?,
-    val cleanupProviderIndex: Int?
-)
+data class LegacyMigrationPlan(val providers: List<Provider>, val speechProviderIndex: Int?, val cleanupProviderIndex: Int?)
 
 /**
  * planLegacyMigration turns the old single speech and cleanup endpoints into providers. One server used

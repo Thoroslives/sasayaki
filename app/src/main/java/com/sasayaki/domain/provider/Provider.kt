@@ -23,13 +23,7 @@ data class Provider(
 }
 
 @Immutable
-data class Endpoint(
-    val providerId: Long,
-    val providerName: String,
-    val baseUrl: String,
-    val apiKey: String,
-    val model: String
-) {
+data class Endpoint(val providerId: Long, val providerName: String, val baseUrl: String, val apiKey: String, val model: String) {
     override fun toString() = "Endpoint(providerId=$providerId, baseUrl=$baseUrl, model=$model)"
 }
 
@@ -44,12 +38,7 @@ sealed interface Resolution {
  * provider if it still exists, otherwise the first provider with a default model for
  * that purpose; then the profile's model override, otherwise the provider default.
  */
-fun resolveEndpoint(
-    providers: List<Provider>,
-    purpose: Purpose,
-    chosenProviderId: Long?,
-    modelOverride: String
-): Resolution {
+fun resolveEndpoint(providers: List<Provider>, purpose: Purpose, chosenProviderId: Long?, modelOverride: String): Resolution {
     val provider = chosenProviderId?.let { id -> providers.firstOrNull { it.id == id } }
         ?: providers.firstOrNull { it.defaultModel(purpose) != null }
         ?: return Resolution.NoProvider

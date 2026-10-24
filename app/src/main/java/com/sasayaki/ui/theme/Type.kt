@@ -11,13 +11,7 @@ import androidx.compose.ui.unit.sp
 private val Editorial = FontFamily.Serif
 private val Utility = FontFamily.SansSerif
 
-private fun style(
-    family: FontFamily,
-    weight: FontWeight,
-    size: Int,
-    lineHeight: Int,
-    tracking: Double
-) = TextStyle(
+private fun style(family: FontFamily, weight: FontWeight, size: Int, lineHeight: Int, tracking: Double) = TextStyle(
     fontFamily = family,
     fontWeight = weight,
     fontSize = size.sp,

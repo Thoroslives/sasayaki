@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
@@ -30,7 +31,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.input.KeyboardCapitalization
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sasayaki.domain.model.OutputStyle
@@ -225,7 +225,15 @@ fun ProfileEditorScreen(
                             StylePreview(shapes, profile.outputStyle, profile.rewriteMode, profile.summarizeMode, profile.emojiAllowed)
                         },
                         { shapes ->
-                            StyleItem(shapes, SasayakiIcons.FormatQuote, "Punctuation", OutputStyle.entries, profile.outputStyle, ::styleLabel, ::styleDescription) { value ->
+                            StyleItem(
+                                shapes,
+                                SasayakiIcons.FormatQuote,
+                                "Punctuation",
+                                OutputStyle.entries,
+                                profile.outputStyle,
+                                ::styleLabel,
+                                ::styleDescription
+                            ) { value ->
                                 onUpdate { it.copy(outputStyle = value) }
                             }
                         },
@@ -241,7 +249,15 @@ fun ProfileEditorScreen(
                             ) { value -> onUpdate { it.copy(rewriteMode = value) } }
                         },
                         { shapes ->
-                            StyleItem(shapes, SasayakiIcons.Compress, "Shorten", SummarizeMode.entries, profile.summarizeMode, ::summarizeLabel, ::summarizeDescription) { value ->
+                            StyleItem(
+                                shapes,
+                                SasayakiIcons.Compress,
+                                "Shorten",
+                                SummarizeMode.entries,
+                                profile.summarizeMode,
+                                ::summarizeLabel,
+                                ::summarizeDescription
+                            ) { value ->
                                 onUpdate { it.copy(summarizeMode = value) }
                             }
                         },
@@ -295,7 +311,11 @@ fun ProfileEditorScreen(
                         NavigationItem(
                             shapes = shapes,
                             headline = "Your prompts",
-                            supporting = if (state.customPrompts.isEmpty()) "None yet" else "$activePrompts of ${state.customPrompts.size} on",
+                            supporting = if (state.customPrompts.isEmpty()) {
+                                "None yet"
+                            } else {
+                                "$activePrompts of ${state.customPrompts.size} on"
+                            },
                             icon = SasayakiIcons.Notes,
                             onClick = { sheet = ProfileSheet.PROMPTS }
                         )
@@ -350,6 +370,7 @@ private fun ProfileSheets(
 ) {
     when (sheet) {
         null -> Unit
+
         ProfileSheet.LANGUAGE -> LanguageSheet(
             selected = profile.language,
             onSelect = { code ->
@@ -358,6 +379,7 @@ private fun ProfileSheets(
             },
             onDismiss = onDismiss
         )
+
         ProfileSheet.SPEECH_PROVIDER, ProfileSheet.CLEANUP_PROVIDER -> {
             val purpose = if (sheet == ProfileSheet.SPEECH_PROVIDER) Purpose.SPEECH else Purpose.CLEANUP
             ProviderSheet(
@@ -368,8 +390,11 @@ private fun ProfileSheets(
                 onSelect = { id ->
                     onUpdate {
                         // A model override belongs to its provider, so switching resets it.
-                        if (purpose == Purpose.SPEECH) it.copy(speechProviderId = id, asrModel = "")
-                        else it.copy(cleanupProviderId = id, llmModel = "")
+                        if (purpose == Purpose.SPEECH) {
+                            it.copy(speechProviderId = id, asrModel = "")
+                        } else {
+                            it.copy(cleanupProviderId = id, llmModel = "")
+                        }
                     }
                     onDismiss()
                 },
@@ -380,6 +405,7 @@ private fun ProfileSheets(
                 onDismiss = onDismiss
             )
         }
+
         ProfileSheet.SPEECH_MODEL, ProfileSheet.CLEANUP_MODEL -> {
             val purpose = if (sheet == ProfileSheet.SPEECH_MODEL) Purpose.SPEECH else Purpose.CLEANUP
             val choice = if (purpose == Purpose.SPEECH) speech else cleanup
@@ -392,7 +418,11 @@ private fun ProfileSheets(
                 selected = choice.override,
                 noneLabel = default?.let { "Provider default · $it" },
                 loading = provider.id in state.loadingModels && models.isEmpty(),
-                note = if (models.isEmpty() && provider.id !in state.loadingModels) "${provider.name} didn't list its models. Type one below." else null,
+                note = if (models.isEmpty() && provider.id !in state.loadingModels) {
+                    "${provider.name} didn't list its models. Type one below."
+                } else {
+                    null
+                },
                 onSelect = { model ->
                     val value = model.takeUnless { it == default }.orEmpty()
                     onUpdate { if (purpose == Purpose.SPEECH) it.copy(asrModel = value) else it.copy(llmModel = value) }
@@ -401,10 +431,13 @@ private fun ProfileSheets(
                 onDismiss = onDismiss
             )
         }
+
         ProfileSheet.RULES -> ChecklistSheet(
             title = "Replacement rules",
             description = "Rules run on this profile's text before cleanup.",
-            entries = state.rules.map { ChecklistEntry(it.id, "${it.pattern} → ${it.replacement.ifEmpty { "∅" }}", it.name.ifBlank { null }) },
+            entries = state.rules.map {
+                ChecklistEntry(it.id, "${it.pattern} → ${it.replacement.ifEmpty { "∅" }}", it.name.ifBlank { null })
+            },
             selected = profile.selectedRuleIds,
             emptyText = "You haven't written any rules yet.",
             manageLabel = "Manage rules",
@@ -415,6 +448,7 @@ private fun ProfileSheets(
             },
             onDismiss = onDismiss
         )
+
         ProfileSheet.PROMPTS -> ChecklistSheet(
             title = "Your prompts",
             description = "Built-in prompts always apply. Pick which of yours this profile adds.",

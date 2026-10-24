@@ -20,6 +20,7 @@ import com.sasayaki.domain.provider.ModelInfo
 import com.sasayaki.domain.provider.Provider
 import com.sasayaki.ui.navigation.ProfileEditorDestination
 import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -33,7 +34,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
 @Immutable
 data class ProfileEditorUiState(
@@ -161,4 +161,3 @@ class ProfileEditorViewModel @Inject constructor(
         const val SAVE_DELAY_MS = 500L
     }
 }
-

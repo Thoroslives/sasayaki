@@ -1,3 +1,5 @@
+@file:Suppress("ktlint:standard:max-line-length") // Prose and fixture rows read better unwrapped.
+
 package com.sasayaki.screenshots
 
 import android.app.Application
@@ -9,13 +11,13 @@ import com.sasayaki.data.db.entity.DictationSummary
 import com.sasayaki.ui.history.HistoryScreen
 import com.sasayaki.ui.history.HistoryUiState
 import com.sasayaki.ui.history.groupByDay
+import java.time.LocalDate
+import java.time.ZoneId
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
-import java.time.LocalDate
-import java.time.ZoneId
 
 @RunWith(AndroidJUnit4::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)

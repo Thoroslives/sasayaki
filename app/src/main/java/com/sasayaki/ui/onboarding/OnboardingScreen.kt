@@ -3,11 +3,11 @@ package com.sasayaki.ui.onboarding
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
@@ -154,14 +154,21 @@ fun OnboardingScreen(
             ) {
                 when (step) {
                     OnboardingStep.WELCOME -> PrimaryButton("Get started") { onStep(OnboardingStep.PROVIDER) }
+
                     OnboardingStep.PROVIDER -> {
-                        PrimaryButton("Continue", enabled = providerForm.url.isNotBlank() && providerForm.speechModel != null, onClick = onSaveProvider)
+                        PrimaryButton(
+                            "Continue",
+                            enabled = providerForm.url.isNotBlank() && providerForm.speechModel != null,
+                            onClick = onSaveProvider
+                        )
                         TextButton(onClick = { onStep(OnboardingStep.PERMISSIONS) }) { Text("Set up later") }
                     }
+
                     OnboardingStep.PERMISSIONS -> {
                         PrimaryButton("Continue", enabled = permissionsReady) { onStep(OnboardingStep.TRY) }
                         TextButton(onClick = { onStep(OnboardingStep.TRY) }) { Text("Skip for now") }
                     }
+
                     OnboardingStep.TRY -> PrimaryButton("Done", onClick = onFinish)
                 }
             }
@@ -320,7 +327,11 @@ private fun LazyListScope.permissionsStep(permissions: List<SetupItem>, restrict
 private fun LazyListScope.tryIt(bubbleRunning: Boolean, ready: Boolean) {
     stepHeader(
         "Try it",
-        if (ready) "Tap the field below, then tap the bubble that appears and say something." else "Finish the permissions to use the bubble. You can do that later from Home."
+        if (ready) {
+            "Tap the field below, then tap the bubble that appears and say something."
+        } else {
+            "Finish the permissions to use the bubble. You can do that later from Home."
+        }
     )
     item(key = "field") { TryField(enabled = ready) }
     if (ready && !bubbleRunning) {

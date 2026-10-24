@@ -8,6 +8,9 @@ import com.sasayaki.data.repository.HistoryRepository
 import com.sasayaki.di.ApplicationScope
 import com.sasayaki.domain.transcription.TranscriptionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.time.LocalDate
+import java.time.ZoneId
+import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -16,9 +19,6 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.time.LocalDate
-import java.time.ZoneId
-import javax.inject.Inject
 
 @Immutable
 data class HistoryUiState(

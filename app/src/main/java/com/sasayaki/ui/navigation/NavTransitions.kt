@@ -29,13 +29,19 @@ class NavTransitions(
     private val slide: FiniteAnimationSpec<IntOffset>
 ) {
     val enter: Scope.() -> EnterTransition = {
-        if (isBetweenTabs()) fadeIn(fade) + scaleIn(fade, initialScale = 0.96f)
-        else slideIntoContainer(SlideDirection.Start, slide)
+        if (isBetweenTabs()) {
+            fadeIn(fade) + scaleIn(fade, initialScale = 0.96f)
+        } else {
+            slideIntoContainer(SlideDirection.Start, slide)
+        }
     }
 
     val exit: Scope.() -> ExitTransition = {
-        if (isBetweenTabs()) fadeOut(fastFade)
-        else slideOutOfContainer(SlideDirection.Start, slide) { it / 4 }
+        if (isBetweenTabs()) {
+            fadeOut(fastFade)
+        } else {
+            slideOutOfContainer(SlideDirection.Start, slide) { it / 4 }
+        }
     }
 
     val popEnter: Scope.() -> EnterTransition = {
@@ -55,12 +61,10 @@ class NavTransitions(
         slideOutOfContainer(edge.direction(), slide)
     }
 
-    private fun Int.direction() =
-        if (this == BackEventCompat.EDGE_RIGHT) SlideDirection.Start else SlideDirection.End
+    private fun Int.direction() = if (this == BackEventCompat.EDGE_RIGHT) SlideDirection.Start else SlideDirection.End
 
-    private fun Scope.isBetweenTabs(): Boolean =
-        initialState.destination.topLevelDestination() != null &&
-            targetState.destination.topLevelDestination() != null
+    private fun Scope.isBetweenTabs(): Boolean = initialState.destination.topLevelDestination() != null &&
+        targetState.destination.topLevelDestination() != null
 }
 
 @Composable

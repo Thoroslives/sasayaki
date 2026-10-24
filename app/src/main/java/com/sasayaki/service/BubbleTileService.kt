@@ -24,7 +24,9 @@ class BubbleTileService : TileService() {
         super.onClick()
         when {
             BubbleService.isRunning -> BubbleService.stop(this)
+
             !canRunBubble() -> openApp()
+
             else -> try {
                 BubbleService.start(this)
             } catch (e: IllegalStateException) {
@@ -36,9 +38,8 @@ class BubbleTileService : TileService() {
         refresh()
     }
 
-    private fun canRunBubble(): Boolean =
-        Settings.canDrawOverlays(this) &&
-            checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+    private fun canRunBubble(): Boolean = Settings.canDrawOverlays(this) &&
+        checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
 
     private fun openApp() {
         val intent = Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)

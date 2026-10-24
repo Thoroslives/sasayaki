@@ -13,13 +13,13 @@ import com.sasayaki.domain.provider.ModelInfo
 import com.sasayaki.domain.provider.serverAddressError
 import com.sasayaki.ui.navigation.ProviderEditorDestination
 import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
 @Immutable
 data class ProviderEditorUiState(

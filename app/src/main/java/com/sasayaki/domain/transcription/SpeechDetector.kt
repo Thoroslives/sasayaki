@@ -12,18 +12,23 @@ import kotlin.math.sqrt
 object SpeechDetector {
     private const val FRAME_MS = 30
     private const val SILENT_DB = -100f
+
     // Below this a frame is quiet whatever the room sounds like. Thresholds lean
     // permissive: dropping a whispered dictation is worse than sending a quiet one.
     private const val ABSOLUTE_FLOOR_DB = -55f
+
     // Speech must stand this far above the recording's own quiet frames.
     private const val ABOVE_NOISE_DB = 8f
+
     // Steady signals (silence, hum, a fan) vary less than this between quiet and loud frames.
     private const val MIN_DYNAMIC_RANGE_DB = 6f
     private const val MIN_SPEECH_MS = 200
+
     // The start haptic and the tap on stop sit at the edges of every manual recording and
     // are loud enough to pass for speech, so the edges are ignored.
     private const val IGNORED_START_MS = 300
     private const val IGNORED_END_MS = 250
+
     // Syllables last longer than clicks, taps and bumps; only runs this long count.
     private const val MIN_RUN_MS = 90
 

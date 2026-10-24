@@ -22,9 +22,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -71,7 +71,10 @@ fun VocabularyScreen(terms: List<String>?, onAdd: (String) -> Unit, onRemove: (S
         }
     }
     SettingsPage(title = "Vocabulary", onBack = onBack, snackbarHostState = snackbarHostState) {
-        pageIntro("Names, brands and jargon your speech model gets wrong. Both models get this list, so they come out spelled the way you write them.")
+        pageIntro(
+            "Names, brands and jargon your speech model gets wrong. Both models get this list, " +
+                "so they come out spelled the way you write them."
+        )
         item(key = "add") {
             Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceBright) {
                 Row(
@@ -84,7 +87,13 @@ fun VocabularyScreen(terms: List<String>?, onAdd: (String) -> Unit, onRemove: (S
                         onValueChange = { draft = it },
                         label = { Text("Add words") },
                         supportingText = {
-                            Text(if (overlong) "Keep each word under $MAX_VOCABULARY_TERM_LENGTH characters" else "Separate several with commas")
+                            Text(
+                                if (overlong) {
+                                    "Keep each word under $MAX_VOCABULARY_TERM_LENGTH characters"
+                                } else {
+                                    "Separate several with commas"
+                                }
+                            )
                         },
                         isError = overlong,
                         singleLine = true,
@@ -100,6 +109,7 @@ fun VocabularyScreen(terms: List<String>?, onAdd: (String) -> Unit, onRemove: (S
         }
         when {
             terms == null -> Unit
+
             terms.isEmpty() -> item(key = "empty") {
                 EmptyState(
                     icon = SasayakiIcons.Spellcheck,
@@ -107,6 +117,7 @@ fun VocabularyScreen(terms: List<String>?, onAdd: (String) -> Unit, onRemove: (S
                     body = "Add the names and terms you dictate often, like your colleagues or the tools you use."
                 )
             }
+
             else -> item(key = "terms") {
                 val reach = remember(terms) { vocabularyReach(terms) }
                 if (reach.speech < terms.size) {

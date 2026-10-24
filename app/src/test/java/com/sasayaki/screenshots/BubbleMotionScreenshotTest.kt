@@ -21,12 +21,12 @@ import com.sasayaki.service.bubble.BubblePhase
 import com.sasayaki.service.bubble.BubbleUiState
 import com.sasayaki.service.bubble.mode
 import com.sasayaki.ui.theme.SasayakiTheme
+import java.io.File
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
-import java.io.File
 
 // Filmstrips of bubble transitions, one frame per row, to check that nothing jumps.
 @RunWith(AndroidJUnit4::class)
@@ -68,7 +68,10 @@ class BubbleMotionScreenshotTest {
         val strip = Bitmap.createBitmap(width, frames.sumOf { it.height }, Bitmap.Config.ARGB_8888)
         val canvas = android.graphics.Canvas(strip)
         var y = 0f
-        frames.forEach { canvas.drawBitmap(it, (width - it.width).toFloat(), y, null); y += it.height }
+        frames.forEach {
+            canvas.drawBitmap(it, (width - it.width).toFloat(), y, null)
+            y += it.height
+        }
         val dir = File("build/screenshots").apply { mkdirs() }
         File(dir, "$name.png").outputStream().use { strip.compress(Bitmap.CompressFormat.PNG, 100, it) }
     }

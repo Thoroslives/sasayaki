@@ -8,8 +8,8 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -45,10 +45,10 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntSize
@@ -61,6 +61,7 @@ import kotlin.math.pow
 
 private val BubbleSize = 52.dp
 private val PillHeight = 56.dp
+
 /** WAVEFORM_BARS is how many recent audio levels the recording pill draws. */
 const val WAVEFORM_BARS = 18
 private const val TRANSLUCENT_ALPHA = 0.8f
@@ -330,7 +331,12 @@ private fun NoSpeechPill(onTryAgain: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(Spacing.s)
         ) {
-            Icon(SasayakiIcons.MicOff, contentDescription = null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            Icon(
+                SasayakiIcons.MicOff,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
             Text("Didn't catch anything", style = MaterialTheme.typography.labelLarge)
         }
     }
@@ -345,9 +351,11 @@ fun ProfileMenu(profiles: List<Profile>, onSelect: (Long) -> Unit) {
             shadowElevation = 8.dp,
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
         ) {
-            Column(modifier = Modifier
-                .widthIn(min = 200.dp, max = 260.dp)
-                .padding(vertical = Spacing.s)) {
+            Column(
+                modifier = Modifier
+                    .widthIn(min = 200.dp, max = 260.dp)
+                    .padding(vertical = Spacing.s)
+            ) {
                 Text(
                     "Profile",
                     style = MaterialTheme.typography.labelLarge,

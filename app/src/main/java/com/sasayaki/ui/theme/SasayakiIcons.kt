@@ -870,20 +870,19 @@ object SasayakiIcons {
     }
 }
 
-private fun symbol(name: String, pathData: String, autoMirror: Boolean = false): ImageVector =
-    ImageVector.Builder(
-        name = name,
-        defaultWidth = 24.dp,
-        defaultHeight = 24.dp,
-        viewportWidth = 960f,
-        viewportHeight = 960f,
-        autoMirror = autoMirror
-    ).apply {
-        // Symbols are authored on a 0,-960 origin.
-        addGroup(translationY = 960f)
-        addPath(
-            pathData = PathParser().parsePathString(pathData).toNodes(),
-            fill = SolidColor(Color.Black)
-        )
-        clearGroup()
-    }.build()
+private fun symbol(name: String, pathData: String, autoMirror: Boolean = false): ImageVector = ImageVector.Builder(
+    name = name,
+    defaultWidth = 24.dp,
+    defaultHeight = 24.dp,
+    viewportWidth = 960f,
+    viewportHeight = 960f,
+    autoMirror = autoMirror
+).apply {
+    // Symbols are authored on a 0,-960 origin.
+    addGroup(translationY = 960f)
+    addPath(
+        pathData = PathParser().parsePathString(pathData).toNodes(),
+        fill = SolidColor(Color.Black)
+    )
+    clearGroup()
+}.build()

@@ -30,9 +30,7 @@ data class PermissionStatus(
     val onRequest: () -> Unit
 )
 
-fun checkOverlayPermission(context: Context): Boolean {
-    return Settings.canDrawOverlays(context)
-}
+fun checkOverlayPermission(context: Context): Boolean = Settings.canDrawOverlays(context)
 
 fun requestOverlayPermission(context: Context) {
     val intent = Intent(
@@ -145,13 +143,13 @@ fun rememberNotificationPermissionState(): PermissionStatus {
     var granted by remember {
         mutableStateOf(
             Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
-                    context.hasPermission(Manifest.permission.POST_NOTIFICATIONS)
+                context.hasPermission(Manifest.permission.POST_NOTIFICATIONS)
         )
     }
 
     observeOnResume {
         granted = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
-                context.hasPermission(Manifest.permission.POST_NOTIFICATIONS)
+            context.hasPermission(Manifest.permission.POST_NOTIFICATIONS)
     }
 
     val launcher = rememberLauncherForActivityResult(
@@ -172,9 +170,7 @@ fun rememberNotificationPermissionState(): PermissionStatus {
 }
 
 @Composable
-private fun rememberCheckedOnResume(
-    checkPermission: (Context) -> Boolean
-): Boolean {
+private fun rememberCheckedOnResume(checkPermission: (Context) -> Boolean): Boolean {
     val context = LocalContext.current
     var granted by remember { mutableStateOf(checkPermission(context)) }
 
@@ -203,6 +199,5 @@ private fun observeOnResume(onResume: () -> Unit) {
     }
 }
 
-private fun Context.hasPermission(permission: String): Boolean {
-    return checkSelfPermission(permission) == android.content.pm.PackageManager.PERMISSION_GRANTED
-}
+private fun Context.hasPermission(permission: String): Boolean =
+    checkSelfPermission(permission) == android.content.pm.PackageManager.PERMISSION_GRANTED

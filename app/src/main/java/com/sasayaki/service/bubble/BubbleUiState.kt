@@ -16,7 +16,8 @@ data class BubbleUiState(
     val phase: BubblePhase = BubblePhase.Idle,
     val elapsedSeconds: Long = 0,
     val profileName: String = "",
-    val justInserted: Boolean = false // briefly true after text actually reached the field
+    // justInserted is briefly true after text actually reached the field.
+    val justInserted: Boolean = false
 )
 
 fun ServiceState.toPhase(): BubblePhase = when (this) {

@@ -1,14 +1,14 @@
 package com.sasayaki.domain.transcription
 
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
-import org.junit.Test
 import java.io.ByteArrayInputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import kotlin.math.PI
 import kotlin.math.sin
 import kotlin.random.Random
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
+import org.junit.Test
 
 class SpeechDetectorTest {
     private val rate = 16_000
@@ -23,12 +23,11 @@ class SpeechDetectorTest {
         List((seconds * rate).toInt()) { (random.nextDouble() * 2 - 1) * amplitude }
 
     // Voiced syllables: a 180 Hz tone at speaking level, switched on and off like words.
-    private fun speech(seconds: Double, amplitude: Double = 0.08) =
-        List((seconds * rate).toInt()) { i ->
-            val t = i.toDouble() / rate
-            val wordOn = (t * 4).toInt() % 2 == 0
-            if (wordOn) sin(2 * PI * 180 * t) * amplitude else 0.0
-        }
+    private fun speech(seconds: Double, amplitude: Double = 0.08) = List((seconds * rate).toInt()) { i ->
+        val t = i.toDouble() / rate
+        val wordOn = (t * 4).toInt() % 2 == 0
+        if (wordOn) sin(2 * PI * 180 * t) * amplitude else 0.0
+    }
 
     private fun detects(samples: List<Double>) = SpeechDetector.containsSpeech(SpeechDetector.frameLevels(pcm(samples), rate))
 

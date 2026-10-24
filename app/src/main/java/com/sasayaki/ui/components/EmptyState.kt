@@ -22,13 +22,7 @@ import androidx.compose.ui.unit.dp
 import com.sasayaki.ui.theme.Spacing
 
 @Composable
-fun EmptyState(
-    icon: ImageVector,
-    title: String,
-    body: String,
-    modifier: Modifier = Modifier,
-    action: (@Composable () -> Unit)? = null
-) {
+fun EmptyState(icon: ImageVector, title: String, body: String, modifier: Modifier = Modifier, action: (@Composable () -> Unit)? = null) {
     Column(
         modifier = modifier
             .fillMaxWidth()

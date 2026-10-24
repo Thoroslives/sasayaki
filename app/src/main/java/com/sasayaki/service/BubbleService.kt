@@ -36,28 +36,28 @@ import com.sasayaki.service.bubble.BubbleUiState
 import com.sasayaki.service.bubble.WAVEFORM_BARS
 import com.sasayaki.service.bubble.toPhase
 import dagger.hilt.android.AndroidEntryPoint
+import java.io.File
+import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
-import kotlinx.coroutines.async
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.File
-import javax.inject.Inject
 
 @AndroidEntryPoint
 class BubbleService : Service() {
@@ -78,9 +78,11 @@ class BubbleService : Service() {
         val runningState: StateFlow<Boolean> = _runningState.asStateFlow()
 
         fun start(context: Context) {
-            context.startForegroundService(Intent(context, BubbleService::class.java).apply {
-                action = ACTION_START
-            })
+            context.startForegroundService(
+                Intent(context, BubbleService::class.java).apply {
+                    action = ACTION_START
+                }
+            )
         }
 
         fun stop(context: Context) {
@@ -89,8 +91,11 @@ class BubbleService : Service() {
     }
 
     @Inject lateinit var transcriptionManager: TranscriptionManager
+
     @Inject lateinit var textInjectionBridge: TextInjectionBridge
+
     @Inject lateinit var preferencesDataStore: PreferencesDataStore
+
     @Inject lateinit var profileRepository: ProfileRepository
 
     // scope reports a failure that escapes a dictation instead of crashing the app.
@@ -108,6 +113,7 @@ class BubbleService : Service() {
     private var hapticFeedback: HapticFeedback? = null
     private var audioRecorder: AudioRecorder? = null
     private var silenceDetector: SilenceDetector? = null
+
     @Volatile private var recordingJob: Job? = null
     private var transcriptionJob: Job? = null
     private var silenceCheckJob: Job? = null
@@ -129,6 +135,7 @@ class BubbleService : Service() {
     private val dictationInFlight: Boolean
         get() = state is ServiceState.Recording || state is ServiceState.Transcribing ||
             state is ServiceState.PostProcessing || state is ServiceState.Injecting
+
     @Volatile private var pcmFile: File? = null
 
     private val keyboardListener = object : TextInjectorService.KeyboardListener {
@@ -270,10 +277,14 @@ class BubbleService : Service() {
     private fun onBubbleTap() {
         when (val current = state) {
             is ServiceState.Idle, ServiceState.NoSpeech -> requestRecording()
+
             is ServiceState.Recording -> stopRecordingAndTranscribe()
+
             is ServiceState.Transcribing, is ServiceState.PostProcessing -> cancelProcessing()
+
             // Injection is already underway and cannot be meaningfully undone.
             is ServiceState.Injecting -> {}
+
             is ServiceState.Error -> current.retryEntryId?.let(::retrySavedFailure) ?: updateState(ServiceState.Idle)
         }
     }
@@ -556,12 +567,7 @@ class BubbleService : Service() {
         }
     }
 
-    private class Recording(
-        val job: Job?,
-        val pcm: File?,
-        val recorder: AudioRecorder?,
-        val detector: SilenceDetector?
-    )
+    private class Recording(val job: Job?, val pcm: File?, val recorder: AudioRecorder?, val detector: SilenceDetector?)
 
     private fun release(recording: Recording) {
         if (recordingJob === recording.job) recordingJob = null
@@ -615,8 +621,7 @@ class BubbleService : Service() {
         }
     }
 
-    private fun describe(error: Throwable): String =
-        describeConnectionError((error as? DictationFailure)?.cause ?: error)
+    private fun describe(error: Throwable): String = describeConnectionError((error as? DictationFailure)?.cause ?: error)
 
     private fun retryBubbleError() {
         val retryEntryId = (state as? ServiceState.Error)?.retryEntryId

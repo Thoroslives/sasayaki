@@ -93,7 +93,14 @@ fun LanguageSheet(selected: String?, onSelect: (String?) -> Unit, onDismiss: () 
         val codes = (0 until deviceLocales.size()).mapNotNull { deviceLocales[it]?.language }.distinct()
         codes.mapNotNull { code -> all.firstOrNull { it.code == code } }
     }
-    val matches = if (query.isBlank()) all else all.filter { it.name.contains(query.trim(), ignoreCase = true) || it.code == query.trim().lowercase() }
+    val matches = if (query.isBlank()) {
+        all
+    } else {
+        all.filter {
+            it.name.contains(query.trim(), ignoreCase = true) ||
+                it.code == query.trim().lowercase()
+        }
+    }
 
     PickerSheet(title = "Language", onDismiss = onDismiss) {
         Text(

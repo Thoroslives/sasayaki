@@ -5,15 +5,15 @@ import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaRecorder
 import android.util.Log
+import java.io.File
+import java.io.FileOutputStream
+import kotlin.math.sqrt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
-import java.io.File
-import java.io.FileOutputStream
-import kotlin.math.sqrt
 
 class AudioRecorder {
     companion object {
@@ -88,7 +88,11 @@ class AudioRecorder {
                 }
             }
         } finally {
-            try { recorder.stop() } catch (e: Exception) { Log.e(TAG, "Error stopping recorder", e) }
+            try {
+                recorder.stop()
+            } catch (e: Exception) {
+                Log.e(TAG, "Error stopping recorder", e)
+            }
             recorder.release()
             _audioLevel.value = 0f
         }

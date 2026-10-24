@@ -94,7 +94,10 @@ class CleanupOutputTest {
     @Test
     fun `only a final undictated note is cut`() {
         val agenda = "Agenda\nNotes: bring slides"
-        assertEquals(agenda, stripModelArtifacts("$agenda\n\nNote: I formatted this as a list.", "agenda new line notes colon bring slides"))
+        assertEquals(
+            agenda,
+            stripModelArtifacts("$agenda\n\nNote: I formatted this as a list.", "agenda new line notes colon bring slides")
+        )
     }
 
     @Test

@@ -93,12 +93,14 @@ object SystemPromptBuilder {
      */
     internal fun casingRule(style: OutputStyle): String = when (style) {
         OutputStyle.STANDARD -> "Use standard capitalization and punctuation."
+
         // "Keep punctuation light" measured identically to STANDARD on every model, so
         // the tier says concretely which marks to drop instead of asking for a degree.
         OutputStyle.RELAXED ->
             "Capitalize normally, but punctuate sparingly: no full stop at the end of the " +
                 "final sentence, and commas only where the meaning would otherwise be unclear. " +
                 "Keep question marks."
+
         OutputStyle.MINIMAL -> "Write in all lowercase and omit punctuation unless meaning would be lost."
     }
 
@@ -119,8 +121,10 @@ object SystemPromptBuilder {
             "Do not substitute or reorder the speaker's words: drop material rather than " +
                 "rephrasing it, and never replace a word the speaker used with a different one."
         }
+
         RewriteMode.FIX ->
             "Stay close to the speaker's wording; fix grammar, false starts, and dictation artifacts."
+
         RewriteMode.POLISH ->
             "Rewrite into a clearer, more formal register while preserving the speaker's meaning."
     }

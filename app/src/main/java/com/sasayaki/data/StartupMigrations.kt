@@ -5,12 +5,12 @@ import com.sasayaki.data.preferences.PreferencesDataStore
 import com.sasayaki.data.repository.ProfileRepository
 import com.sasayaki.data.repository.ProviderRepository
 import com.sasayaki.di.ApplicationScope
+import javax.inject.Inject
+import javax.inject.Singleton
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.async
-import javax.inject.Inject
-import javax.inject.Singleton
 
 /**
  * StartupMigrations runs the one-time data upgrades exactly once per process, in the

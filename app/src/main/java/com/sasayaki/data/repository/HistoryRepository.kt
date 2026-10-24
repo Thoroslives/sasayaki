@@ -11,6 +11,11 @@ import com.sasayaki.data.preferences.UserPreferences
 import com.sasayaki.domain.model.AppContext
 import com.sasayaki.domain.model.DictationStatus
 import com.sasayaki.domain.model.Profile
+import java.io.File
+import java.time.Clock
+import java.time.LocalDate
+import javax.inject.Inject
+import javax.inject.Singleton
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.NonCancellable
@@ -22,11 +27,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import java.io.File
-import java.time.Clock
-import java.time.LocalDate
-import javax.inject.Inject
-import javax.inject.Singleton
 
 /**
  * HistoryRepository is the only writer of dictation rows and retained audio, so the

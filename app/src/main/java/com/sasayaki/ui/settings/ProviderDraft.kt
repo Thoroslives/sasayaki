@@ -21,11 +21,7 @@ import kotlinx.coroutines.launch
  * ProviderDraft holds one provider while it is edited. Its fields are snapshot state so
  * text fields bound to them never lag a flow.
  */
-class ProviderDraft(
-    private val repository: ProviderRepository,
-    private val scope: CoroutineScope,
-    val id: Long = 0
-) {
+class ProviderDraft(private val repository: ProviderRepository, private val scope: CoroutineScope, val id: Long = 0) {
     var name by mutableStateOf("")
         private set
     var url by mutableStateOf("")

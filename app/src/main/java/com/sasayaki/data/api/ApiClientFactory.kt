@@ -1,16 +1,14 @@
 package com.sasayaki.data.api
 
+import javax.inject.Inject
+import javax.inject.Singleton
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
-import javax.inject.Inject
-import javax.inject.Singleton
 
 @Singleton
-class ApiClientFactory @Inject constructor(
-    private val baseClient: OkHttpClient
-) {
+class ApiClientFactory @Inject constructor(private val baseClient: OkHttpClient) {
     fun <T> create(serviceClass: Class<T>, baseUrl: String, apiKey: String): T {
         val normalizedUrl = EndpointPolicy.normalizeBaseUrl(baseUrl)
         val client = baseClient.newBuilder()

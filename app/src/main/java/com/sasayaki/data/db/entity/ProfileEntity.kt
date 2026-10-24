@@ -69,9 +69,9 @@ fun Profile.toEntity(now: Long = System.currentTimeMillis()): ProfileEntity = Pr
     updatedAt = now
 )
 
-private inline fun <reified T : Enum<T>> enumValueOrDefault(value: String, default: T): T {
-    return enumValues<T>().firstOrNull { it.name == value } ?: default
-}
+private inline fun <reified T : Enum<T>> enumValueOrDefault(value: String, default: T): T = enumValues<T>().firstOrNull {
+    it.name == value
+} ?: default
 
 fun String.toIdSet(): Set<Long> = split(",")
     .mapNotNull { it.trim().toLongOrNull() }

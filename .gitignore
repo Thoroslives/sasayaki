@@ -31,3 +31,4 @@ output/
 !.env.example
 *.md
 !README.md
+!docs/*.md

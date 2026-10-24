@@ -16,6 +16,8 @@ import com.sasayaki.domain.model.Profile
 import com.sasayaki.domain.processing.AppCategory
 import com.sasayaki.domain.processing.TextProcessor
 import com.sasayaki.domain.processing.appCategoryOf
+import com.sasayaki.domain.processing.speechPrompt
+import com.sasayaki.domain.processing.withoutRecitedGlossary
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
@@ -103,8 +105,8 @@ class TranscriptionManager @Inject constructor(
         }
 
         Log.d(TAG, "Sending ${audioFile.length()} bytes for transcription (model=${endpoint.model})")
-        val rawResult = whisperEngine.transcribe(audioFile, endpoint, profile.language)
-        val rawText = rawResult.getOrElse { error ->
+        val rawResult = whisperEngine.transcribe(audioFile, endpoint, profile.language, speechPrompt(prefs.vocabulary))
+        val rawText = rawResult.map { withoutRecitedGlossary(it, prefs.vocabulary) }.getOrElse { error ->
             Log.e(TAG, "Whisper API error", error)
             persistFailure(audioFile, durationMs, appContext, profile, prefs.historyEnabled, error, retryEntryId)
             return Result.failure(error)

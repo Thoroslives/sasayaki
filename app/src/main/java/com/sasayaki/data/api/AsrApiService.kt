@@ -13,6 +13,7 @@ interface AsrApiService {
     suspend fun transcribe(
         @Part file: MultipartBody.Part,
         @Part("model") model: RequestBody,
+        @Part("prompt") prompt: RequestBody? = null,
         @Part("language") language: RequestBody? = null
     ): TranscriptionResponse
 }

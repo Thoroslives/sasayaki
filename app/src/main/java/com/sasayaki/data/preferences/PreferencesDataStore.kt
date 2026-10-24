@@ -12,6 +12,7 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.sasayaki.domain.processing.sortedVocabulary
 import com.sasayaki.domain.provider.LegacyEndpoint
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -60,6 +61,7 @@ class PreferencesDataStore @Inject constructor(
         val REMEMBER_PROFILE_PER_APP = booleanPreferencesKey("remember_profile_per_app")
         val SKIP_CLEANUP_IN_AI_CHATS = booleanPreferencesKey("skip_cleanup_in_ai_chats")
         val APP_PROFILES = stringSetPreferencesKey("app_profiles")
+        val VOCABULARY = stringSetPreferencesKey("vocabulary")
     }
 
     val preferences: Flow<UserPreferences> = context.dataStore.data
@@ -91,7 +93,8 @@ class PreferencesDataStore @Inject constructor(
             bubbleMonochrome = prefs[Keys.BUBBLE_MONOCHROME] ?: false,
             rememberProfilePerApp = prefs[Keys.REMEMBER_PROFILE_PER_APP] ?: true,
             skipCleanupInAiChats = prefs[Keys.SKIP_CLEANUP_IN_AI_CHATS] ?: true,
-            appProfiles = decodeAppProfiles(prefs[Keys.APP_PROFILES].orEmpty())
+            appProfiles = decodeAppProfiles(prefs[Keys.APP_PROFILES].orEmpty()),
+            vocabulary = sortedVocabulary(prefs[Keys.VOCABULARY].orEmpty())
         )
     }
     .distinctUntilChanged()
@@ -167,6 +170,18 @@ class PreferencesDataStore @Inject constructor(
                 prefs[Keys.APP_PROFILES] = encodeAppProfiles(profiles + (packageName to profileId))
             }
         }
+    }
+
+    suspend fun addVocabulary(terms: List<String>) {
+        context.dataStore.edit { prefs ->
+            val existing = prefs[Keys.VOCABULARY].orEmpty()
+            val known = existing.map(String::lowercase).toSet()
+            prefs[Keys.VOCABULARY] = existing + terms.filter { it.lowercase() !in known }
+        }
+    }
+
+    suspend fun removeVocabulary(term: String) {
+        context.dataStore.edit { prefs -> prefs[Keys.VOCABULARY] = prefs[Keys.VOCABULARY].orEmpty() - term }
     }
 
     suspend fun forgetAppProfiles() {

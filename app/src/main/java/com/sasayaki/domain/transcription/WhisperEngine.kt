@@ -17,7 +17,7 @@ class WhisperEngine @Inject constructor(
     private val networkMonitor: NetworkMonitor
 ) : TranscriptionEngine {
 
-    override suspend fun transcribe(audioFile: File, endpoint: Endpoint, language: String?): Result<String> {
+    override suspend fun transcribe(audioFile: File, endpoint: Endpoint, language: String?, prompt: String?): Result<String> {
         return try {
             val service = apiClientFactory.create(AsrApiService::class.java, endpoint.baseUrl, endpoint.apiKey)
 
@@ -31,7 +31,9 @@ class WhisperEngine @Inject constructor(
                 it.toRequestBody("text/plain".toMediaType())
             }
 
-            val response = service.transcribe(filePart, modelPart, language = languagePart)
+            val promptPart = prompt?.toRequestBody("text/plain".toMediaType())
+
+            val response = service.transcribe(filePart, modelPart, prompt = promptPart, language = languagePart)
             Result.success(response.text)
         } catch (e: Exception) {
             Result.failure(e)

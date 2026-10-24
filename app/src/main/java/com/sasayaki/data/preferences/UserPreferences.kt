@@ -19,7 +19,8 @@ data class UserPreferences(
     val bubbleMonochrome: Boolean = false,
     val rememberProfilePerApp: Boolean = true,
     val skipCleanupInAiChats: Boolean = true,
-    val appProfiles: Map<String, Long> = emptyMap() // package name to profile id
+    val appProfiles: Map<String, Long> = emptyMap(), // package name to profile id
+    val vocabulary: List<String> = emptyList()
 )
 
 enum class ThemeMode {

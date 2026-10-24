@@ -47,4 +47,7 @@ data object PermissionsDestination
 data object ReplacementRulesDestination
 
 @Serializable
+data object VocabularyDestination
+
+@Serializable
 data object PromptsDestination

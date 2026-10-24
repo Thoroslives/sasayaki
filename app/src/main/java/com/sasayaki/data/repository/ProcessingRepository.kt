@@ -1,6 +1,7 @@
 package com.sasayaki.data.repository
 
 import com.sasayaki.data.db.dao.PostProcessingPromptDao
+import com.sasayaki.data.preferences.PreferencesDataStore
 import com.sasayaki.data.db.dao.TextReplacementRuleDao
 import com.sasayaki.data.db.entity.PostProcessingPromptEntity
 import com.sasayaki.data.db.entity.TextReplacementRuleEntity
@@ -12,6 +13,7 @@ import com.sasayaki.domain.model.TextReplacementRule
 import com.sasayaki.domain.processing.applyReplacementRules
 import com.sasayaki.domain.processing.SystemPromptBuilder
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -19,7 +21,8 @@ import javax.inject.Singleton
 @Singleton
 class ProcessingRepository @Inject constructor(
     private val ruleDao: TextReplacementRuleDao,
-    private val promptDao: PostProcessingPromptDao
+    private val promptDao: PostProcessingPromptDao,
+    private val preferencesDataStore: PreferencesDataStore
 ) {
     val rules: Flow<List<TextReplacementRule>> = ruleDao.observeAll()
         .map { rules -> rules.map(TextReplacementRuleEntity::toDomain) }
@@ -66,7 +69,8 @@ class ProcessingRepository @Inject constructor(
         return SystemPromptBuilder.build(
             profile = profile,
             appContext = appContext,
-            prompts = promptDao.getAll().map(PostProcessingPromptEntity::toDomain)
+            prompts = promptDao.getAll().map(PostProcessingPromptEntity::toDomain),
+            vocabulary = preferencesDataStore.preferences.first().vocabulary
         )
     }
 }

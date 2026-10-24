@@ -24,6 +24,7 @@ import com.sasayaki.ui.settings.ReplacementRulesScreen
 import com.sasayaki.ui.settings.SettingsDestinations
 import com.sasayaki.ui.settings.SettingsScreen
 import com.sasayaki.ui.settings.SettingsUiState
+import com.sasayaki.ui.settings.VocabularyScreen
 import com.sasayaki.ui.theme.SasayakiIcons
 import org.junit.Rule
 import org.junit.Test
@@ -44,7 +45,7 @@ class SettingsScreenshotTest {
         Provider(3, "OpenAI", "https://api.openai.com", apiKey = "sk", speechModel = "whisper-1", cleanupModel = "gpt-4o-mini")
     )
 
-    private val noDestinations = SettingsDestinations({}, {}, {}, {}, {}, {}, {}, {})
+    private val noDestinations = SettingsDestinations({}, {}, {}, {}, {}, {}, {}, {}, {})
 
     private val editorActions = ProviderEditorActions({}, {}, {}, {}, {}, {}, {}, {}, {})
 
@@ -86,6 +87,16 @@ class SettingsScreenshotTest {
             loaded = true,
             prefs = UserPreferences(bubbleTranslucent = true),
             actions = AppearanceActions({}, {}, {}, {}, {}),
+            onBack = {}
+        )
+    }
+
+    @Test
+    fun vocabulary() = compose.screenshot("settings_vocabulary_light") {
+        VocabularyScreen(
+            terms = listOf("Grafana", "Kubernetes", "Mika Häkkinen", "Sasayaki", "Tailscale", "vLLM", "WisprFlow"),
+            onAdd = {},
+            onRemove = {},
             onBack = {}
         )
     }

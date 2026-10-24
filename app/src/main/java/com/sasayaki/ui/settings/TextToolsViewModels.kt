@@ -2,9 +2,12 @@ package com.sasayaki.ui.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.sasayaki.data.preferences.PreferencesDataStore
+import com.sasayaki.data.preferences.UserPreferences
 import com.sasayaki.data.repository.ProcessingRepository
 import com.sasayaki.domain.model.PostProcessingPrompt
 import com.sasayaki.domain.model.TextReplacementRule
+import com.sasayaki.domain.processing.parseVocabulary
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -44,5 +47,23 @@ class PromptsViewModel @Inject constructor(
 
     fun delete(id: Long) {
         viewModelScope.launch { processingRepository.deletePrompt(id) }
+    }
+}
+
+@HiltViewModel
+class VocabularyViewModel @Inject constructor(
+    private val preferencesDataStore: PreferencesDataStore
+) : ViewModel() {
+    val terms: StateFlow<List<String>?> = preferencesDataStore.preferences
+        .map<UserPreferences, List<String>?> { it.vocabulary }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    fun add(input: String) {
+        val terms = parseVocabulary(input)
+        if (terms.isNotEmpty()) viewModelScope.launch { preferencesDataStore.addVocabulary(terms) }
+    }
+
+    fun remove(term: String) {
+        viewModelScope.launch { preferencesDataStore.removeVocabulary(term) }
     }
 }

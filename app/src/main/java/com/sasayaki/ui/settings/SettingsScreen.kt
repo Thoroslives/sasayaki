@@ -29,6 +29,7 @@ class SettingsDestinations(
     val onRecording: () -> Unit,
     val onApps: () -> Unit,
     val onRules: () -> Unit,
+    val onVocabulary: () -> Unit,
     val onPrompts: () -> Unit,
     val onPermissions: () -> Unit,
     val onHistory: () -> Unit,
@@ -88,6 +89,19 @@ fun SettingsScreen(
                             supporting = appsSummary(prefs.rememberProfilePerApp, prefs.skipCleanupInAiChats),
                             icon = SasayakiIcons.Apps,
                             onClick = destinations.onApps
+                        )
+                    },
+                    { shapes ->
+                        NavigationItem(
+                            shapes = shapes,
+                            headline = "Vocabulary",
+                            supporting = when (val count = prefs.vocabulary.size) {
+                                0 -> "Names and terms to spell right"
+                                1 -> "1 word"
+                                else -> "$count words"
+                            },
+                            icon = SasayakiIcons.Spellcheck,
+                            onClick = destinations.onVocabulary
                         )
                     },
                     { shapes ->

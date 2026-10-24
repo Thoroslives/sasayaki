@@ -35,6 +35,7 @@ import com.sasayaki.ui.settings.ProviderEditorRoute
 import com.sasayaki.ui.settings.ProvidersRoute
 import com.sasayaki.ui.settings.RecordingSettingsRoute
 import com.sasayaki.ui.settings.ReplacementRulesRoute
+import com.sasayaki.ui.settings.VocabularyRoute
 import com.sasayaki.ui.settings.SettingsDestinations
 import com.sasayaki.ui.settings.SettingsRoute
 
@@ -130,6 +131,7 @@ fun SasayakiNavGraph(startDestination: Any) {
                         onRecording = { navController.navigate(RecordingSettingsDestination) },
                         onApps = { navController.navigate(AppsSettingsDestination) },
                         onRules = { navController.navigate(ReplacementRulesDestination) },
+                        onVocabulary = { navController.navigate(VocabularyDestination) },
                         onPrompts = { navController.navigate(PromptsDestination) },
                         onPermissions = { navController.navigate(PermissionsDestination) },
                         onHistory = { navController.navigate(HistorySettingsDestination) },
@@ -160,6 +162,9 @@ fun SasayakiNavGraph(startDestination: Any) {
             }
             composable<PermissionsDestination> {
                 PermissionsRoute(onBack = dropUnlessResumed { navController.popBackStack() })
+            }
+            composable<VocabularyDestination> {
+                VocabularyRoute(onBack = dropUnlessResumed { navController.popBackStack() })
             }
             composable<ReplacementRulesDestination> {
                 ReplacementRulesRoute(onBack = dropUnlessResumed { navController.popBackStack() })

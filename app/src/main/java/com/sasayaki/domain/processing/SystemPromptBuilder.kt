@@ -35,7 +35,8 @@ object SystemPromptBuilder {
     fun build(
         profile: Profile,
         appContext: AppContext?,
-        prompts: List<PostProcessingPrompt>
+        prompts: List<PostProcessingPrompt>,
+        vocabulary: List<String> = emptyList()
     ): String {
         val sections = mutableListOf<String>()
 
@@ -51,6 +52,7 @@ object SystemPromptBuilder {
         if (appContext != null && appContext.hasData) {
             guidance += buildAppContextSection(appContext)
         }
+        vocabularySection(vocabulary)?.let { guidance += it }
         guidance += prompts
             .filterNot(PostProcessingPrompt::builtIn)
             .filter { it.id in profile.selectedPromptIds }

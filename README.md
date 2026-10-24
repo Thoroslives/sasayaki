@@ -17,6 +17,7 @@ Sasayaki does the same job as [WisprFlow](https://wisprflow.ai), except it costs
   - Drag it anywhere; it docks to the nearest edge. Drop it on the target at the top to turn it off.
   - Long-press it to switch profile. Toggle it from a Quick Settings tile.
   - Recordings with no speech are dropped on the phone instead of being sent.
+  - It refuses to record into password fields and apps it recognises as banking or payment apps, so nothing meant for them reaches a provider or your history.
   - Make it larger, see-through or monochrome from Appearance.
 - **Providers**: add any number of OpenAI-compatible servers, each with a default speech and cleanup model picked from its own model list. Keys are optional for self-hosted servers.
 - **Profiles** bundle a language, a speech model, an optional cleanup model and a writing style. Switch the active one from the bubble, and Sasayaki remembers your pick for each app.
@@ -29,17 +30,20 @@ Sasayaki does the same job as [WisprFlow](https://wisprflow.ai), except it costs
 - **Vocabulary**: names and jargon reach both the speech model and the cleanup model, so they come out spelled your way.
 - Replacement rules fix the words your ASR keeps mangling. Plain text or regex, and each profile chooses which ones apply.
 - Write your own post-processing prompts and switch them on per profile, alongside the built-in ones.
-- History keeps past dictations, up to a limit you choose, and can be switched off. Word and time totals keep counting either way.
+- History keeps past dictations and their audio, up to a limit you choose, and can be switched off. Turn on "Count words without history" to keep your totals while nothing else is saved.
+- Nothing leaves the phone except requests to your providers: no analytics, no cloud backup, no device-to-device transfer.
 - The bubble comes back on its own after a reboot.
 
 <table>
   <tr>
     <td><img src="/assets/screenshot01.png" width="250"></td>
     <td><img src="/assets/screenshot02.png" width="250"></td>
+    <td><img src="/assets/screenshot03.png" width="250"></td>
   </tr>
   <tr>
-    <td align="center"><i>Main dashboard</i></td>
+    <td align="center"><i>Home</i></td>
     <td align="center"><i>Floating bubble recording in-chat</i></td>
+    <td align="center"><i>A profile's writing style</i></td>
   </tr>
 </table>
 
@@ -49,7 +53,9 @@ Grab the latest APK from the [releases](https://github.com/pluja/sasayaki/releas
 
 <a href="https://apps.obtainium.imranr.dev/redirect?r=obtainium://app/{%22id%22:%22com.sasayaki%22,%22url%22:%22https://github.com/pluja/sasayaki%22,%22author%22:%22pluja%22,%22name%22:%22Sasayaki%22,%22additionalSettings%22:%22{\%22about\%22:\%22A%20tiny%20dictation%20app.%20Connect%20any%20OpenAI-compatible%20backend%20and%20type%20by%20speaking.\%22}%22}"><img src="/assets/badge_obtainium.png" alt="Get it on Obtainium" height="60"></a>
 
-You need an Android device and an ASR backend that speaks the OpenAI API. An LLM for post-processing is optional and worth it.
+You need Android 9 or later and an ASR backend that speaks the OpenAI API. An LLM for post-processing is optional and worth it.
+
+> **Updating from an older release:** releases are now signed with a new key. Android 9 and later accept the update as usual and keep your history and settings. Once you have it, an APK signed with the old key will no longer install over it.
 
 ## Backends
 

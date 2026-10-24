@@ -2,6 +2,7 @@ package com.sasayaki.ui.history
 
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,28 +17,22 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.ListItemShapes
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.SegmentedListItem
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
-import androidx.compose.material3.SwipeToDismissBox
-import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
-import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -50,7 +45,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -64,7 +58,6 @@ import com.sasayaki.ui.components.EmptyState
 import com.sasayaki.ui.components.LargeTitleBar
 import com.sasayaki.ui.components.Pill
 import com.sasayaki.ui.components.SasayakiScaffold
-import com.sasayaki.ui.components.segmentedItemColors
 import com.sasayaki.ui.theme.SasayakiIcons
 import com.sasayaki.ui.theme.Spacing
 import kotlinx.coroutines.launch
@@ -304,6 +297,7 @@ private fun HistoryOffBanner(onEnable: () -> Unit) {
 }
 
 private val timeFormatter = DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT)
+private const val COLLAPSED_LINES = 4
 
 @Composable
 private fun HistoryItem(
@@ -331,116 +325,99 @@ private fun HistoryItem(
         displaySourceApp(dictation.sourceApp, dictation.sourceAppPackage),
         if (failed) null else "${dictation.wordCount} words"
     ).joinToString(" · ")
+    val original = rawText?.takeIf { !failed && it.isNotBlank() && it != dictation.text }
 
-    val dismissState = rememberSwipeToDismissBoxState()
-    SwipeToDismissBox(
-        state = dismissState,
-        modifier = modifier,
-        enableDismissFromStartToEnd = false,
-        onDismiss = { value -> if (value == SwipeToDismissBoxValue.EndToStart) onDelete() },
-        backgroundContent = {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .clip(shapes.shape)
-                    .background(MaterialTheme.colorScheme.errorContainer)
-                    .padding(horizontal = Spacing.xl),
-                contentAlignment = Alignment.CenterEnd
-            ) {
-                Icon(SasayakiIcons.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.onErrorContainer)
-            }
-        }
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = shapes.shape,
+        color = MaterialTheme.colorScheme.surfaceBright
     ) {
-        SegmentedListItem(
-            onClick = { expanded = !expanded },
-            shapes = shapes,
-            colors = segmentedItemColors(),
-            modifier = Modifier.animateContentSize(MaterialTheme.motionScheme.defaultSpatialSpec()),
-            trailingContent = if (retrying) {
-                { LoadingIndicator(modifier = Modifier.size(32.dp)) }
-            } else {
-                null
-            },
-            supportingContent = {
-                Column(verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s), verticalAlignment = Alignment.CenterVertically) {
-                        if (failed) {
-                            Pill(
-                                text = "Failed",
-                                containerColor = MaterialTheme.colorScheme.errorContainer,
-                                contentColor = MaterialTheme.colorScheme.onErrorContainer
-                            )
-                        }
-                        Text(meta, style = MaterialTheme.typography.bodySmall)
-                    }
-                    if (expanded) {
-                        ExpandedDetails(
-                            original = rawText?.takeIf { !failed && it.isNotBlank() && it != dictation.text },
-                            failed = failed,
-                            canCopy = !failed && dictation.text.isNotBlank(),
-                            canRetry = !dictation.audioPath.isNullOrBlank() && !retrying,
-                            onCopy = onCopy,
-                            onRetry = onRetry,
-                            onDelete = onDelete
-                        )
-                    }
-                }
-            }
+        Column(
+            modifier = Modifier
+                .clickable(onClickLabel = if (expanded) "Show less" else "Show more") { expanded = !expanded }
+                .animateContentSize(MaterialTheme.motionScheme.defaultSpatialSpec())
+                .padding(start = Spacing.l, top = Spacing.m, end = Spacing.xs, bottom = Spacing.xs)
         ) {
             Text(
                 text = if (failed) dictation.errorMessage ?: "Transcription failed" else dictation.text,
+                style = MaterialTheme.typography.bodyLarge,
                 color = if (failed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
-                maxLines = if (expanded) Int.MAX_VALUE else 3,
-                overflow = TextOverflow.Ellipsis
+                maxLines = if (expanded) Int.MAX_VALUE else COLLAPSED_LINES,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(end = Spacing.m)
             )
+            if (expanded && original != null) {
+                Column(
+                    modifier = Modifier
+                        .padding(top = Spacing.m, end = Spacing.m)
+                        .fillMaxWidth()
+                        .clip(MaterialTheme.shapes.medium)
+                        .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                        .padding(Spacing.m),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.xs)
+                ) {
+                    Text("What you said", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                    Text(original, style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (failed) {
+                    Pill(
+                        text = "Failed",
+                        containerColor = MaterialTheme.colorScheme.errorContainer,
+                        contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                        modifier = Modifier.padding(end = Spacing.s)
+                    )
+                }
+                Text(
+                    text = meta,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
+                HistoryActions(
+                    canCopy = !failed && dictation.text.isNotBlank(),
+                    canRetry = !dictation.audioPath.isNullOrBlank(),
+                    retrying = retrying,
+                    emphasizeRetry = failed,
+                    onCopy = onCopy,
+                    onRetry = onRetry,
+                    onDelete = onDelete
+                )
+            }
         }
     }
 }
 
 @Composable
-private fun ExpandedDetails(
-    original: String?,
-    failed: Boolean,
+private fun HistoryActions(
     canCopy: Boolean,
     canRetry: Boolean,
+    retrying: Boolean,
+    emphasizeRetry: Boolean,
     onCopy: () -> Unit,
     onRetry: () -> Unit,
     onDelete: () -> Unit
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(Spacing.m), modifier = Modifier.padding(top = Spacing.xs)) {
-        if (original != null) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(MaterialTheme.shapes.medium)
-                    .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                    .padding(Spacing.m),
-                verticalArrangement = Arrangement.spacedBy(Spacing.xs)
-            ) {
-                Text("What you said", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
-                Text(original, style = MaterialTheme.typography.bodyMedium)
-            }
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s), verticalAlignment = Alignment.CenterVertically) {
-            if (canCopy) {
-                FilledTonalButton(onClick = onCopy) { IconLabel(SasayakiIcons.ContentCopy, "Copy") }
-            }
-            if (canRetry) {
-                if (failed) {
-                    Button(onClick = onRetry) { IconLabel(SasayakiIcons.Refresh, "Retry") }
-                } else {
-                    OutlinedButton(onClick = onRetry) { IconLabel(SasayakiIcons.Refresh, "Retry") }
-                }
-            }
-            IconButton(onClick = onDelete) {
-                Icon(SasayakiIcons.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
-            }
+    if (canCopy) {
+        IconButton(onClick = onCopy) {
+            Icon(SasayakiIcons.ContentCopy, contentDescription = "Copy", modifier = Modifier.size(20.dp))
         }
     }
-}
-
-@Composable
-private fun IconLabel(icon: ImageVector, text: String) {
-    Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp))
-    Text(text, modifier = Modifier.padding(start = Spacing.s))
+    when {
+        retrying -> Box(modifier = Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+            LoadingIndicator(modifier = Modifier.size(28.dp))
+        }
+        canRetry && emphasizeRetry -> FilledTonalIconButton(onClick = onRetry) {
+            Icon(SasayakiIcons.Refresh, contentDescription = "Retry", modifier = Modifier.size(20.dp))
+        }
+        canRetry -> IconButton(onClick = onRetry) {
+            Icon(SasayakiIcons.Refresh, contentDescription = "Retry", modifier = Modifier.size(20.dp))
+        }
+    }
+    IconButton(onClick = onDelete) {
+        Icon(SasayakiIcons.Delete, contentDescription = "Delete", modifier = Modifier.size(20.dp))
+    }
 }

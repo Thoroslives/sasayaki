@@ -115,6 +115,19 @@ Two further suites measure the post-processing prompts against real models. They
 
 Both write a report under `app/build/reports/benchmark/`.
 
+### Release signing
+
+Releases are signed with a private key that never enters the repository. Versions up to and including the last debug-signed release used the public debug key, so `signing/lineage` holds a one-time proof, signed by that key, that hands updates over to the new one. Phones on Android 9 and later accept the new releases as normal updates. Once a phone has installed one, an APK signed only with the debug key is refused.
+
+Set it up once:
+
+1. `make release-key` creates `signing/release.jks` and `signing/lineage`, asking for a password.
+2. Back up `signing/release.jks` and its password somewhere safe. Losing them means every user has to reinstall.
+3. Commit `signing/lineage`. It holds only certificates and a signature, and every release needs it.
+4. Add two repository secrets for the release workflow: `RELEASE_KEYSTORE_BASE64` (the output of `base64 -w0 signing/release.jks`) and `RELEASE_KEYSTORE_PASSWORD`.
+
+`make build` then signs locally, reading the password from `SASAYAKI_KEYSTORE_PASSWORD` or asking for it.
+
 ## License
 
 GPLv3

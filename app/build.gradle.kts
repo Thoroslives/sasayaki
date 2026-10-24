@@ -16,7 +16,7 @@ android {
 
     defaultConfig {
         applicationId = "com.sasayaki"
-        minSdk = 26
+        minSdk = 28
         targetSdk = 35
 
         val tag = findProperty("versionTag")?.toString()?.removePrefix("v") ?: ""
@@ -48,8 +48,9 @@ android {
         debug {
             signingConfig = signingConfigs.getByName("debug")
         }
+        // Release APKs are left unsigned here and signed by scripts/sign-release.sh, because
+        // the key rotation proof (signing/lineage) is something AGP cannot apply.
         release {
-            signingConfig = signingConfigs.getByName("debug")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(

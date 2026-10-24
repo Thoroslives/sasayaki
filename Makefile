@@ -1,7 +1,8 @@
-.PHONY: build test unit debug verify screenshots clean docker-image
+.PHONY: build release-key test unit debug verify check format hooks screenshots clean docker-image
 
 DOCKER_IMAGE := sasayaki-build
 APK_OUTPUT := sasayaki-release.apk
+UNSIGNED_APK := app/build/outputs/apk/release/app-release-unsigned.apk
 GRADLE_USER_HOME := $(CURDIR)/.gradle-cache
 GRADLE_BUILD_HOME := $(CURDIR)/.gradle-build-cache
 ANDROID_SDK_HOME := $(CURDIR)/.android-cache
@@ -26,11 +27,24 @@ endef
 docker-image:
 	docker build -t $(DOCKER_IMAGE) .
 
+# Builds and signs the release APK. Reads the keystore password from
+# SASAYAKI_KEYSTORE_PASSWORD, or asks for it.
 build: docker-image
+	@test -f signing/release.jks || { echo "signing/release.jks is missing; see Release signing in README.md"; exit 1; }
 	$(call gradle,assembleRelease)
-	cp app/build/outputs/apk/release/app-release.apk $(APK_OUTPUT)
+	@if [ -z "$$SASAYAKI_KEYSTORE_PASSWORD" ]; then \
+		trap 'stty echo' EXIT INT; stty -echo; printf 'Release keystore password: '; read -r SASAYAKI_KEYSTORE_PASSWORD; stty echo; echo; \
+	fi; \
+	export SASAYAKI_KEYSTORE_PASSWORD; \
+	docker run --rm -u 0:0 -e SASAYAKI_KEYSTORE_PASSWORD -v $(CURDIR):/project -w /project $(DOCKER_IMAGE) \
+		sh -c "scripts/sign-release.sh $(UNSIGNED_APK) $(APK_OUTPUT) && chown $(HOST_UID):$(HOST_GID) $(APK_OUTPUT)"
 	@echo "APK built: $(APK_OUTPUT)"
 	@ls -lh $(APK_OUTPUT)
+
+# Creates the release key and its rotation proof from the old debug key. Run once.
+release-key: docker-image
+	docker run --rm -it -u 0:0 -v $(CURDIR):/project -w /project $(DOCKER_IMAGE) \
+		sh -c "scripts/create-release-key.sh && chown $(HOST_UID):$(HOST_GID) signing/release.jks signing/lineage"
 
 test: docker-image
 	$(call gradle,test)

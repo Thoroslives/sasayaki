@@ -17,7 +17,8 @@ import java.io.File
  * still pass, so this compares settings against each other instead of against a threshold.
  *
  * A gap only counts when it exceeds the run-to-run spread within a single setting. Sampling
- * at temperature 0.3 wobbles, and without that guard the wobble reads as an effect.
+ * wobbles on servers that ignore the temperature, and without that guard the wobble reads
+ * as an effect.
  */
 class StyleControlDifferentialTest {
 
@@ -177,7 +178,7 @@ class StyleControlDifferentialTest {
                         appContext = null,
                         prompts = client.builtInPrompts
                     )
-                    val completions = client.completeRepeatedly(model, prompt, probe.rawText)
+                    val completions = client.completeRepeatedly(model, prompt, probe.rawText, variant.profile.outputStyle)
                     requestCount += completions.size
                     errorCount += completions.count { it.error != null }
                     val outputs = completions.map(Completion::text)

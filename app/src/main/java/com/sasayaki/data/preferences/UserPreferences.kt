@@ -17,5 +17,13 @@ data class UserPreferences(
     val historyEnabled: Boolean = true,
     val keepStatsWithoutHistory: Boolean = false,
     val historyRetentionLimit: Int = 500,
-    val startOnBoot: Boolean = true
+    val startOnBoot: Boolean = true,
+    val themeMode: ThemeMode = ThemeMode.SYSTEM,
+    val wallpaperColors: Boolean = false
 )
+
+enum class ThemeMode {
+    SYSTEM,
+    LIGHT,
+    DARK
+}

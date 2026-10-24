@@ -49,6 +49,8 @@ class PreferencesDataStore @Inject constructor(
         val KEEP_STATS_WITHOUT_HISTORY = booleanPreferencesKey("keep_stats_without_history")
         val HISTORY_RETENTION_LIMIT = intPreferencesKey("history_retention_limit")
         val START_ON_BOOT = booleanPreferencesKey("start_on_boot")
+        val THEME_MODE = stringPreferencesKey("theme_mode")
+        val WALLPAPER_COLORS = booleanPreferencesKey("wallpaper_colors")
     }
 
     val preferences: Flow<UserPreferences> = context.dataStore.data
@@ -78,7 +80,9 @@ class PreferencesDataStore @Inject constructor(
             historyEnabled = prefs[Keys.HISTORY_ENABLED] ?: true,
             keepStatsWithoutHistory = prefs[Keys.KEEP_STATS_WITHOUT_HISTORY] ?: false,
             historyRetentionLimit = (prefs[Keys.HISTORY_RETENTION_LIMIT] ?: 500).coerceIn(1, 5000),
-            startOnBoot = prefs[Keys.START_ON_BOOT] ?: true
+            startOnBoot = prefs[Keys.START_ON_BOOT] ?: true,
+            themeMode = ThemeMode.entries.firstOrNull { it.name == prefs[Keys.THEME_MODE] } ?: ThemeMode.SYSTEM,
+            wallpaperColors = prefs[Keys.WALLPAPER_COLORS] ?: false
         )
     }
     .distinctUntilChanged()
@@ -123,6 +127,14 @@ class PreferencesDataStore @Inject constructor(
             prefs[Keys.HISTORY_RETENTION_LIMIT] = historyRetentionLimit.coerceIn(1, 5000)
             prefs[Keys.START_ON_BOOT] = startOnBoot
         }
+    }
+
+    suspend fun updateThemeMode(mode: ThemeMode) {
+        context.dataStore.edit { prefs -> prefs[Keys.THEME_MODE] = mode.name }
+    }
+
+    suspend fun updateWallpaperColors(enabled: Boolean) {
+        context.dataStore.edit { prefs -> prefs[Keys.WALLPAPER_COLORS] = enabled }
     }
 
     suspend fun updateActiveLanguage(language: String?) {

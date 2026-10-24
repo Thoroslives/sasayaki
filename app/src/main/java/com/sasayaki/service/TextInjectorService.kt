@@ -153,6 +153,18 @@ class TextInjectorService : AccessibilityService() {
             ?: rootInActiveWindow?.packageName?.toString()
     }
 
+    /**
+     * focusedEditorPackage names the app whose editor has input focus right now, without
+     * the remembered fallbacks [getFocusedAppPackageName] uses, so it never names an app
+     * the user has left.
+     */
+    fun focusedEditorPackage(): String? {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            inputMethod?.takeIf { it.currentInputStarted }?.currentInputEditorInfo?.packageName?.let { return it }
+        }
+        return findCurrentFocusedEditable()?.packageName?.toString()
+    }
+
     fun injectText(text: String): InjectionResult {
         val node = findCurrentFocusedEditable() ?: return InjectionResult.NoFocusedNode
         try {

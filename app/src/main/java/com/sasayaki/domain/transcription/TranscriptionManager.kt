@@ -43,14 +43,14 @@ class TranscriptionManager @Inject constructor(
         audioFile: File,
         durationMs: Long,
         appContext: AppContext?,
+        profile: Profile? = null,
         onPostProcessing: (() -> Unit)? = null
     ): Result<String> {
-        val profile = profileRepository.getActiveProfile()
         return transcribeWithProfile(
             audioFile,
             durationMs,
             appContext,
-            profile,
+            profile ?: profileRepository.getActiveProfile(),
             retryEntryId = null,
             onPostProcessing = onPostProcessing
         )

@@ -20,6 +20,7 @@ import com.sasayaki.data.preferences.BubbleSize
 import com.sasayaki.data.preferences.PreferencesDataStore
 import com.sasayaki.data.repository.ProfileRepository
 import com.sasayaki.domain.model.AppContext
+import com.sasayaki.domain.model.Profile
 import com.sasayaki.domain.provider.describeConnectionError
 import com.sasayaki.domain.transcription.AudioConverter
 import com.sasayaki.domain.transcription.SpeechDetector
@@ -33,6 +34,8 @@ import com.sasayaki.service.bubble.toPhase
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.async
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
@@ -107,6 +110,7 @@ class BubbleService : Service() {
     private var pausedStartedAt: Long = 0
     private var totalPausedMs: Long = 0
     private var recordingAppContext: AppContext? = null
+    private var recordingProfile: Deferred<Profile>? = null
     @Volatile private var pcmFile: File? = null
 
     // Keyboard-aware visibility
@@ -116,7 +120,10 @@ class BubbleService : Service() {
                 // An active dictation keeps the bubble up even if the keyboard closes.
                 if (visible) {
                     overlay?.show()
-                    profileRepository.switchToRememberedProfile(textInjectionBridge.currentAppContext?.packageName)
+                    // Switching mid-dictation would process it with another app's profile.
+                    if (state is ServiceState.Idle) {
+                        profileRepository.switchToRememberedProfile(textInjectionBridge.focusedEditorPackage())
+                    }
                 } else if (state is ServiceState.Idle) {
                     overlay?.hide()
                 }
@@ -220,8 +227,8 @@ class BubbleService : Service() {
             ),
             onSelectProfile = { id ->
                 hapticFeedback?.tick()
-                val packageName = textInjectionBridge.currentAppContext?.packageName
                 scope.launch {
+                    val packageName = textInjectionBridge.focusedEditorPackage()
                     profileRepository.activate(id)
                     profileRepository.rememberProfileForApp(packageName, id)
                 }
@@ -297,12 +304,8 @@ class BubbleService : Service() {
         recordingStartTime = System.currentTimeMillis()
         pausedStartedAt = 0
         totalPausedMs = 0
-        val appContext = textInjectionBridge.currentAppContext
-        recordingAppContext = appContext
-        scope.launch {
-            profileRepository.switchToRememberedProfile(appContext?.packageName)
-            profileRepository.rememberProfileForApp(appContext?.packageName, profileRepository.getActiveProfile().id)
-        }
+        recordingAppContext = textInjectionBridge.currentAppContext
+        recordingProfile = scope.async { profileRepository.getActiveProfile() }
 
         audioRecorder = AudioRecorder()
         pcmFile = File(cacheDir, "recording_${System.currentTimeMillis()}.pcm")
@@ -428,9 +431,10 @@ class BubbleService : Service() {
                 }
 
                 val appContext = recordingAppContext
+                val profile = recordingProfile?.await()
 
                 val result = withContext(Dispatchers.IO) {
-                    transcriptionManager.transcribe(wavFile, durationMs, appContext) {
+                    transcriptionManager.transcribe(wavFile, durationMs, appContext, profile) {
                         scope.launch { updateState(ServiceState.PostProcessing) }
                     }
                 }

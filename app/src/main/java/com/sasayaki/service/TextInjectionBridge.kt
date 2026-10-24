@@ -57,6 +57,11 @@ class TextInjectionBridge @Inject constructor(
         return false
     }
 
+    // The lookup crosses into the focused app, so it stays off the main thread.
+    suspend fun focusedEditorPackage(): String? = withContext(Dispatchers.Default) {
+        TextInjectorService.instance?.focusedEditorPackage()?.takeIf(::isUsableTargetPackage)
+    }
+
     val isAccessibilityServiceActive: Boolean
         get() = TextInjectorService.instance != null
 

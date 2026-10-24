@@ -7,6 +7,7 @@ import com.sasayaki.data.db.entity.PostProcessingPromptEntity
 import com.sasayaki.data.db.entity.ProfileEntity
 import com.sasayaki.data.db.entity.toEntity
 import com.sasayaki.data.preferences.PreferencesDataStore
+import com.sasayaki.data.preferences.rememberedProfileFor
 import com.sasayaki.domain.model.Profile
 import com.sasayaki.domain.processing.BuiltInPrompt
 import com.sasayaki.domain.processing.BuiltInPrompts
@@ -84,10 +85,7 @@ class ProfileRepository @Inject constructor(
     }
 
     suspend fun switchToRememberedProfile(packageName: String?) {
-        packageName ?: return
-        val prefs = preferencesDataStore.preferences.first()
-        if (!prefs.rememberProfilePerApp) return
-        val id = prefs.appProfiles[packageName] ?: return
+        val id = preferencesDataStore.preferences.first().rememberedProfileFor(packageName) ?: return
         val profile = profileDao.getProfile(id) ?: return
         if (!profile.isActive) activate(id)
     }

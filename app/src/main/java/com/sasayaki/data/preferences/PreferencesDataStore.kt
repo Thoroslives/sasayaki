@@ -151,7 +151,12 @@ class PreferencesDataStore @Inject constructor(
 
     suspend fun setBubbleMonochrome(enabled: Boolean) = set(Keys.BUBBLE_MONOCHROME, enabled)
 
-    suspend fun setRememberProfilePerApp(enabled: Boolean) = set(Keys.REMEMBER_PROFILE_PER_APP, enabled)
+    suspend fun setRememberProfilePerApp(enabled: Boolean) {
+        context.dataStore.edit { prefs ->
+            prefs[Keys.REMEMBER_PROFILE_PER_APP] = enabled
+            if (!enabled) prefs.remove(Keys.APP_PROFILES)
+        }
+    }
 
     suspend fun setSkipCleanupInAiChats(enabled: Boolean) = set(Keys.SKIP_CLEANUP_IN_AI_CHATS, enabled)
 

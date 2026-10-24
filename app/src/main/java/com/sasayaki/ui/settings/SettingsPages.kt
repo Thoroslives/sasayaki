@@ -142,7 +142,7 @@ fun AppsSettingsScreen(
                         SwitchItem(
                             shapes = shapes,
                             headline = "Remember profile per app",
-                            supporting = "Switch to the profile you last used in each app",
+                            supporting = "Switch to the profile you last picked from the bubble in each app",
                             icon = SasayakiIcons.SwitchAccount,
                             checked = prefs.rememberProfilePerApp,
                             onCheckedChange = onRememberProfilesChange

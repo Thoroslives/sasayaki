@@ -44,3 +44,6 @@ internal fun decodeAppProfiles(entries: Set<String>): Map<String, Long> = entrie
     val id = entry.substringAfterLast(APP_PROFILE_SEPARATOR).toLongOrNull()
     if (packageName.isEmpty() || id == null) null else packageName to id
 }.toMap()
+
+fun UserPreferences.rememberedProfileFor(packageName: String?): Long? =
+    packageName?.takeIf { rememberProfilePerApp }?.let(appProfiles::get)

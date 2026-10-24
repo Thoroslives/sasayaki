@@ -3,7 +3,7 @@ package com.sasayaki.screenshots
 import android.app.Application
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.sasayaki.data.db.entity.DictationSummary
 import com.sasayaki.ui.history.HistoryScreen

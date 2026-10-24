@@ -3,13 +3,38 @@ package com.sasayaki.ui.navigation
 import kotlinx.serialization.Serializable
 
 @Serializable
-data object HomeRoute
+data object HomeDestination
 
 @Serializable
-data object HistoryRoute
+data object HistoryDestination
 
 @Serializable
-data object ProfilesRoute
+data object ProfilesDestination
 
 @Serializable
-data object SettingsRoute
+data object SettingsDestination
+
+@Serializable
+data object ProvidersDestination
+
+/** [id] 0 opens the editor for a new provider. */
+@Serializable
+data class ProviderEditorDestination(val id: Long)
+
+@Serializable
+data object RecordingSettingsDestination
+
+@Serializable
+data object HistorySettingsDestination
+
+@Serializable
+data object AppearanceSettingsDestination
+
+@Serializable
+data object PermissionsDestination
+
+@Serializable
+data object ReplacementRulesDestination
+
+@Serializable
+data object PromptsDestination

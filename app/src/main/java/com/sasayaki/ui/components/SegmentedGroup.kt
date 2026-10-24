@@ -74,7 +74,8 @@ fun NavigationItem(
     supporting: String? = null,
     icon: ImageVector? = null,
     trailingText: String? = null,
-    enabled: Boolean = true
+    enabled: Boolean = true,
+    needsAttention: Boolean = false
 ) {
     SegmentedListItem(
         onClick = onClick,
@@ -82,7 +83,9 @@ fun NavigationItem(
         enabled = enabled,
         colors = segmentedItemColors(),
         leadingContent = icon?.let { { ItemIcon(it) } },
-        supportingContent = supporting?.let { { Text(it) } },
+        supportingContent = supporting?.let {
+            { Text(it, color = if (needsAttention) MaterialTheme.colorScheme.error else Color.Unspecified) }
+        },
         trailingContent = {
             if (trailingText != null) {
                 Text(trailingText, style = MaterialTheme.typography.labelLarge)

@@ -16,6 +16,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.compose.dropUnlessResumed
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -23,7 +24,16 @@ import androidx.navigation.compose.rememberNavController
 import com.sasayaki.ui.history.HistoryRoute
 import com.sasayaki.ui.home.HomeRoute
 import com.sasayaki.ui.profiles.ProfilesScreen
-import com.sasayaki.ui.settings.SettingsScreen
+import com.sasayaki.ui.settings.AppearanceSettingsRoute
+import com.sasayaki.ui.settings.HistorySettingsRoute
+import com.sasayaki.ui.settings.PermissionsRoute
+import com.sasayaki.ui.settings.PromptsRoute
+import com.sasayaki.ui.settings.ProviderEditorRoute
+import com.sasayaki.ui.settings.ProvidersRoute
+import com.sasayaki.ui.settings.RecordingSettingsRoute
+import com.sasayaki.ui.settings.ReplacementRulesRoute
+import com.sasayaki.ui.settings.SettingsDestinations
+import com.sasayaki.ui.settings.SettingsRoute
 
 @Composable
 fun SasayakiNavGraph() {
@@ -62,7 +72,7 @@ fun SasayakiNavGraph() {
     ) { padding ->
         NavHost(
             navController = navController,
-            startDestination = HomeRoute,
+            startDestination = HomeDestination,
             modifier = Modifier
                 .padding(padding)
                 .consumeWindowInsets(padding),
@@ -71,21 +81,58 @@ fun SasayakiNavGraph() {
             popEnterTransition = transitions.popEnter,
             popExitTransition = transitions.popExit
         ) {
-            composable<HomeRoute> {
+            composable<HomeDestination> {
                 HomeRoute(
                     onOpenHistory = { navController.navigateToTopLevel(TopLevelDestination.HISTORY) },
                     onOpenProfiles = { navController.navigateToTopLevel(TopLevelDestination.PROFILES) },
-                    onOpenSpeechProvider = { navController.navigateToTopLevel(TopLevelDestination.SETTINGS) }
+                    onOpenProviders = { navController.navigate(ProvidersDestination) }
                 )
             }
-            composable<HistoryRoute> {
+            composable<HistoryDestination> {
                 HistoryRoute()
             }
-            composable<ProfilesRoute> {
+            composable<ProfilesDestination> {
                 ProfilesScreen(outerPadding = PaddingValues())
             }
-            composable<SettingsRoute> {
-                SettingsScreen(outerPadding = PaddingValues())
+            composable<SettingsDestination> {
+                SettingsRoute(
+                    destinations = SettingsDestinations(
+                        onProviders = { navController.navigate(ProvidersDestination) },
+                        onRecording = { navController.navigate(RecordingSettingsDestination) },
+                        onRules = { navController.navigate(ReplacementRulesDestination) },
+                        onPrompts = { navController.navigate(PromptsDestination) },
+                        onPermissions = { navController.navigate(PermissionsDestination) },
+                        onHistory = { navController.navigate(HistorySettingsDestination) },
+                        onAppearance = { navController.navigate(AppearanceSettingsDestination) }
+                    )
+                )
+            }
+            composable<ProvidersDestination> {
+                ProvidersRoute(
+                    onOpenProvider = { id -> navController.navigate(ProviderEditorDestination(id)) },
+                    onBack = dropUnlessResumed { navController.popBackStack() }
+                )
+            }
+            composable<ProviderEditorDestination> {
+                ProviderEditorRoute(onDone = dropUnlessResumed { navController.popBackStack() })
+            }
+            composable<RecordingSettingsDestination> {
+                RecordingSettingsRoute(onBack = dropUnlessResumed { navController.popBackStack() })
+            }
+            composable<HistorySettingsDestination> {
+                HistorySettingsRoute(onBack = dropUnlessResumed { navController.popBackStack() })
+            }
+            composable<AppearanceSettingsDestination> {
+                AppearanceSettingsRoute(onBack = dropUnlessResumed { navController.popBackStack() })
+            }
+            composable<PermissionsDestination> {
+                PermissionsRoute(onBack = dropUnlessResumed { navController.popBackStack() })
+            }
+            composable<ReplacementRulesDestination> {
+                ReplacementRulesRoute(onBack = dropUnlessResumed { navController.popBackStack() })
+            }
+            composable<PromptsDestination> {
+                PromptsRoute(onBack = dropUnlessResumed { navController.popBackStack() })
             }
         }
     }

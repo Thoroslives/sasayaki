@@ -15,10 +15,10 @@ enum class TopLevelDestination(
     val icon: ImageVector,
     val selectedIcon: ImageVector
 ) {
-    HOME(HomeRoute, "Home", SasayakiIcons.Home, SasayakiIcons.HomeFilled),
-    HISTORY(HistoryRoute, "History", SasayakiIcons.History, SasayakiIcons.HistoryFilled),
-    PROFILES(ProfilesRoute, "Profiles", SasayakiIcons.Tune, SasayakiIcons.TuneFilled),
-    SETTINGS(SettingsRoute, "Settings", SasayakiIcons.Settings, SasayakiIcons.SettingsFilled);
+    HOME(HomeDestination, "Home", SasayakiIcons.Home, SasayakiIcons.HomeFilled),
+    HISTORY(HistoryDestination, "History", SasayakiIcons.History, SasayakiIcons.HistoryFilled),
+    PROFILES(ProfilesDestination, "Profiles", SasayakiIcons.Tune, SasayakiIcons.TuneFilled),
+    SETTINGS(SettingsDestination, "Settings", SasayakiIcons.Settings, SasayakiIcons.SettingsFilled);
 
     val routeClass: KClass<*> get() = route::class
 }

@@ -1,245 +1,73 @@
 package com.sasayaki.ui.settings
 
+import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.sasayaki.data.api.ApiClientFactory
-import com.sasayaki.data.api.AsrApiService
-import com.sasayaki.data.api.LlmApiService
-import com.sasayaki.data.api.model.ChatCompletionRequest
-import com.sasayaki.data.api.model.ChatMessage
 import com.sasayaki.data.preferences.PreferencesDataStore
+import com.sasayaki.data.preferences.ThemeMode
 import com.sasayaki.data.preferences.UserPreferences
 import com.sasayaki.data.repository.ProcessingRepository
-import com.sasayaki.domain.model.PostProcessingPrompt
-import com.sasayaki.domain.model.TextReplacementRule
+import com.sasayaki.data.repository.ProviderRepository
+import com.sasayaki.domain.provider.Provider
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.MultipartBody
-import okhttp3.RequestBody.Companion.toRequestBody
-import retrofit2.HttpException
 import javax.inject.Inject
 
-sealed class TestState {
-    data object Idle : TestState()
-    data object Testing : TestState()
-    data class Success(val message: String) : TestState()
-    data class Error(val message: String) : TestState()
-}
+@Immutable
+data class SettingsUiState(
+    val loaded: Boolean = false,
+    val preferences: UserPreferences = UserPreferences(),
+    val providers: List<Provider> = emptyList(),
+    val ruleCount: Int = 0,
+    val customPromptCount: Int = 0
+)
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val preferencesDataStore: PreferencesDataStore,
-    private val apiClientFactory: ApiClientFactory,
-    private val processingRepository: ProcessingRepository
+    providerRepository: ProviderRepository,
+    processingRepository: ProcessingRepository
 ) : ViewModel() {
-    private var asrSavedResetJob: Job? = null
-    private var llmSavedResetJob: Job? = null
-    private var asrTestJob: Job? = null
-    private var llmTestJob: Job? = null
-    private var asrTestResetJob: Job? = null
-    private var llmTestResetJob: Job? = null
+    val uiState: StateFlow<SettingsUiState> = combine(
+        preferencesDataStore.preferences,
+        providerRepository.providers,
+        processingRepository.rules,
+        processingRepository.prompts
+    ) { prefs, providers, rules, prompts ->
+        SettingsUiState(
+            loaded = true,
+            preferences = prefs,
+            providers = providers,
+            ruleCount = rules.size,
+            customPromptCount = prompts.count { !it.builtIn }
+        )
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), SettingsUiState())
 
-    val preferences: StateFlow<UserPreferences> = preferencesDataStore.preferences
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), UserPreferences())
+    fun setSilenceThreshold(ms: Long) = persist { preferencesDataStore.setSilenceThresholdMs(ms) }
 
-    val rules: StateFlow<List<TextReplacementRule>> = processingRepository.rules
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    fun setPauseOtherAudio(enabled: Boolean) = persist { preferencesDataStore.setPauseOtherAudio(enabled) }
 
-    val prompts: StateFlow<List<PostProcessingPrompt>> = processingRepository.prompts
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    fun setVibrateOnRecord(enabled: Boolean) = persist { preferencesDataStore.setVibrateOnRecord(enabled) }
 
-    override fun onCleared() {
-        asrTestJob?.cancel()
-        llmTestJob?.cancel()
-        asrTestResetJob?.cancel()
-        llmTestResetJob?.cancel()
-        asrSavedResetJob?.cancel()
-        llmSavedResetJob?.cancel()
-        super.onCleared()
-    }
+    fun setAutoClipboard(enabled: Boolean) = persist { preferencesDataStore.setAutoClipboard(enabled) }
 
-    private val _asrTestState = MutableStateFlow<TestState>(TestState.Idle)
-    val asrTestState: StateFlow<TestState> = _asrTestState.asStateFlow()
+    fun setStartOnBoot(enabled: Boolean) = persist { preferencesDataStore.setStartOnBoot(enabled) }
 
-    private val _llmTestState = MutableStateFlow<TestState>(TestState.Idle)
-    val llmTestState: StateFlow<TestState> = _llmTestState.asStateFlow()
+    fun setHistoryEnabled(enabled: Boolean) = persist { preferencesDataStore.setHistoryEnabled(enabled) }
 
-    private val _asrSaved = MutableStateFlow(false)
-    val asrSaved: StateFlow<Boolean> = _asrSaved.asStateFlow()
+    fun setHistoryRetention(limit: Int) = persist { preferencesDataStore.setHistoryRetentionLimit(limit) }
 
-    private val _llmSaved = MutableStateFlow(false)
-    val llmSaved: StateFlow<Boolean> = _llmSaved.asStateFlow()
+    fun setKeepStatsWithoutHistory(enabled: Boolean) = persist { preferencesDataStore.setKeepStatsWithoutHistory(enabled) }
 
-    fun saveAsrConfig(baseUrl: String, apiKey: String, model: String) {
-        viewModelScope.launch {
-            preferencesDataStore.updateAsrConfig(baseUrl, apiKey, model)
-            _asrSaved.value = true
-            asrSavedResetJob?.cancel()
-            asrSavedResetJob = viewModelScope.launch {
-                delay(2000)
-                _asrSaved.value = false
-            }
-        }
-    }
+    fun setThemeMode(mode: ThemeMode) = persist { preferencesDataStore.setThemeMode(mode) }
 
-    fun saveLlmConfig(baseUrl: String, apiKey: String, model: String, enabled: Boolean) {
-        viewModelScope.launch {
-            preferencesDataStore.updateLlmConfig(baseUrl, apiKey, model, enabled)
-            _llmSaved.value = true
-            llmSavedResetJob?.cancel()
-            llmSavedResetJob = viewModelScope.launch {
-                delay(2000)
-                _llmSaved.value = false
-            }
-        }
-    }
+    fun setWallpaperColors(enabled: Boolean) = persist { preferencesDataStore.setWallpaperColors(enabled) }
 
-    fun saveGeneralSettings(
-        autoClipboard: Boolean,
-        vibrateOnRecord: Boolean,
-        pauseOtherAudio: Boolean,
-        silenceThresholdMs: Long,
-        historyEnabled: Boolean,
-        keepStatsWithoutHistory: Boolean,
-        historyRetentionLimit: Int,
-        startOnBoot: Boolean
-    ) {
-        viewModelScope.launch {
-            preferencesDataStore.updateGeneralSettings(
-                autoClipboard,
-                vibrateOnRecord,
-                pauseOtherAudio,
-                silenceThresholdMs,
-                historyEnabled,
-                keepStatsWithoutHistory,
-                historyRetentionLimit,
-                startOnBoot
-            )
-        }
-    }
-
-    fun saveRule(rule: TextReplacementRule) {
-        viewModelScope.launch { processingRepository.saveRule(rule) }
-    }
-
-    fun deleteRule(id: Long) {
-        viewModelScope.launch { processingRepository.deleteRule(id) }
-    }
-
-    fun savePrompt(prompt: PostProcessingPrompt) {
-        viewModelScope.launch { processingRepository.savePrompt(prompt) }
-    }
-
-    fun deletePrompt(id: Long) {
-        viewModelScope.launch { processingRepository.deletePrompt(id) }
-    }
-
-    fun addPreferredLanguage(code: String) {
-        viewModelScope.launch {
-            val current = preferences.value.preferredLanguages
-            val normalized = code.trim().lowercase()
-            if (normalized.isNotBlank() && normalized !in current) {
-                preferencesDataStore.updatePreferredLanguages(current + normalized)
-            }
-        }
-    }
-
-    fun removePreferredLanguage(code: String) {
-        viewModelScope.launch {
-            val current = preferences.value.preferredLanguages
-            preferencesDataStore.updatePreferredLanguages(current - code)
-        }
-    }
-
-    fun testAsrConnection(baseUrl: String, apiKey: String, model: String) {
-        asrTestJob?.cancel()
-        asrTestJob = viewModelScope.launch {
-            asrTestResetJob?.cancel()
-            _asrTestState.value = TestState.Testing
-            try {
-                val service = apiClientFactory.create(AsrApiService::class.java, baseUrl, apiKey)
-                // Send a tiny silent WAV to actually test the endpoint
-                val silentWav = createSilentWav()
-                val filePart = MultipartBody.Part.createFormData(
-                    "file", "test.wav",
-                    silentWav.toRequestBody("audio/wav".toMediaType())
-                )
-                val modelPart = model.toRequestBody("text/plain".toMediaType())
-                service.transcribe(filePart, modelPart)
-                _asrTestState.value = TestState.Success("Connected")
-            } catch (e: HttpException) {
-                val errorBody = try {
-                    e.response()?.errorBody()?.string()?.take(300) ?: "No details"
-                } catch (_: Exception) { "Could not read error body" }
-                _asrTestState.value = TestState.Error("HTTP ${e.code()}: $errorBody")
-            } catch (e: Exception) {
-                _asrTestState.value = TestState.Error(e.message ?: "Unknown error")
-            }
-            asrTestResetJob = viewModelScope.launch {
-                delay(5000)
-                _asrTestState.value = TestState.Idle
-            }
-        }
-    }
-
-    fun testLlmConnection(baseUrl: String, apiKey: String, model: String) {
-        llmTestJob?.cancel()
-        llmTestJob = viewModelScope.launch {
-            llmTestResetJob?.cancel()
-            _llmTestState.value = TestState.Testing
-            try {
-                val service = apiClientFactory.create(LlmApiService::class.java, baseUrl, apiKey)
-                val response = service.chatCompletion(
-                    ChatCompletionRequest(
-                        model = model,
-                        messages = listOf(ChatMessage("user", "Say 'ok'"))
-                    )
-                )
-                _llmTestState.value = TestState.Success("OK: ${response.text.take(50)}")
-            } catch (e: HttpException) {
-                val errorBody = try {
-                    e.response()?.errorBody()?.string()?.take(300) ?: "No details"
-                } catch (_: Exception) { "Could not read error body" }
-                _llmTestState.value = TestState.Error("HTTP ${e.code()}: $errorBody")
-            } catch (e: Exception) {
-                _llmTestState.value = TestState.Error(e.message ?: "Unknown error")
-            }
-            llmTestResetJob = viewModelScope.launch {
-                delay(5000)
-                _llmTestState.value = TestState.Idle
-            }
-        }
-    }
-
-    /** Create a minimal valid WAV file (0.1s of silence) for testing the ASR endpoint */
-    private fun createSilentWav(): ByteArray {
-        val sampleRate = 16000
-        val numSamples = sampleRate / 10 // 0.1 second
-        val dataSize = numSamples * 2 // 16-bit = 2 bytes per sample
-        val buffer = java.nio.ByteBuffer.allocate(44 + dataSize)
-            .order(java.nio.ByteOrder.LITTLE_ENDIAN)
-        buffer.put("RIFF".toByteArray())
-        buffer.putInt(36 + dataSize)
-        buffer.put("WAVE".toByteArray())
-        buffer.put("fmt ".toByteArray())
-        buffer.putInt(16)
-        buffer.putShort(1) // PCM
-        buffer.putShort(1) // mono
-        buffer.putInt(sampleRate)
-        buffer.putInt(sampleRate * 2) // byte rate
-        buffer.putShort(2) // block align
-        buffer.putShort(16) // bits per sample
-        buffer.put("data".toByteArray())
-        buffer.putInt(dataSize)
-        // silence = zeros (already initialized to 0)
-        return buffer.array()
+    private fun persist(block: suspend () -> Unit) {
+        viewModelScope.launch { block() }
     }
 }

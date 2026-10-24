@@ -14,7 +14,10 @@ data class UserPreferences(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val wallpaperColors: Boolean = false,
     val onboardingCompleted: Boolean = false,
-    val bubbleSize: BubbleSize = BubbleSize.STANDARD
+    val bubbleSize: BubbleSize = BubbleSize.STANDARD,
+    val rememberProfilePerApp: Boolean = true,
+    val skipCleanupInAiChats: Boolean = true,
+    val appProfiles: Map<String, Long> = emptyMap() // package name to profile id
 )
 
 enum class ThemeMode {
@@ -28,3 +31,14 @@ enum class BubbleSize(val scale: Float) {
     LARGE(1.15f),
     LARGER(1.3f)
 }
+
+private const val APP_PROFILE_SEPARATOR = '='
+
+internal fun encodeAppProfiles(profiles: Map<String, Long>): Set<String> =
+    profiles.map { (packageName, id) -> "$packageName$APP_PROFILE_SEPARATOR$id" }.toSet()
+
+internal fun decodeAppProfiles(entries: Set<String>): Map<String, Long> = entries.mapNotNull { entry ->
+    val packageName = entry.substringBeforeLast(APP_PROFILE_SEPARATOR, missingDelimiterValue = "")
+    val id = entry.substringAfterLast(APP_PROFILE_SEPARATOR).toLongOrNull()
+    if (packageName.isEmpty() || id == null) null else packageName to id
+}.toMap()

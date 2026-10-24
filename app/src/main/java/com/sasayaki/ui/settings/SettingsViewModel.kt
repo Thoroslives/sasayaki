@@ -70,6 +70,12 @@ class SettingsViewModel @Inject constructor(
 
     fun setBubbleSize(size: BubbleSize) = persist { preferencesDataStore.setBubbleSize(size) }
 
+    fun setRememberProfilePerApp(enabled: Boolean) = persist { preferencesDataStore.setRememberProfilePerApp(enabled) }
+
+    fun setSkipCleanupInAiChats(enabled: Boolean) = persist { preferencesDataStore.setSkipCleanupInAiChats(enabled) }
+
+    fun forgetAppProfiles() = persist { preferencesDataStore.forgetAppProfiles() }
+
     private fun persist(block: suspend () -> Unit) {
         viewModelScope.launch { block() }
     }

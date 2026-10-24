@@ -24,6 +24,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sasayaki.data.preferences.BubbleSize
 import com.sasayaki.data.preferences.ThemeMode
+import com.sasayaki.data.preferences.UserPreferences
 import com.sasayaki.ui.common.rememberPermissionItems
 import com.sasayaki.ui.common.rememberRestrictedSettingsLikely
 import com.sasayaki.ui.components.ConnectedChoice
@@ -98,6 +99,85 @@ fun RecordingSettingsRoute(onBack: () -> Unit, viewModel: SettingsViewModel = hi
                             icon = SasayakiIcons.PowerSettings,
                             checked = prefs.startOnBoot,
                             onCheckedChange = viewModel::setStartOnBoot
+                        )
+                    }
+                )
+            )
+        }
+    }
+}
+
+@Composable
+fun AppsSettingsRoute(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewModel()) {
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
+    AppsSettingsScreen(
+        loaded = state.loaded,
+        prefs = state.preferences,
+        onRememberProfilesChange = viewModel::setRememberProfilePerApp,
+        onForgetApps = viewModel::forgetAppProfiles,
+        onSkipAiChatsChange = viewModel::setSkipCleanupInAiChats,
+        onBack = onBack
+    )
+}
+
+@Composable
+fun AppsSettingsScreen(
+    loaded: Boolean,
+    prefs: UserPreferences,
+    onRememberProfilesChange: (Boolean) -> Unit,
+    onForgetApps: () -> Unit,
+    onSkipAiChatsChange: (Boolean) -> Unit,
+    onBack: () -> Unit
+) {
+    SettingsPage(title = "Apps", onBack = onBack) {
+        if (!loaded) return@SettingsPage
+        pageIntro("Sasayaki can adapt to the app you are dictating into.")
+        item(key = "profiles") {
+            val remembered = prefs.appProfiles.size
+            SegmentedGroup(
+                title = "Profiles",
+                items = listOf(
+                    { shapes ->
+                        SwitchItem(
+                            shapes = shapes,
+                            headline = "Remember profile per app",
+                            supporting = "Switch to the profile you last used in each app",
+                            icon = SasayakiIcons.SwitchAccount,
+                            checked = prefs.rememberProfilePerApp,
+                            onCheckedChange = onRememberProfilesChange
+                        )
+                    },
+                    { shapes ->
+                        NavigationItem(
+                            shapes = shapes,
+                            headline = "Remembered apps",
+                            supporting = when (remembered) {
+                                0 -> "None yet"
+                                1 -> "1 app"
+                                else -> "$remembered apps"
+                            },
+                            icon = SasayakiIcons.DeleteSweep,
+                            trailingText = if (remembered > 0) "Forget" else "",
+                            enabled = remembered > 0,
+                            onClick = onForgetApps
+                        )
+                    }
+                )
+            )
+        }
+        item(key = "cleanup") {
+            SegmentedGroup(
+                title = "Cleanup",
+                items = listOf(
+                    { shapes ->
+                        SwitchItem(
+                            shapes = shapes,
+                            headline = "Skip cleanup in AI chats",
+                            supporting = "Assistants like ChatGPT and Claude get your words as spoken, " +
+                                "so cleanup never answers the prompt for them",
+                            icon = SasayakiIcons.SmartToy,
+                            checked = prefs.skipCleanupInAiChats,
+                            onCheckedChange = onSkipAiChatsChange
                         )
                     }
                 )

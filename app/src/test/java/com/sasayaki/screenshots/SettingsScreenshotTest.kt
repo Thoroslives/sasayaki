@@ -12,6 +12,7 @@ import com.sasayaki.domain.provider.Provider
 import com.sasayaki.ui.common.SetupItem
 import com.sasayaki.ui.components.SettingsPage
 import com.sasayaki.ui.components.SetupGroup
+import com.sasayaki.ui.settings.AppsSettingsScreen
 import com.sasayaki.ui.settings.ProviderEditorActions
 import com.sasayaki.ui.settings.ProviderEditorScreen
 import com.sasayaki.ui.settings.ProviderEditorUiState
@@ -41,7 +42,7 @@ class SettingsScreenshotTest {
         Provider(3, "OpenAI", "https://api.openai.com", apiKey = "sk", speechModel = "whisper-1", cleanupModel = "gpt-4o-mini")
     )
 
-    private val noDestinations = SettingsDestinations({}, {}, {}, {}, {}, {}, {})
+    private val noDestinations = SettingsDestinations({}, {}, {}, {}, {}, {}, {}, {})
 
     private val editorActions = ProviderEditorActions({}, {}, {}, {}, {}, {}, {}, {}, {})
 
@@ -62,6 +63,18 @@ class SettingsScreenshotTest {
             missingPermissions = 0,
             destinations = noDestinations,
             onOpenSource = {}
+        )
+    }
+
+    @Test
+    fun apps() = compose.screenshot("settings_apps_light") {
+        AppsSettingsScreen(
+            loaded = true,
+            prefs = UserPreferences(appProfiles = mapOf("com.slack" to 1L, "com.google.android.gm" to 2L)),
+            onRememberProfilesChange = {},
+            onForgetApps = {},
+            onSkipAiChatsChange = {},
+            onBack = {}
         )
     }
 

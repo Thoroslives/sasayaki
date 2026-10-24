@@ -27,6 +27,7 @@ import com.sasayaki.ui.profiles.ProfileEditorNavigation
 import com.sasayaki.ui.profiles.ProfileEditorRoute
 import com.sasayaki.ui.profiles.ProfilesRoute
 import com.sasayaki.ui.settings.AppearanceSettingsRoute
+import com.sasayaki.ui.settings.AppsSettingsRoute
 import com.sasayaki.ui.settings.HistorySettingsRoute
 import com.sasayaki.ui.settings.PermissionsRoute
 import com.sasayaki.ui.settings.PromptsRoute
@@ -127,6 +128,7 @@ fun SasayakiNavGraph(startDestination: Any) {
                     destinations = SettingsDestinations(
                         onProviders = { navController.navigate(ProvidersDestination) },
                         onRecording = { navController.navigate(RecordingSettingsDestination) },
+                        onApps = { navController.navigate(AppsSettingsDestination) },
                         onRules = { navController.navigate(ReplacementRulesDestination) },
                         onPrompts = { navController.navigate(PromptsDestination) },
                         onPermissions = { navController.navigate(PermissionsDestination) },
@@ -149,6 +151,9 @@ fun SasayakiNavGraph(startDestination: Any) {
             }
             composable<HistorySettingsDestination> {
                 HistorySettingsRoute(onBack = dropUnlessResumed { navController.popBackStack() })
+            }
+            composable<AppsSettingsDestination> {
+                AppsSettingsRoute(onBack = dropUnlessResumed { navController.popBackStack() })
             }
             composable<AppearanceSettingsDestination> {
                 AppearanceSettingsRoute(onBack = dropUnlessResumed { navController.popBackStack() })

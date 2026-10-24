@@ -113,7 +113,12 @@ class BubbleService : Service() {
         override fun onKeyboardVisibilityChanged(visible: Boolean) {
             scope.launch(Dispatchers.Main) {
                 // An active dictation keeps the bubble up even if the keyboard closes.
-                if (visible) overlay?.show() else if (state is ServiceState.Idle) overlay?.hide()
+                if (visible) {
+                    overlay?.show()
+                    profileRepository.switchToRememberedProfile(textInjectionBridge.currentAppContext?.packageName)
+                } else if (state is ServiceState.Idle) {
+                    overlay?.hide()
+                }
             }
         }
     }
@@ -214,7 +219,11 @@ class BubbleService : Service() {
             ),
             onSelectProfile = { id ->
                 hapticFeedback?.tick()
-                scope.launch { profileRepository.activate(id) }
+                val packageName = textInjectionBridge.currentAppContext?.packageName
+                scope.launch {
+                    profileRepository.activate(id)
+                    profileRepository.rememberProfileForApp(packageName, id)
+                }
             },
             onRemove = ::stopSelf
         ).also { it.create() }
@@ -287,7 +296,12 @@ class BubbleService : Service() {
         recordingStartTime = System.currentTimeMillis()
         pausedStartedAt = 0
         totalPausedMs = 0
-        recordingAppContext = textInjectionBridge.currentAppContext
+        val appContext = textInjectionBridge.currentAppContext
+        recordingAppContext = appContext
+        scope.launch {
+            profileRepository.switchToRememberedProfile(appContext?.packageName)
+            profileRepository.rememberProfileForApp(appContext?.packageName, profileRepository.getActiveProfile().id)
+        }
 
         audioRecorder = AudioRecorder()
         pcmFile = File(cacheDir, "recording_${System.currentTimeMillis()}.pcm")

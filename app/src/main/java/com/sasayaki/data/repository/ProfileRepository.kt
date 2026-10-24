@@ -83,6 +83,21 @@ class ProfileRepository @Inject constructor(
         profileDao.activate(id)
     }
 
+    suspend fun switchToRememberedProfile(packageName: String?) {
+        packageName ?: return
+        val prefs = preferencesDataStore.preferences.first()
+        if (!prefs.rememberProfilePerApp) return
+        val id = prefs.appProfiles[packageName] ?: return
+        val profile = profileDao.getProfile(id) ?: return
+        if (!profile.isActive) activate(id)
+    }
+
+    suspend fun rememberProfileForApp(packageName: String?, profileId: Long) {
+        if (packageName == null || profileId <= 0) return
+        if (!preferencesDataStore.preferences.first().rememberProfilePerApp) return
+        preferencesDataStore.rememberAppProfile(packageName, profileId)
+    }
+
     suspend fun duplicate(profile: Profile): Long {
         return profileDao.insert(
             profile.copy(

@@ -31,6 +31,7 @@ class TextProcessor @Inject constructor(
         rawText: String,
         profile: Profile,
         appContext: AppContext? = null,
+        skipCleanup: Boolean = false,
         onPostProcessing: (() -> Unit)? = null
     ): String {
         val ruleProcessedText = try {
@@ -43,7 +44,7 @@ class TextProcessor @Inject constructor(
         }
 
         return try {
-            if (!profile.llmEnabled || ruleProcessedText.isBlank()) return ruleProcessedText
+            if (!profile.llmEnabled || skipCleanup || ruleProcessedText.isBlank()) return ruleProcessedText
             val endpoint = (providerRepository.resolve(profile, Purpose.CLEANUP) as? Resolution.Ready)?.endpoint
                 ?: return ruleProcessedText
 

@@ -13,7 +13,9 @@ import com.sasayaki.domain.provider.Resolution
 import com.sasayaki.domain.model.AppContext
 import com.sasayaki.domain.model.DictationStatus
 import com.sasayaki.domain.model.Profile
+import com.sasayaki.domain.processing.AppCategory
 import com.sasayaki.domain.processing.TextProcessor
+import com.sasayaki.domain.processing.appCategoryOf
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
@@ -113,7 +115,8 @@ class TranscriptionManager @Inject constructor(
             return Result.success("")
         }
 
-        val processedText = textProcessor.process(rawText, profile, appContext, onPostProcessing)
+        val skipCleanup = prefs.skipCleanupInAiChats && appCategoryOf(appContext?.packageName) == AppCategory.AI_CHAT
+        val processedText = textProcessor.process(rawText, profile, appContext, skipCleanup, onPostProcessing)
         recordLifetimeStats(processedText, durationMs)
         persistSuccess(
             text = processedText,

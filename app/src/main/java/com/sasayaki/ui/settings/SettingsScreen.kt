@@ -27,6 +27,7 @@ private const val SOURCE_URL = "https://github.com/pluja/sasayaki"
 class SettingsDestinations(
     val onProviders: () -> Unit,
     val onRecording: () -> Unit,
+    val onApps: () -> Unit,
     val onRules: () -> Unit,
     val onPrompts: () -> Unit,
     val onPermissions: () -> Unit,
@@ -78,6 +79,15 @@ fun SettingsScreen(
                             supporting = "Stops after ${String.format(Locale.getDefault(), "%.1f", prefs.silenceThresholdMs / 1000f)} s of silence",
                             icon = SasayakiIcons.Mic,
                             onClick = destinations.onRecording
+                        )
+                    },
+                    { shapes ->
+                        NavigationItem(
+                            shapes = shapes,
+                            headline = "Apps",
+                            supporting = appsSummary(prefs.rememberProfilePerApp, prefs.skipCleanupInAiChats),
+                            icon = SasayakiIcons.Apps,
+                            onClick = destinations.onApps
                         )
                     },
                     { shapes ->
@@ -185,4 +195,11 @@ fun ThemeMode.label(): String = when (this) {
     ThemeMode.SYSTEM -> "System theme"
     ThemeMode.LIGHT -> "Light"
     ThemeMode.DARK -> "Dark"
+}
+
+private fun appsSummary(rememberProfiles: Boolean, skipAiChats: Boolean): String = when {
+    rememberProfiles && skipAiChats -> "Per-app profiles, no AI chat cleanup"
+    rememberProfiles -> "Remembers each app's profile"
+    skipAiChats -> "Skips cleanup in AI chats"
+    else -> "Same everywhere"
 }

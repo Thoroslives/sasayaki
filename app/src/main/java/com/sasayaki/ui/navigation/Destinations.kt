@@ -32,6 +32,9 @@ data class ProviderEditorDestination(val id: Long)
 data object RecordingSettingsDestination
 
 @Serializable
+data object AppsSettingsDestination
+
+@Serializable
 data object HistorySettingsDestination
 
 @Serializable

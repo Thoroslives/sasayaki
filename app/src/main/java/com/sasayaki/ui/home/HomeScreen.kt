@@ -1,6 +1,5 @@
 package com.sasayaki.ui.home
 
-import android.os.Build
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -44,7 +43,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -57,7 +55,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -72,17 +69,15 @@ import com.sasayaki.ui.common.copyText
 import com.sasayaki.ui.common.displaySourceApp
 import com.sasayaki.ui.common.formatCompactNumber
 import com.sasayaki.ui.common.formatDuration
+import com.sasayaki.ui.common.SetupItem
 import com.sasayaki.ui.common.minutesSaved
-import com.sasayaki.ui.common.openAppInfo
-import com.sasayaki.ui.common.rememberAccessibilityPermissionState
-import com.sasayaki.ui.common.rememberMicrophonePermissionState
-import com.sasayaki.ui.common.rememberNotificationPermissionState
-import com.sasayaki.ui.common.rememberOverlayPermissionState
+import com.sasayaki.ui.common.rememberPermissionItems
+import com.sasayaki.ui.common.rememberRestrictedSettingsBlocked
 import com.sasayaki.ui.common.wordsPerMinute
 import com.sasayaki.ui.components.EmptyState
-import com.sasayaki.ui.components.ItemIcon
 import com.sasayaki.ui.components.SectionLabel
 import com.sasayaki.ui.components.SegmentedGroup
+import com.sasayaki.ui.components.SetupGroup
 import com.sasayaki.ui.components.segmentedItemColors
 import com.sasayaki.ui.theme.SasayakiIcons
 import com.sasayaki.ui.theme.SasayakiTheme
@@ -93,92 +88,27 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 
-@Immutable
-data class SetupStep(
-    val key: String,
-    val title: String,
-    val description: String,
-    val icon: ImageVector,
-    val done: Boolean,
-    val required: Boolean,
-    val actionLabel: String,
-    val onAction: () -> Unit,
-    val hint: String? = null,
-    val hintActionLabel: String? = null,
-    val onHintAction: (() -> Unit)? = null
-)
-
 @Composable
 fun HomeRoute(
     onOpenHistory: () -> Unit,
     onOpenProfiles: () -> Unit,
-    onOpenSpeechProvider: () -> Unit,
+    onOpenProviders: () -> Unit,
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    val microphone = rememberMicrophonePermissionState()
-    val overlay = rememberOverlayPermissionState()
-    val accessibility = rememberAccessibilityPermissionState()
-    val notifications = rememberNotificationPermissionState()
-    // Android 13+ greys out accessibility for sideloaded apps until restricted settings are allowed.
-    val sideloadHint = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
-
-    val steps = listOf(
-        SetupStep(
-            key = "provider",
-            title = "Speech to text",
-            description = "Connect the server that turns your voice into text.",
-            icon = SasayakiIcons.Dns,
-            done = state.speechProviderConfigured,
-            required = true,
-            actionLabel = "Connect",
-            onAction = onOpenSpeechProvider
-        ),
-        SetupStep(
-            key = "microphone",
-            title = microphone.name,
-            description = microphone.description,
-            icon = SasayakiIcons.Mic,
-            done = microphone.granted,
-            required = true,
-            actionLabel = microphone.actionLabel,
-            onAction = microphone.onRequest
-        ),
-        SetupStep(
-            key = "overlay",
-            title = overlay.name,
-            description = overlay.description,
-            icon = SasayakiIcons.Layers,
-            done = overlay.granted,
-            required = true,
-            actionLabel = overlay.actionLabel,
-            onAction = overlay.onRequest
-        ),
-        SetupStep(
-            key = "accessibility",
-            title = accessibility.name,
-            description = accessibility.description,
-            icon = SasayakiIcons.Keyboard,
-            done = accessibility.granted,
-            required = true,
-            actionLabel = accessibility.actionLabel,
-            onAction = accessibility.onRequest,
-            hint = if (sideloadHint) "Greyed out? In App info, open ⋮ and allow restricted settings." else null,
-            hintActionLabel = if (sideloadHint) "App info" else null,
-            onHintAction = if (sideloadHint) ({ openAppInfo(context) }) else null
-        ),
-        SetupStep(
-            key = "notifications",
-            title = notifications.name,
-            description = notifications.description,
-            icon = SasayakiIcons.Notifications,
-            done = notifications.granted,
-            required = false,
-            actionLabel = notifications.actionLabel,
-            onAction = notifications.onRequest
-        )
+    val providerItem = SetupItem(
+        key = "provider",
+        title = "Speech to text",
+        description = "Add the server that turns your voice into text.",
+        icon = SasayakiIcons.Dns,
+        done = state.speechProviderConfigured,
+        required = true,
+        actionLabel = "Add",
+        onAction = onOpenProviders
     )
+    val steps = listOf(providerItem) + rememberPermissionItems()
+    val restricted = rememberRestrictedSettingsBlocked()
 
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -186,6 +116,7 @@ fun HomeRoute(
     HomeScreen(
         state = state,
         setupSteps = steps,
+        restrictedSettingsBlocked = restricted,
         snackbarHostState = snackbarHostState,
         onStartService = viewModel::startService,
         onStopService = viewModel::stopService,
@@ -203,7 +134,8 @@ fun HomeRoute(
 @Composable
 fun HomeScreen(
     state: HomeUiState,
-    setupSteps: List<SetupStep>,
+    setupSteps: List<SetupItem>,
+    restrictedSettingsBlocked: Boolean,
     snackbarHostState: SnackbarHostState,
     onStartService: () -> Unit,
     onStopService: () -> Unit,
@@ -213,8 +145,8 @@ fun HomeScreen(
     onCopy: (DictationSummary) -> Unit
 ) {
     var showProfiles by rememberSaveable { mutableStateOf(false) }
-    val pendingSteps = setupSteps.filterNot(SetupStep::done)
-    val ready = state.loaded && pendingSteps.none(SetupStep::required)
+    val pendingSteps = setupSteps.filterNot(SetupItem::done)
+    val ready = state.loaded && pendingSteps.none(SetupItem::required)
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
@@ -247,7 +179,7 @@ fun HomeScreen(
             }
             if (state.loaded && pendingSteps.isNotEmpty()) {
                 item(key = "setup") {
-                    SetupChecklist(pendingSteps)
+                    SetupGroup(items = pendingSteps, restrictedSettingsBlocked = restrictedSettingsBlocked, title = "Setup")
                 }
             }
             if (state.lifetime.count > 0 || state.today.count > 0) {
@@ -314,7 +246,7 @@ private fun StatusHero(
     loaded: Boolean,
     ready: Boolean,
     running: Boolean,
-    setupSteps: List<SetupStep>,
+    setupSteps: List<SetupItem>,
     onStart: () -> Unit,
     onStop: () -> Unit
 ) {
@@ -363,8 +295,8 @@ private fun StatusHero(
                     HeroMode.ON -> HeroText("Ready when you are", "The bubble appears when your keyboard opens. Tap it and speak.")
                     HeroMode.OFF -> HeroText("The bubble is off", "Turn it on to dictate into any app.")
                     HeroMode.SETUP -> {
-                        val required = setupSteps.filter(SetupStep::required)
-                        val done = required.count(SetupStep::done)
+                        val required = setupSteps.filter(SetupItem::required)
+                        val done = required.count(SetupItem::done)
                         HeroText("Almost there", "Finish these steps and you can dictate anywhere.")
                         Column(verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
                             LinearWavyProgressIndicator(
@@ -445,46 +377,6 @@ private fun BubbleOrb(active: Boolean) {
             contentDescription = null,
             tint = if (active) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
         )
-    }
-}
-
-@Composable
-private fun SetupChecklist(steps: List<SetupStep>) {
-    SegmentedGroup(
-        title = "Setup",
-        items = steps.map { step -> { shapes -> SetupStepItem(step, shapes) } }
-    )
-}
-
-@Composable
-private fun SetupStepItem(step: SetupStep, shapes: ListItemShapes) {
-    SegmentedListItem(
-        onClick = step.onAction,
-        shapes = shapes,
-        colors = segmentedItemColors(),
-        leadingContent = { ItemIcon(step.icon) },
-        supportingContent = {
-            Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-                Text(step.description)
-                if (step.hint != null) {
-                    Text(step.hint, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary)
-                    if (step.hintActionLabel != null && step.onHintAction != null) {
-                        TextButton(onClick = step.onHintAction, contentPadding = PaddingValues(0.dp)) {
-                            Text(step.hintActionLabel)
-                        }
-                    }
-                }
-            }
-        },
-        trailingContent = {
-            Text(
-                text = if (step.required) step.actionLabel else "Optional",
-                style = MaterialTheme.typography.labelLarge,
-                color = if (step.required) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    ) {
-        Text(step.title)
     }
 }
 
@@ -658,9 +550,8 @@ private fun ProfileSwitcherSheet(
 }
 
 private fun profileSummary(profile: Profile): String = listOfNotNull(
-    profile.language?.uppercase() ?: "Auto language",
-    profile.asrModel,
-    if (profile.llmEnabled) "Cleanup on" else null
+    profile.language?.uppercase() ?: "Any language",
+    "Cleanup".takeIf { profile.llmEnabled }
 ).joinToString(" · ")
 
 @Preview
@@ -680,6 +571,7 @@ private fun HomeScreenPreview() {
                 )
             ),
             setupSteps = emptyList(),
+            restrictedSettingsBlocked = false,
             snackbarHostState = SnackbarHostState(),
             onStartService = {},
             onStopService = {},

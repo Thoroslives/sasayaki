@@ -3,14 +3,14 @@ package com.sasayaki.screenshots
 import android.app.Application
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.sasayaki.data.db.entity.DictationStats
 import com.sasayaki.data.db.entity.DictationSummary
 import com.sasayaki.domain.model.Profile
 import com.sasayaki.ui.home.HomeScreen
 import com.sasayaki.ui.home.HomeUiState
-import com.sasayaki.ui.home.SetupStep
+import com.sasayaki.ui.common.SetupItem
 import com.sasayaki.ui.theme.SasayakiIcons
 import org.junit.Rule
 import org.junit.Test
@@ -38,7 +38,7 @@ class HomeScreenshotTest {
         DictationSummary(3, "", 0, now - 7_200_000, "Slack", null, 3_000, "FAILURE", "Server unreachable", 1, "/audio.wav")
     )
 
-    private fun step(key: String, title: String, done: Boolean, required: Boolean = true) = SetupStep(
+    private fun step(key: String, title: String, done: Boolean, required: Boolean = true) = SetupItem(
         key = key,
         title = title,
         description = "Explains why this permission matters.",
@@ -50,9 +50,10 @@ class HomeScreenshotTest {
     )
 
     @Composable
-    private fun home(state: HomeUiState, steps: List<SetupStep> = emptyList()) = HomeScreen(
+    private fun home(state: HomeUiState, steps: List<SetupItem> = emptyList(), restricted: Boolean = false) = HomeScreen(
         state = state,
         setupSteps = steps,
+        restrictedSettingsBlocked = restricted,
         snackbarHostState = SnackbarHostState(),
         onStartService = {},
         onStopService = {},
@@ -102,7 +103,8 @@ class HomeScreenshotTest {
                 step("overlay", "Display over other apps", done = false),
                 step("accessibility", "Text insertion", done = false),
                 step("notifications", "Notifications", done = false, required = false)
-            )
+            ),
+            restricted = true
         )
     }
 

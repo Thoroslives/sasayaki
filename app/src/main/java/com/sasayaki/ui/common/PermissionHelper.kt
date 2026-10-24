@@ -1,11 +1,13 @@
 package com.sasayaki.ui.common
 
 import android.Manifest
+import android.app.AppOpsManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import android.os.Process
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -51,6 +53,27 @@ fun checkAccessibilityPermission(context: Context): Boolean {
     return enabledServices.split(':').any { it.equals(expectedService, ignoreCase = true) }
 }
 
+/**
+ * Whether Android is blocking accessibility for this app because it was sideloaded
+ * (Android 13+ "restricted settings"). The app-op has no public constant, so an
+ * unknown op on an unusual build reads as not blocked.
+ */
+fun isRestrictedSettingsBlocked(context: Context): Boolean {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return false
+    val appOps = context.getSystemService(AppOpsManager::class.java) ?: return false
+    return try {
+        val mode = appOps.checkOpNoThrow(OP_ACCESS_RESTRICTED_SETTINGS, Process.myUid(), context.packageName)
+        mode == AppOpsManager.MODE_ERRORED || mode == AppOpsManager.MODE_IGNORED
+    } catch (_: IllegalArgumentException) {
+        false
+    }
+}
+
+private const val OP_ACCESS_RESTRICTED_SETTINGS = "android:access_restricted_settings"
+
+@Composable
+fun rememberRestrictedSettingsBlocked(): Boolean = rememberCheckedOnResume { isRestrictedSettingsBlocked(it) }
+
 fun openAppInfo(context: Context) {
     val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}"))
     intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -67,7 +90,7 @@ fun requestAccessibilityPermission(context: Context) {
 fun rememberOverlayPermissionState(): PermissionStatus {
     val context = LocalContext.current
 
-    val granted = rememberExternalPermissionGranted { checkOverlayPermission(it) }
+    val granted = rememberCheckedOnResume { checkOverlayPermission(it) }
 
     return PermissionStatus(
         name = "Display over other apps",
@@ -82,7 +105,7 @@ fun rememberOverlayPermissionState(): PermissionStatus {
 fun rememberAccessibilityPermissionState(): PermissionStatus {
     val context = LocalContext.current
 
-    val granted = rememberExternalPermissionGranted { checkAccessibilityPermission(it) }
+    val granted = rememberCheckedOnResume { checkAccessibilityPermission(it) }
 
     return PermissionStatus(
         name = "Text insertion",
@@ -150,7 +173,7 @@ fun rememberNotificationPermissionState(): PermissionStatus {
 }
 
 @Composable
-private fun rememberExternalPermissionGranted(
+private fun rememberCheckedOnResume(
     checkPermission: (Context) -> Boolean
 ): Boolean {
     val context = LocalContext.current

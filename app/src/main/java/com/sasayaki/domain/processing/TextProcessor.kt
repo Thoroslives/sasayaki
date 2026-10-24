@@ -41,7 +41,7 @@ class TextProcessor @Inject constructor(
 
         return try {
             val prefs = preferencesDataStore.preferences.first()
-            if (!profile.llmEnabled || prefs.llmBaseUrl.isBlank() || prefs.llmApiKey.isBlank()) {
+            if (!profile.llmEnabled || prefs.llmBaseUrl.isBlank()) {
                 return ruleProcessedText
             }
 

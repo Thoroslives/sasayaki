@@ -25,10 +25,16 @@ class ApiClientFactory @Inject constructor(
             .create(serviceClass)
     }
 
+    // Self-hosted servers often run without a key; an empty bearer token would make
+    // some of them reject requests they would otherwise accept.
     private fun authInterceptor(apiKey: String) = Interceptor { chain ->
-        val request = chain.request().newBuilder()
-            .addHeader("Authorization", "Bearer $apiKey")
-            .build()
+        val request = if (apiKey.isEmpty()) {
+            chain.request()
+        } else {
+            chain.request().newBuilder()
+                .addHeader("Authorization", "Bearer $apiKey")
+                .build()
+        }
         chain.proceed(request)
     }
 }

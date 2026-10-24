@@ -76,8 +76,8 @@ class TranscriptionManager @Inject constructor(
         onPostProcessing: (() -> Unit)? = null
     ): Result<String> {
         val prefs = preferencesDataStore.preferences.first()
-        if (prefs.asrBaseUrl.isBlank() || prefs.asrApiKey.isBlank()) {
-            val error = Exception("ASR not configured. Go to Settings to set up your Whisper endpoint.")
+        if (prefs.asrBaseUrl.isBlank()) {
+            val error = Exception("Speech to text is not set up. Add your server in Settings.")
             persistFailure(audioFile, durationMs, appContext, profile, prefs.historyEnabled, error, retryEntryId)
             return Result.failure(error)
         }

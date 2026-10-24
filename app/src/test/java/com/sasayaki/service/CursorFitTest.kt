@@ -1,6 +1,7 @@
 package com.sasayaki.service
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 class CursorFitTest {
@@ -24,29 +25,53 @@ class CursorFitTest {
     }
 
     @Test
-    fun `a continued sentence is lowered and spaced`() {
-        assertEquals(" how are you?", fitToCursor("Hey", "How are you?"))
+    fun `a continuation after a comma lowers common words only`() {
         assertEquals(" how are you?", fitToCursor("Hey,", "How are you?"))
-        assertEquals("how are you?", fitToCursor("Hey, ", " How are you?"))
-    }
-
-    @Test
-    fun `the pronoun I and acronyms keep their capitals`() {
+        assertEquals("the rest is fine.", fitToCursor("Mostly done, ", " The rest is fine."))
+        assertEquals(" Maria will call.", fitToCursor("Thanks,", "Maria will call."))
         assertEquals(" I think so.", fitToCursor("Well,", "I think so."))
-        assertEquals(" I'm in.", fitToCursor("Sure", "I'm in."))
-        assertEquals(" NASA called.", fitToCursor("Guess what,", "NASA called."))
+        assertEquals(" Sie haben recht.", fitToCursor("Ja,", "Sie haben recht."))
+        assertEquals(" die Lösung passt.", fitToCursor("Ich glaube,", "Die Lösung passt."))
     }
 
     @Test
-    fun `punctuation and brackets stay tight`() {
+    fun `text after a word keeps its capital`() {
+        assertEquals(" See you tomorrow", fitToCursor("Sounds good", "See you tomorrow"))
+        assertEquals(" \"Hello,\" she said.", fitToCursor("He said,", "\"Hello,\" she said."))
+    }
+
+    @Test
+    fun `a dictated line break is kept as it came`() {
+        assertEquals("\n\nThanks for the update.", fitToCursor("Hi John,", "\n\nThanks for the update."))
+    }
+
+    @Test
+    fun `punctuation, brackets and handles stay tight`() {
         assertEquals(", right?", fitToCursor("Tomorrow", ", right?"))
         assertEquals("Maybe", fitToCursor("(", "Maybe"))
         assertEquals("Hola", fitToCursor("¿", "Hola"))
+        assertEquals("john", fitToCursor("@", "john"))
+        assertEquals("release", fitToCursor("#", "release"))
+    }
+
+    @Test
+    fun `scripts written without spaces get none`() {
+        assertEquals("明日行きます。", fitToCursor("了解しました。", "明日行きます。"))
+        assertEquals("好的", fitToCursor("我们", "好的"))
     }
 
     @Test
     fun `straight quotes open after a space and close after a word`() {
         assertEquals("Hello", fitToCursor("He said \"", "Hello"))
         assertEquals(" And left.", fitToCursor("He said \"hi\"", "And left."))
+    }
+
+    @Test
+    fun `surrounding text maps to the text before the cursor`() {
+        assertEquals("Hey", textBeforeCursor("Hey", 3, 3))
+        assertEquals("He", textBeforeCursor("Hey", 3, 2))
+        assertNull(textBeforeCursor("Hey", -1, -1))
+        assertNull(textBeforeCursor("Hey", 9, 9))
+        assertNull(textBeforeCursor(null, 0, 0))
     }
 }

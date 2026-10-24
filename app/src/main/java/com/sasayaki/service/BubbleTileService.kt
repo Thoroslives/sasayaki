@@ -24,14 +24,13 @@ class BubbleTileService : TileService() {
         super.onClick()
         when {
             BubbleService.isRunning -> BubbleService.stop(this)
-            !canRunBubble() -> openApp(startBubble = false)
+            !canRunBubble() -> openApp()
             else -> try {
                 BubbleService.start(this)
             } catch (e: IllegalStateException) {
-                // Android may refuse a foreground start from a tile; the app can start it
-                // from the foreground instead.
+                // Android may refuse a foreground start from a tile; Home has the same switch.
                 Log.w(TAG, "Could not start the bubble from the tile", e)
-                openApp(startBubble = true)
+                openApp()
             }
         }
         refresh()
@@ -41,10 +40,8 @@ class BubbleTileService : TileService() {
         Settings.canDrawOverlays(this) &&
             checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
 
-    private fun openApp(startBubble: Boolean) {
-        val intent = Intent(this, MainActivity::class.java)
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            .apply { if (startBubble) action = MainActivity.ACTION_START_BUBBLE }
+    private fun openApp() {
+        val intent = Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             startActivityAndCollapse(PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_IMMUTABLE))
         } else {

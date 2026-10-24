@@ -36,20 +36,6 @@ internal fun resolveExistingText(
 }
 
 /**
- * Leading space is dropped when the field is empty, since it would open the message with
- * whitespace. Mid-message the spacing is the speaker's to decide.
- */
-internal fun insertionFor(existingText: String, dictated: String): String =
-    if (existingText.isEmpty()) dictated.trimStart() else dictated
-
-/**
- * A null count is the editor declining to answer rather than an empty field, so the
- * speaker's spacing is left alone rather than guessed at.
- */
-internal fun insertionAtCursor(charsBeforeCursor: Int?, dictated: String): String =
-    if (charsBeforeCursor == 0) dictated.trimStart() else dictated
-
-/**
  * [AccessibilityNodeInfo.isPassword] is set from the view, and web password inputs reach the
  * accessibility tree as ordinary editables, so the editor's own input type is checked too.
  */
@@ -79,6 +65,7 @@ class TextInjectorService : AccessibilityService() {
 
     companion object {
         private const val TAG = "TextInjectorService"
+        private const val CURSOR_CONTEXT_CHARS = 16
 
         var instance: TextInjectorService? = null
             private set
@@ -201,10 +188,12 @@ class TextInjectorService : AccessibilityService() {
             return InjectionResult.BlockedSensitive
         }
 
-        // Asking for a single character keeps a long draft from crossing processes on
-        // every dictation; only whether anything precedes the cursor matters.
-        val charsBeforeCursor = connection.getSurroundingText(1, 0, 0)?.selectionStart
-        connection.commitText(insertionAtCursor(charsBeforeCursor, text), 1, null)
+        // A short window keeps a long draft from crossing processes on every dictation;
+        // only the end of the previous sentence matters.
+        val textBeforeCursor = connection.getSurroundingText(CURSOR_CONTEXT_CHARS, 0, 0)?.let {
+            it.text.subSequence(0, it.selectionStart.coerceIn(0, it.text.length)).toString()
+        }
+        connection.commitText(fitToCursor(textBeforeCursor, text), 1, null)
         return InjectionResult.Success
     }
 
@@ -225,7 +214,7 @@ class TextInjectorService : AccessibilityService() {
             existingText.length
         }
 
-        val textToInsert = insertionFor(existingText, text)
+        val textToInsert = fitToCursor(existingText.substring(0, cursorPos), text)
 
         val newText = buildString {
             append(existingText.substring(0, cursorPos))

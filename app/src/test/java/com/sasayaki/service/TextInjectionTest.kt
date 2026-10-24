@@ -81,21 +81,6 @@ class TextInjectionTest {
     }
 
     @Test
-    fun `leading space is dropped only into an empty field`() {
-        assertEquals("hello", insertionFor(existingText = "", dictated = " hello"))
-        assertEquals(" hello", insertionFor(existingText = "hi", dictated = " hello"))
-    }
-
-    @Test
-    fun `leading space is dropped only at the start of the field`() {
-        assertEquals("hello", insertionAtCursor(charsBeforeCursor = 0, dictated = " hello"))
-        assertEquals(" hello", insertionAtCursor(charsBeforeCursor = 1, dictated = " hello"))
-        assertEquals("hello", insertionAtCursor(charsBeforeCursor = 1, dictated = "hello"))
-        // An unanswered request must not read as an empty field.
-        assertEquals(" hello", insertionAtCursor(charsBeforeCursor = null, dictated = " hello"))
-    }
-
-    @Test
     fun `password editors are refused whatever their class`() {
         listOf(
             InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD,

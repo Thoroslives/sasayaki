@@ -16,13 +16,13 @@ clear and immediate. Everything here maps to code in `app/src/main/java/com/sasa
 
 ## Color
 
-Built from four brand palettes plus a neutral. Tones are perceptual lightness (CIE L*), so
+Built from three brand palettes plus a neutral. Tones are perceptual lightness (CIE L*), so
 `Pine40` and `Clay40` have the same contrast against any surface.
 
 | Palette | Hue | Role |
 | --- | --- | --- |
 | Pine | teal green | `primary`: main actions, selection, active state |
-| Sand | warm beige | `secondary`: chips, filters, supporting containers |
+| Sage | muted green | `secondary`: tonal buttons, chips, selection indicators |
 | Clay | terracotta | `tertiary`: live recording, attention that is not an error |
 | Ember | red | `error`: failures only |
 | Ink / Mist | green-tinted greys | surfaces, text, outlines |

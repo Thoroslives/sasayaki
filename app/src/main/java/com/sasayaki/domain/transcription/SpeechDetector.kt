@@ -20,6 +20,12 @@ object SpeechDetector {
     // Steady signals (silence, hum, a fan) vary less than this between quiet and loud frames.
     private const val MIN_DYNAMIC_RANGE_DB = 6f
     private const val MIN_SPEECH_MS = 200
+    // The start haptic and the tap on stop sit at the edges of every manual recording and
+    // are loud enough to pass for speech, so the edges are ignored.
+    private const val IGNORED_START_MS = 300
+    private const val IGNORED_END_MS = 250
+    // Syllables last longer than clicks, taps and bumps; only runs this long count.
+    private const val MIN_RUN_MS = 90
 
     /** frameLevels reads 16-bit little-endian mono PCM and returns each 30 ms frame's level in dBFS. */
     fun frameLevels(pcm: InputStream, sampleRate: Int): FloatArray {
@@ -52,13 +58,31 @@ object SpeechDetector {
     }
 
     fun containsSpeech(levels: FloatArray): Boolean {
-        if (levels.isEmpty()) return false
-        val sorted = levels.sorted()
+        val start = IGNORED_START_MS / FRAME_MS
+        val end = levels.size - IGNORED_END_MS / FRAME_MS
+        if (end - start <= 0) return false
+        val window = levels.copyOfRange(start, end)
+        val sorted = window.sorted()
         val noiseFloor = sorted[sorted.size / 10]
         val loud = sorted[sorted.size * 9 / 10]
         if (loud - noiseFloor < MIN_DYNAMIC_RANGE_DB) return false
         val threshold = maxOf(ABSOLUTE_FLOOR_DB, noiseFloor + ABOVE_NOISE_DB)
-        val speechFrames = levels.count { it > threshold }
-        return speechFrames * FRAME_MS >= MIN_SPEECH_MS
+        return sustainedFrames(window, threshold) * FRAME_MS >= MIN_SPEECH_MS
+    }
+
+    private fun sustainedFrames(levels: FloatArray, threshold: Float): Int {
+        val minRun = MIN_RUN_MS / FRAME_MS
+        var total = 0
+        var run = 0
+        for (level in levels) {
+            if (level > threshold) {
+                run++
+            } else {
+                if (run >= minRun) total += run
+                run = 0
+            }
+        }
+        if (run >= minRun) total += run
+        return total
     }
 }

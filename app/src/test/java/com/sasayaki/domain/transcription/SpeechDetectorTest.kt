@@ -54,8 +54,25 @@ class SpeechDetectorTest {
     }
 
     @Test
-    fun `a short word right away still counts`() {
-        assertTrue(detects(speech(0.6) + List(rate / 2) { 0.0 }))
+    fun `a short word just after the tap still counts`() {
+        assertTrue(detects(List(rate * 4 / 10) { 0.0 } + speech(0.6) + List(rate / 2) { 0.0 }))
+    }
+
+    @Test
+    fun `start buzz and stop tap around silence are not speech`() {
+        val buzz = List(rate * 13 / 100) { i -> sin(2 * PI * 170 * i / rate) * 0.2 }
+        val tap = List(rate * 6 / 100) { (Random(3).nextDouble() * 2 - 1) * 0.4 }
+        assertFalse(detects(buzz + noise(1.2, 0.002) + tap))
+    }
+
+    @Test
+    fun `scattered bumps while holding the phone are not speech`() {
+        val samples = noise(3.0, 0.002).toMutableList()
+        listOf(0.6, 1.1, 1.7, 2.2).forEach { at ->
+            val from = (at * rate).toInt()
+            repeat(rate * 4 / 100) { samples[from + it] = 0.3 }
+        }
+        assertFalse(detects(samples))
     }
 
     @Test

@@ -68,11 +68,15 @@ Setting your main languages in the app lowers the word error rate.
 
 ### LLM post-processing
 
-Optional. A 2B or 4B model on a consumer GPU adds little delay and cleans the text up well.
+Optional. Any instruction-following chat model behind an OpenAI-compatible API works. Some starting points:
 
-I fine-tuned the 2B version of Qwen3.5 ([unsloth/Qwen3.5-2B](https://huggingface.co/unsloth/Qwen3.5-2B)) using the recipe in the [`fine-tuning`](https://github.com/pluja/sasayaki/tree/main/fine-tuning#fine-tuning) directory. Generate a synthetic dataset in your language, then train with [`unsloth`](https://unsloth.ai/) on about 5GB of VRAM.
+- **Hosted or a big GPU:** `gpt-oss-120b` is what I use day to day. `gpt-oss-20b` is fast on hosted inference such as Groq, but slow on modest local hardware.
+- **Local on a consumer GPU:** the [Gemma 4](https://huggingface.co/google) family is the most common pick for local cleanup in other dictation apps.
+- **Tiny and purpose-built:** [SpeakoFlow Mini](https://www.speakoflow.com/blog/speakoflow-mini-dictation-cleanup-model) is an Apache-2.0, English-only cleanup fine-tune of Qwen3.5-0.8B that runs on a CPU. [VoiceInk Refine](https://huggingface.co/beingpax/VoiceInk-Refine-V1) looks similar, but its license only allows use inside VoiceInk.
 
-To serve it, I use [`llama-swap`](https://github.com/mostlygeek/llama-swap) over a llama.cpp backend. Plain [`llama.cpp`](https://github.com/ggml-org/llama.cpp), [`koboldcpp`](https://github.com/LostRuins/koboldcpp) and [LlamaFiles](https://github.com/mozilla-ai/llamafile) all work too.
+These are pointers from other projects, not benchmarks of mine; run the eval suite below against your own endpoint before settling on one.
+
+To serve a local model, I use [`llama-swap`](https://github.com/mostlygeek/llama-swap) over a llama.cpp backend. Plain [`llama.cpp`](https://github.com/ggml-org/llama.cpp), [`koboldcpp`](https://github.com/LostRuins/koboldcpp) and [LlamaFiles](https://github.com/mozilla-ai/llamafile) all work too.
 
 The same providers are useful if you don't want to host your own ([ppq.ai](https://ppq.ai/) and [nano-gpt.com](https://nano-gpt.com)). If you want private inference, check out [tinfoil](https://tinfoil.sh).
 

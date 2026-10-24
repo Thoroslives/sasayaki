@@ -98,4 +98,10 @@ class ProviderLogicTest {
         assertEquals(0, plan.cleanupProviderIndex)
         assertTrue(planLegacyMigration(null, null).providers.isEmpty())
     }
+
+    @Test
+    fun `server comparison ignores a v1 suffix and trailing slashes`() {
+        assertTrue(sameServer("https://api.example.com/v1/", " https://api.example.com"))
+        assertTrue(!sameServer("https://a.example.com", "https://b.example.com"))
+    }
 }

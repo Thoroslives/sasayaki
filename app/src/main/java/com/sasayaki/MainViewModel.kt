@@ -3,6 +3,7 @@ package com.sasayaki
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.sasayaki.data.StartupMigrations
 import com.sasayaki.data.preferences.PreferencesDataStore
 import com.sasayaki.data.preferences.ThemeMode
 import com.sasayaki.data.repository.ProviderRepository
@@ -27,14 +28,15 @@ data class Appearance(
 @HiltViewModel
 class MainViewModel @Inject constructor(
     preferencesDataStore: PreferencesDataStore,
-    providerRepository: ProviderRepository
+    providerRepository: ProviderRepository,
+    startupMigrations: StartupMigrations
 ) : ViewModel() {
     /**
      * Decided once per launch, so finishing onboarding does not swap the graph under
      * the user. Installs that already had a server configured skip onboarding.
      */
     val startDestination: StateFlow<Any?> = flow {
-        providerRepository.migrateLegacyEndpoints()
+        startupMigrations.await()
         val prefs = preferencesDataStore.preferences.first()
         val hasProvider = providerRepository.getAll().isNotEmpty()
         emit(if (prefs.onboardingCompleted || hasProvider) HomeDestination else OnboardingDestination)

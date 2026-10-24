@@ -49,11 +49,15 @@ class SecurePreferencesStore @Inject constructor(
     fun getProviderApiKey(providerId: Long): String =
         sharedPreferences.getString(providerKey(providerId), "") ?: ""
 
+    // Committed synchronously: callers are on IO, and a key lost to process death after
+    // its provider row was written would silently break that provider.
     fun setProviderApiKey(providerId: Long, apiKey: String) {
         sharedPreferences.edit().apply {
             if (apiKey.isEmpty()) remove(providerKey(providerId)) else putString(providerKey(providerId), apiKey)
-        }.apply()
+        }.commit()
     }
+
+    fun hasLegacyApiKeys(): Boolean = getAsrApiKey().isNotEmpty() || getLlmApiKey().isNotEmpty()
 
     private fun providerKey(providerId: Long) = "provider_api_key_$providerId"
 }

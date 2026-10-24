@@ -98,6 +98,10 @@ class PreferencesDataStore @Inject constructor(
         return speech to cleanup
     }
 
+    fun clearLegacyApiKeysIfPresent() {
+        if (securePreferencesStore.hasLegacyApiKeys()) securePreferencesStore.clearLegacyApiKeys()
+    }
+
     suspend fun clearLegacyEndpoints() {
         securePreferencesStore.clearLegacyApiKeys()
         context.dataStore.edit { prefs ->

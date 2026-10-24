@@ -39,5 +39,8 @@ fun planLegacyMigration(speech: LegacyEndpoint?, cleanup: LegacyEndpoint?): Lega
 }
 
 private fun sameServer(a: LegacyEndpoint, b: LegacyEndpoint): Boolean =
-    a.baseUrl.trim().trimEnd('/').removeSuffix("/v1") == b.baseUrl.trim().trimEnd('/').removeSuffix("/v1") &&
-        a.apiKey.trim() == b.apiKey.trim()
+    sameServer(a.baseUrl, b.baseUrl) && a.apiKey.trim() == b.apiKey.trim()
+
+fun sameServer(a: String, b: String): Boolean = a.serverRoot() == b.serverRoot()
+
+private fun String.serverRoot() = trim().trimEnd('/').removeSuffix("/v1")

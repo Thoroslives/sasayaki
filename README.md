@@ -16,6 +16,7 @@ Sasayaki does the same job as [WisprFlow](https://wisprflow.ai), except it costs
   - While you speak it becomes a pill with a live waveform, a timer, pause, discard and stop.
   - Drag it anywhere; it docks to the nearest edge. Drop it on the target at the top to turn it off.
   - Long-press it to switch profile. Toggle it from a Quick Settings tile.
+  - Recordings with no speech are dropped on the phone instead of being sent. A larger bubble is one setting away.
 - **Providers**: add any number of OpenAI-compatible servers, each with a default speech and cleanup model picked from its own model list. Keys are optional for self-hosted servers.
 - **Profiles** bundle a language, a speech model, an optional cleanup model and a writing style. Switch the active one from the bubble.
 - **Post-processing**: a small model turns what you said into a clean written message.

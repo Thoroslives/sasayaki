@@ -126,12 +126,17 @@ The bubble is the product; everything else is configuration.
 | Recording | Pill | Discard · live waveform with timer and profile · pause · stop (clay) |
 | Processing | Pill | Morphing loading indicator, "Transcribing" or "Cleaning up" (clay), cancel |
 | Failed | Pill, `errorContainer` | The reason, retry when the audio was kept, dismiss |
+| Nothing heard | Pill | "Didn't catch anything"; tap to dictate again. Silent audio never leaves the phone. |
 
 - It docks to the nearest screen edge after a drag and grows away from that edge.
 - Dragging shows a remove target at the top (overlays draw below the keyboard); dropping on it
   turns the bubble off.
 - Long-press the bubble, or tap the waveform while recording, to switch profile.
 - Shape changes use the spatial spring, so the bubble visibly morphs instead of jumping.
+- Each state has a fixed window size; the window grows before the content morphs and shrinks
+  after, so the overlay never chases the animation.
+- The bubble size setting scales density inside the bubble (1, 1.15 and 1.3x), so every
+  dimension and touch target grows together.
 
 ## Haptics
 

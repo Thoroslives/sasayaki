@@ -109,8 +109,13 @@ class BubbleService : Service() {
     private var recordingStartTime: Long = 0
     private var pausedStartedAt: Long = 0
     private var totalPausedMs: Long = 0
-    private var recordingAppContext: AppContext? = null
+    private var recordingAppContext: Deferred<AppContext?>? = null
     private var recordingProfile: Deferred<Profile>? = null
+    private var profileSwitch: Job? = null
+
+    private val dictationInFlight: Boolean
+        get() = state is ServiceState.Recording || state is ServiceState.Transcribing ||
+            state is ServiceState.PostProcessing || state is ServiceState.Injecting
     @Volatile private var pcmFile: File? = null
 
     // Keyboard-aware visibility
@@ -121,8 +126,10 @@ class BubbleService : Service() {
                 if (visible) {
                     overlay?.show()
                     // Switching mid-dictation would process it with another app's profile.
-                    if (state is ServiceState.Idle) {
-                        profileRepository.switchToRememberedProfile(textInjectionBridge.focusedEditorPackage())
+                    if (!dictationInFlight) {
+                        profileSwitch = scope.launch {
+                            profileRepository.switchToRememberedProfile(textInjectionBridge.focusedEditorPackage())
+                        }
                     }
                 } else if (state is ServiceState.Idle) {
                     overlay?.hide()
@@ -227,11 +234,15 @@ class BubbleService : Service() {
             ),
             onSelectProfile = { id ->
                 hapticFeedback?.tick()
-                scope.launch {
+                val selection = scope.async {
                     val packageName = textInjectionBridge.focusedEditorPackage()
                     profileRepository.activate(id)
                     profileRepository.rememberProfileForApp(packageName, id)
+                    profileRepository.getActiveProfile()
                 }
+                profileSwitch = selection
+                // The pill shows the pick at once, so it applies to the dictation in progress.
+                if (state is ServiceState.Recording) recordingProfile = selection
             },
             onRemove = ::stopSelf
         ).also { it.create() }
@@ -304,8 +315,13 @@ class BubbleService : Service() {
         recordingStartTime = System.currentTimeMillis()
         pausedStartedAt = 0
         totalPausedMs = 0
-        recordingAppContext = textInjectionBridge.currentAppContext
-        recordingProfile = scope.async { profileRepository.getActiveProfile() }
+        // The lookup crosses into the focused app, so it stays off the main thread.
+        recordingAppContext = scope.async(Dispatchers.Default) { textInjectionBridge.currentAppContext }
+        val pendingSwitch = profileSwitch
+        recordingProfile = scope.async {
+            pendingSwitch?.join()
+            profileRepository.getActiveProfile()
+        }
 
         audioRecorder = AudioRecorder()
         pcmFile = File(cacheDir, "recording_${System.currentTimeMillis()}.pcm")
@@ -402,13 +418,16 @@ class BubbleService : Service() {
         val durationMs = recordedDurationMs()
         updateState(ServiceState.Transcribing)
 
+        // A new recording may start before this job ends, so it holds on to its own
+        // recording and only clears the shared fields that still point at it.
+        val recording = Recording(recordingJob, pcmFile, audioRecorder, silenceDetector)
         transcriptionJob = scope.launch {
             var currentPcmFile: File? = null
             var wavFile: File? = null
             try {
-                recordingJob?.join()
+                recording.job?.join()
 
-                currentPcmFile = pcmFile
+                currentPcmFile = recording.pcm
                 if (currentPcmFile == null || !currentPcmFile.exists() || currentPcmFile.length() == 0L) {
                     Log.w(TAG, "PCM file empty or missing")
                     updateState(ServiceState.Idle)
@@ -430,7 +449,7 @@ class BubbleService : Service() {
                     AudioConverter.pcmToWav(currentPcmFile, wavFile)
                 }
 
-                val appContext = recordingAppContext
+                val appContext = recordingAppContext?.await()
                 val profile = recordingProfile?.await()
 
                 val result = withContext(Dispatchers.IO) {
@@ -466,10 +485,7 @@ class BubbleService : Service() {
                 abandonRecordingAudioFocus()
                 currentPcmFile?.delete()
                 wavFile?.delete()
-                recordingJob = null
-                pcmFile = null
-                audioRecorder = null
-                silenceDetector = null
+                release(recording)
             }
         }
     }
@@ -510,19 +526,31 @@ class BubbleService : Service() {
 
         updateState(ServiceState.Idle)
 
-        scope.launch(Dispatchers.IO) {
+        val recording = Recording(recordingJob, pcmFile, audioRecorder, silenceDetector)
+        scope.launch {
             try {
-                recordingJob?.join()
+                recording.job?.join()
             } catch (e: Exception) {
                 Log.w(TAG, "Recording cleanup interrupted", e)
             } finally {
-                pcmFile?.delete()
-                recordingJob = null
-                pcmFile = null
-                audioRecorder = null
-                silenceDetector = null
+                withContext(Dispatchers.IO) { recording.pcm?.delete() }
+                release(recording)
             }
         }
+    }
+
+    private class Recording(
+        val job: Job?,
+        val pcm: File?,
+        val recorder: AudioRecorder?,
+        val detector: SilenceDetector?
+    )
+
+    private fun release(recording: Recording) {
+        if (recordingJob === recording.job) recordingJob = null
+        if (pcmFile === recording.pcm) pcmFile = null
+        if (audioRecorder === recording.recorder) audioRecorder = null
+        if (silenceDetector === recording.detector) silenceDetector = null
     }
 
     private fun recordedDurationMs(): Long {
@@ -537,7 +565,7 @@ class BubbleService : Service() {
 
     private fun retrySavedFailure(entryId: Long) {
         updateState(ServiceState.Transcribing)
-        scope.launch {
+        transcriptionJob = scope.launch {
             val result = withContext(Dispatchers.IO) {
                 transcriptionManager.retry(entryId)
             }

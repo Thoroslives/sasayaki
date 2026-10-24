@@ -80,7 +80,6 @@ class ProviderEditorViewModel @Inject constructor(
             val pending = draft.toProvider()
             applicationScope.launch { providerRepository.save(pending) }
         }
-        super.onCleared()
     }
 
     private suspend fun autosave() {

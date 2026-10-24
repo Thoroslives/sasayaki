@@ -71,7 +71,10 @@ android {
     }
 
     lint {
-        checkReleaseBuilds = false
+        abortOnError = true
+        // Version-bump hints change with every upstream release, so they would make the
+        // pre-push gate fail on code that has not changed.
+        disable += setOf("NewerVersionAvailable", "GradleDependency", "AndroidGradlePluginVersion")
     }
 
     composeCompiler {
@@ -101,11 +104,9 @@ kotlin {
     }
 }
 
-/**
- * The benchmark reads its endpoint, key and model list from the environment and skips
- * itself when they are absent, so ordinary builds never touch the network. Values are
- * forwarded through providers so the configuration cache stays valid.
- */
+// The benchmark reads its endpoint, key and model list from the environment and skips
+// itself when they are absent, so ordinary builds never touch the network. Values are
+// forwarded through providers so the configuration cache stays valid.
 tasks.withType<Test>().configureEach {
     testLogging {
         showStandardStreams = true

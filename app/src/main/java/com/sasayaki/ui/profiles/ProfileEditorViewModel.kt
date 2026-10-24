@@ -155,7 +155,6 @@ class ProfileEditorViewModel @Inject constructor(
         // Flush an edit made within the debounce window before the editor closed.
         val pending = profile
         if (pending != null && pending != synced && !_finished.value) applicationScope.launch { profileRepository.save(pending) }
-        super.onCleared()
     }
 
     private companion object {

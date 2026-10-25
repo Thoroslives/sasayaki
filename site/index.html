@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sasayaki: voice typing for Android</title>
+<meta name="description" content="Tap the bubble, talk, and clean text appears in any app. Works with any OpenAI-compatible server, including your own.">
+<meta name="theme-color" content="#006B5A">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<style>
+:root {
+  --paper: #F3FBF8;
+  --paper-deep: #E1EAE7;
+  --ink: #00201A;
+  --ink-soft: #3A4A45;
+  --pine: #006B5A;
+  --mint: #86D5C2;
+  --clay: #FDB69C;
+  --night: #1B211F;
+  --night-raised: #2B322F;
+  --serif: "Iowan Old Style", "Charter", "Bitstream Charter", "Sitka Text", Cambria, Georgia, serif;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", sans-serif;
+  --kana: "Hiragino Mincho ProN", "Yu Mincho", "Noto Serif CJK JP", "Noto Serif JP", serif;
+  --loop: 11s;
+  color-scheme: light;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font: 1.0625rem/1.6 var(--sans);
+}
+img, svg { display: block; }
+a { color: var(--pine); text-underline-offset: .18em; }
+a:focus-visible, .button:focus-visible {
+  outline: 3px solid var(--pine);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+
+.wrap { width: min(70rem, 100% - 2.5rem); margin-inline: auto; }
+
+/* Masthead */
+.masthead { display: flex; align-items: center; justify-content: space-between; padding-block: 1.5rem; }
+.brand { display: flex; align-items: center; gap: .7rem; color: var(--ink); text-decoration: none; font: 600 1.15rem/1 var(--serif); }
+.brand img { width: 2.25rem; height: 2.25rem; }
+.brand span { font: 400 .95rem/1 var(--kana); color: var(--ink-soft); }
+.masthead nav { display: flex; gap: 1.5rem; font-size: .95rem; }
+
+/* Hero */
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr);
+  gap: clamp(2rem, 6vw, 5rem);
+  align-items: center;
+  padding-block: clamp(2rem, 7vw, 5.5rem) clamp(3rem, 8vw, 6rem);
+}
+.hero h1 {
+  margin: 0;
+  font: 400 clamp(2.9rem, 7.4vw, 5.6rem)/.98 var(--serif);
+  letter-spacing: -.02em;
+}
+.hero h1 .quiet { display: block; color: var(--pine); font-style: italic; }
+.hero .lede { max-width: 34ch; margin: 1.6rem 0 2.2rem; font-size: 1.2rem; color: var(--ink-soft); }
+.actions { display: flex; flex-wrap: wrap; gap: .8rem; align-items: center; }
+.button {
+  display: inline-flex; align-items: center; gap: .55rem;
+  min-height: 3rem; padding: 0 1.4rem;
+  border-radius: 999px;
+  font-weight: 600; text-decoration: none;
+  transition: transform .15s ease, background-color .15s ease;
+}
+.button:hover { transform: translateY(-1px); }
+.button.secondary { color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--ink); }
+/* Obtainium's own purple, softened to sit beside the pine palette. */
+.button.obtainium { background: #D9C8FF; color: #2C1366; }
+.button.obtainium:hover { background: #CBB4FF; }
+.needs { margin-top: 1rem; font-size: .9rem; color: var(--ink-soft); }
+
+/* The replay: one loop of a real dictation. */
+.phone {
+  position: relative;
+  width: min(100%, 25rem);
+  justify-self: center;
+  aspect-ratio: 9 / 13;
+  padding: 1.4rem 1.1rem 1.1rem;
+  border-radius: 2.4rem;
+  background: var(--night);
+  color: #DCE4E1;
+  box-shadow: 0 2.5rem 4rem -2rem rgb(0 32 26 / .45), 0 0 0 .55rem #0D1512;
+  overflow: hidden;
+  font-size: .95rem;
+}
+.chat-head { display: flex; align-items: center; gap: .7rem; padding-bottom: 1rem; border-bottom: 1px solid #2F3634; }
+.chat-head i { width: 2rem; height: 2rem; border-radius: 50%; background: #324C3F; color: var(--mint); display: grid; place-items: center; font: 600 .9rem/1 var(--sans); font-style: normal; }
+.chat-head b { font-weight: 600; }
+.thread { position: absolute; inset: 4.6rem 1.1rem 8.8rem; display: flex; flex-direction: column; justify-content: flex-end; gap: .5rem; }
+.msg { max-width: 80%; padding: .6rem .9rem; border-radius: 1.1rem 1.1rem 1.1rem .3rem; background: var(--night-raised); line-height: 1.4; }
+
+.field {
+  position: absolute; inset: auto 1.1rem 1.1rem;
+  display: flex; align-items: center;
+  min-height: 3.2rem; padding: 0 1.1rem;
+  border-radius: 999px; background: var(--night-raised);
+}
+.field .placeholder { color: #82958E; animation: placeholder var(--loop) infinite; }
+.field .typed { position: absolute; left: 1.1rem; opacity: 0; animation: typed var(--loop) infinite; }
+
+/* What the microphone heard, shown while recording. */
+.heard {
+  position: absolute; inset: 5.6rem 1.6rem auto;
+  margin: 0; font: italic 1.35rem/1.45 var(--serif); color: #B7CBC4;
+}
+.heard span { opacity: 0; animation: heard var(--loop) infinite; }
+.heard span:nth-child(2) { animation-name: heard-2; }
+.heard span:nth-child(3) { animation-name: heard-3; }
+.heard s { text-decoration-color: var(--clay); text-decoration-thickness: 2px; animation: strike var(--loop) infinite; }
+
+.bubble, .pill, .cleaning { position: absolute; right: 1.1rem; bottom: 5rem; }
+.bubble {
+  width: 3.4rem; height: 3.4rem; border-radius: 50%;
+  display: grid; place-items: center;
+  background: #005143; box-shadow: 0 .4rem 1rem rgb(0 0 0 / .35);
+  animation: bubble var(--loop) infinite;
+}
+.bubble img { width: 3.4rem; height: 3.4rem; }
+/* The bubble briefly shows a check once the text has reached the field, as in the app. */
+.bubble .check {
+  position: absolute; inset: 0; border-radius: 50%; background: #005143;
+  display: grid; place-items: center;
+  opacity: 0; animation: inserted var(--loop) infinite;
+}
+.bubble .check::after {
+  content: ""; width: 1.3rem; height: .65rem; margin-top: -.3rem;
+  border: solid var(--mint); border-width: 0 0 3px 3px; transform: rotate(-45deg);
+}
+.pill {
+  display: flex; align-items: center; gap: .8rem;
+  height: 3.4rem; padding: 0 .3rem 0 1rem;
+  border-radius: 999px; background: #252B29; box-shadow: 0 0 0 1px #343B38, 0 .4rem 1rem rgb(0 0 0 / .35);
+  transform-origin: right center;
+  opacity: 0; animation: pill var(--loop) infinite;
+}
+.pill .x { color: #B7CBC4; font-size: 1.2rem; line-height: 1; }
+.wave { display: flex; align-items: center; gap: 3px; height: 1.6rem; }
+.wave i { width: 3px; height: 100%; border-radius: 2px; background: var(--clay); transform: scaleY(.2); animation: wave .9s ease-in-out infinite alternate; }
+.wave i:nth-child(3n) { animation-duration: .7s; }
+.wave i:nth-child(3n+1) { animation-duration: 1.1s; animation-delay: -.3s; }
+.wave i:nth-child(4n) { animation-delay: -.6s; }
+.clock { font: 500 .78rem/1 var(--sans); color: #D3DCD9; font-variant-numeric: tabular-nums; }
+.clock::before { counter-reset: sec var(--sec); content: "0:0" counter(sec) " "; }
+@property --sec { syntax: "<integer>"; inherits: true; initial-value: 0; }
+.clock { animation: clock var(--loop) infinite; }
+.stop { width: 2.8rem; height: 2.8rem; border-radius: 50%; background: var(--clay); display: grid; place-items: center; }
+.stop::after { content: ""; width: .8rem; height: .8rem; border-radius: 2px; background: #5C1A00; }
+.cleaning {
+  display: flex; align-items: center; gap: .6rem;
+  height: 3.4rem; padding: 0 1.2rem 0 .9rem;
+  border-radius: 999px; background: #252B29; box-shadow: 0 0 0 1px #343B38;
+  font-weight: 500;
+  opacity: 0; animation: cleaning var(--loop) infinite;
+}
+.cleaning::before {
+  content: ""; width: 1.4rem; height: 1.4rem; background: var(--clay);
+  clip-path: polygon(50% 0, 61% 18%, 82% 12%, 79% 33%, 100% 42%, 85% 57%, 94% 77%, 72% 79%, 64% 100%, 50% 87%, 36% 100%, 28% 79%, 6% 77%, 15% 57%, 0 42%, 21% 33%, 18% 12%, 39% 18%);
+  animation: spin 2.4s linear infinite;
+}
+
+@keyframes bubble { 0%, 9% { opacity: 1; transform: scale(1); } 11%, 56% { opacity: 0; transform: scale(.6); } 60%, 100% { opacity: 1; transform: scale(1); } }
+@keyframes pill { 0%, 9% { opacity: 0; transform: scaleX(.3); } 12%, 44% { opacity: 1; transform: scaleX(1); } 46%, 100% { opacity: 0; transform: scaleX(.6); } }
+@keyframes clock { 0%, 12% { --sec: 0; } 44%, 100% { --sec: 6; } }
+@keyframes heard { 0%, 14% { opacity: 0; } 17%, 48% { opacity: 1; } 52%, 100% { opacity: 0; } }
+@keyframes heard-2 { 0%, 22% { opacity: 0; } 25%, 48% { opacity: 1; } 52%, 100% { opacity: 0; } }
+@keyframes heard-3 { 0%, 31% { opacity: 0; } 34%, 48% { opacity: 1; } 52%, 100% { opacity: 0; } }
+@keyframes strike { 0%, 33% { text-decoration-line: none; } 34%, 100% { text-decoration-line: line-through; } }
+@keyframes cleaning { 0%, 45% { opacity: 0; } 47%, 56% { opacity: 1; } 58%, 100% { opacity: 0; } }
+@keyframes placeholder { 0%, 57% { opacity: 1; } 58%, 97% { opacity: 0; } 99%, 100% { opacity: 1; } }
+@keyframes typed { 0%, 57% { opacity: 0; transform: translateY(.4rem); } 60%, 95% { opacity: 1; transform: none; } 98%, 100% { opacity: 0; } }
+@keyframes inserted { 0%, 59% { opacity: 0; } 61%, 70% { opacity: 1; } 73%, 100% { opacity: 0; } }
+@keyframes wave { to { transform: scaleY(1); } }
+@keyframes spin { to { transform: rotate(1turn); } }
+
+/* Sections */
+section { padding-block: clamp(3.5rem, 8vw, 6rem); }
+section h2 { margin: 0 0 1rem; max-width: 22ch; font: 400 clamp(2rem, 4.4vw, 3.1rem)/1.08 var(--serif); letter-spacing: -.01em; }
+section .intro { max-width: 58ch; margin: 0 0 2.75rem; color: var(--ink-soft); font-size: 1.1rem; }
+
+/* Why */
+.why-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2.75rem 4rem; margin: 0; }
+.why-list dt { font: 400 1.55rem/1.2 var(--serif); margin-bottom: .5rem; }
+.why-list dd { margin: 0; color: var(--ink-soft); max-width: 46ch; }
+
+/* Get it */
+.get { background: var(--pine); color: #E7F0EC; }
+.get h2 { color: #fff; }
+.get .intro { color: #B1EFDF; }
+.get .button.secondary { color: #fff; box-shadow: inset 0 0 0 1.5px #fff; }
+.get a:not(.button) { color: #fff; }
+.get :focus-visible { outline-color: #fff; }
+
+footer { padding-block: 2.5rem; font-size: .9rem; color: var(--ink-soft); }
+footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 1rem; }
+
+@media (max-width: 52rem) {
+  .hero { grid-template-columns: 1fr; }
+  .why-list { grid-template-columns: 1fr; gap: 2rem; }
+  .masthead nav a:not(:last-child) { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+  .pill, .cleaning, .field .placeholder { opacity: 0; }
+  .field .typed, .heard span, .bubble { opacity: 1; }
+  .heard s { text-decoration-line: line-through; }
+  .clock::before { content: "0:06 "; }
+}
+</style>
+</head>
+<body>
+<header class="wrap masthead">
+  <a class="brand" href="#top" id="top"><img src="favicon.svg" alt="" width="36" height="36">Sasayaki <span lang="ja">ささやき</span></a>
+  <nav aria-label="Main">
+    <a href="#why">Why Sasayaki</a>
+    <a href="https://github.com/pluja/sasayaki">Source code</a>
+  </nav>
+</header>
+
+<main>
+  <div class="wrap hero">
+    <div>
+      <h1>Speak instead <span class="quiet">of typing.</span></h1>
+      <p class="lede">Tap the bubble, talk, and clean text appears where you were typing, in any app. It uses the speech and AI models you choose, including your own.</p>
+      <div class="actions">
+        <a class="button obtainium" href="https://apps.obtainium.imranr.dev/redirect?r=obtainium://app/{%22id%22:%22com.sasayaki%22,%22url%22:%22https://github.com/pluja/sasayaki%22,%22author%22:%22pluja%22,%22name%22:%22Sasayaki%22}">Install with Obtainium</a>
+        <a class="button secondary" href="https://github.com/pluja/sasayaki/releases/latest">Download the APK</a>
+      </div>
+      <p class="needs">Free and open source under the GPLv3. About 4 MB. Android 9 or later.</p>
+    </div>
+
+    <div class="phone" role="img" aria-label="A dictation in a chat app: the bubble records 'uh, yeah, let's meet at 8, no sorry, at 9', cleans it up, and types 'Let's meet at 9.' into the message field.">
+      <div class="chat-head" aria-hidden="true"><i>M</i><b>Maya</b></div>
+      <div class="thread" aria-hidden="true">
+        <div class="msg">Are we still on for dinner tomorrow?</div>
+        <div class="msg">What time works for you?</div>
+      </div>
+      <p class="heard" aria-hidden="true"><span>“uh, yeah… </span><span>let's meet at <s>8</s>… </span><span>no sorry, at 9!”</span></p>
+      <div class="bubble" aria-hidden="true"><img src="favicon.svg" alt=""><span class="check"></span></div>
+      <div class="pill" aria-hidden="true">
+        <span class="x">✕</span>
+        <span class="wave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+        <span class="clock">Chat</span>
+        <span class="stop"></span>
+      </div>
+      <div class="cleaning" aria-hidden="true">Cleaning up</div>
+      <div class="field" aria-hidden="true"><span class="placeholder">Message</span><span class="typed">Let's meet at 9.</span></div>
+    </div>
+  </div>
+
+
+
+  <section id="why">
+    <div class="wrap">
+      <h2>Why Sasayaki</h2>
+      <p class="intro">It is just the app. You pick the servers, and nothing else gets your voice.</p>
+      <dl class="why-list">
+        <div><dt>Works in every app</dt><dd>The bubble shows up when your keyboard opens, in chats, mail, notes and browsers. You can also start it from your keyboard's mic key.</dd></div>
+        <div><dt>Cleans up what you say</dt><dd>Filler words go, and “8, no wait, 9” becomes “9”. Each app can get its own style, casual for chats and full sentences for mail.</dd></div>
+        <div><dt>Use any OpenAI-compatible server</dt><dd>Run whisper.cpp, faster-whisper or llama.cpp at home, or use a hosted service. Cleanup is optional.</dd></div>
+        <div><dt>Private</dt><dd>No cloud backup, and audio only goes to the servers you set up. It won't record in password or banking fields.</dd></div>
+        <div><dt>Gets names right</dt><dd>Add names and jargon once, and both the speech and the cleanup model spell them your way.</dd></div>
+        <div><dt>Small, with no bloat</dt><dd>About 4 MB. No ads, no trackers, no account and nothing running except the bubble.</dd></div>
+      </dl>
+    </div>
+  </section>
+
+  <section class="get">
+    <div class="wrap">
+      <h2>Get Sasayaki</h2>
+      <p class="intro">Install with Obtainium for automatic updates, or download the APK. You also need a speech-to-text server. The <a href="https://github.com/pluja/sasayaki#backends">setup guide</a> lists some options.</p>
+      <div class="actions">
+        <a class="button obtainium" href="https://apps.obtainium.imranr.dev/redirect?r=obtainium://app/{%22id%22:%22com.sasayaki%22,%22url%22:%22https://github.com/pluja/sasayaki%22,%22author%22:%22pluja%22,%22name%22:%22Sasayaki%22}">Install with Obtainium</a>
+        <a class="button secondary" href="https://github.com/pluja/sasayaki/releases/latest">Download the APK</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>Sasayaki is free software under the GPLv3.</span>
+    <a href="https://github.com/pluja/sasayaki">github.com/pluja/sasayaki</a>
+  </div>
+</footer>
+</body>
+</html>

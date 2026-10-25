@@ -41,10 +41,12 @@ class VoiceInputSession(
     private val processor: ProcessesRecordings,
     private val preferences: Flow<UserPreferences>,
     private val activeProfile: suspend (packageName: String?) -> Profile,
+    private val pickProfile: suspend (packageName: String?, profileId: Long) -> Profile,
     private val cacheDir: File,
     private val onRecordingChanged: (recording: Boolean) -> Unit,
     // onText reports whether the text reached the field.
     private val onText: (String) -> Boolean,
+    private val waveformBars: Int = WAVEFORM_BARS,
     private val newRecorder: () -> AudioRecorder = ::AudioRecorder,
     private val now: () -> Long = System::currentTimeMillis
 ) {
@@ -164,8 +166,15 @@ class VoiceInputSession(
                 }
             }
 
-            phase is BubblePhase.NoSpeech || phase is BubblePhase.Idle -> target?.let(::start)
+            phase is BubblePhase.Failed || phase is BubblePhase.NoSpeech || phase is BubblePhase.Idle -> target?.let(::start)
         }
+    }
+
+    /** selectProfile switches the active profile, remembers it for the app, and applies it to a recording in progress. */
+    fun selectProfile(profileId: Long) {
+        val selection = scope.async { pickProfile(target?.appContext?.packageName, profileId) }
+        if (phase is BubblePhase.Recording) profile = selection
+        showProfileName(selection)
     }
 
     private fun record(target: VoiceInputTarget) {
@@ -179,17 +188,7 @@ class VoiceInputSession(
         _levels.value = emptyList()
         val recordingProfile = scope.async { activeProfile(target.appContext?.packageName) }
         profile = recordingProfile
-        scope.launch {
-            val name = try {
-                recordingProfile.await().name
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                Log.e(TAG, "Could not load the profile", e)
-                ""
-            }
-            _state.update { it.copy(profileName = name) }
-        }
+        showProfileName(recordingProfile)
         _state.update { it.copy(elapsedSeconds = 0) }
         setPhase(BubblePhase.Recording(paused = false))
         onRecordingChanged(true)
@@ -208,7 +207,7 @@ class VoiceInputSession(
     private suspend fun watch(recorder: AudioRecorder) {
         val detector = SilenceDetector(recorder.audioLevel, preferences.first().silenceThresholdMs)
         val levelsJob = scope.launch {
-            recorder.audioLevel.collect { level -> _levels.update { (it + level).takeLast(WAVEFORM_BARS) } }
+            recorder.audioLevel.collect { level -> _levels.update { (it + level).takeLast(waveformBars) } }
         }
         try {
             delay(SILENCE_GRACE_MS)
@@ -225,6 +224,20 @@ class VoiceInputSession(
             }
         } finally {
             levelsJob.cancel()
+        }
+    }
+
+    private fun showProfileName(selection: Deferred<Profile>) {
+        scope.launch {
+            val name = try {
+                selection.await().name
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e(TAG, "Could not load the profile", e)
+                return@launch
+            }
+            _state.update { it.copy(profileName = name) }
         }
     }
 

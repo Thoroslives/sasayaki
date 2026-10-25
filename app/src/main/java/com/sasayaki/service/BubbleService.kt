@@ -24,10 +24,7 @@ import com.sasayaki.data.repository.ProfileRepository
 import com.sasayaki.domain.model.AppContext
 import com.sasayaki.domain.model.Profile
 import com.sasayaki.domain.provider.describeConnectionError
-import com.sasayaki.domain.transcription.AudioConverter
 import com.sasayaki.domain.transcription.DictationFailure
-import com.sasayaki.domain.transcription.SpeechDetector
-import com.sasayaki.domain.transcription.TranscriptionManager
 import com.sasayaki.service.bubble.BubbleActions
 import com.sasayaki.service.bubble.BubbleAppearance
 import com.sasayaki.service.bubble.BubbleOverlay
@@ -35,6 +32,8 @@ import com.sasayaki.service.bubble.BubbleScales
 import com.sasayaki.service.bubble.BubbleUiState
 import com.sasayaki.service.bubble.WAVEFORM_BARS
 import com.sasayaki.service.bubble.toPhase
+import com.sasayaki.service.dictation.ProcessedRecording
+import com.sasayaki.service.dictation.RecordingProcessor
 import dagger.hilt.android.AndroidEntryPoint
 import java.io.File
 import javax.inject.Inject
@@ -90,7 +89,7 @@ class BubbleService : Service() {
         }
     }
 
-    @Inject lateinit var transcriptionManager: TranscriptionManager
+    @Inject lateinit var recordingProcessor: RecordingProcessor
 
     @Inject lateinit var textInjectionBridge: TextInjectionBridge
 
@@ -471,39 +470,21 @@ class BubbleService : Service() {
         // recording and only clears the shared fields that still point at it.
         val recording = Recording(recordingJob, pcmFile, audioRecorder, silenceDetector)
         transcriptionJob = scope.launch {
-            val currentPcmFile = recording.pcm
-            var wavFile: File? = null
             try {
                 recording.job?.join()
-
-                if (currentPcmFile == null || !currentPcmFile.exists() || currentPcmFile.length() == 0L) {
-                    Log.w(TAG, "PCM file empty or missing")
-                    updateState(ServiceState.Idle)
-                    return@launch
+                val pcm = recording.pcm ?: return@launch updateState(ServiceState.Idle)
+                val outcome = recordingProcessor.process(
+                    pcm = pcm,
+                    durationMs = durationMs,
+                    appContext = recordingAppContext?.await(),
+                    profile = recordingProfile?.await(),
+                    onPostProcessing = ::showPostProcessing
+                )
+                when (outcome) {
+                    ProcessedRecording.Empty -> updateState(ServiceState.Idle)
+                    ProcessedRecording.NoSpeech -> showNoSpeech()
+                    is ProcessedRecording.Transcribed -> deliver(outcome.result)
                 }
-
-                val heardSpeech = withContext(Dispatchers.IO) {
-                    currentPcmFile.inputStream().buffered().use { pcm ->
-                        SpeechDetector.containsSpeech(SpeechDetector.frameLevels(pcm, AudioRecorder.SAMPLE_RATE))
-                    }
-                }
-                if (!heardSpeech) {
-                    showNoSpeech()
-                    return@launch
-                }
-
-                wavFile = File(cacheDir, "recording_${System.currentTimeMillis()}.wav")
-                withContext(Dispatchers.IO) {
-                    AudioConverter.pcmToWav(currentPcmFile, wavFile)
-                }
-
-                val appContext = recordingAppContext?.await()
-                val profile = recordingProfile?.await()
-
-                val result = withContext(Dispatchers.IO) {
-                    transcriptionManager.transcribe(wavFile, durationMs, appContext, profile, ::showPostProcessing)
-                }
-                deliver(result)
             } catch (e: CancellationException) {
                 // Cancelled by the user; cancelProcessing() owns the state transition.
                 throw e
@@ -513,8 +494,7 @@ class BubbleService : Service() {
             } finally {
                 recording.job?.cancel()
                 abandonRecordingAudioFocus()
-                currentPcmFile?.delete()
-                wavFile?.delete()
+                recording.pcm?.delete()
                 release(recording)
             }
         }
@@ -590,7 +570,7 @@ class BubbleService : Service() {
         updateState(ServiceState.Transcribing)
         transcriptionJob = scope.launch {
             try {
-                deliver(withContext(Dispatchers.IO) { transcriptionManager.retry(entryId, ::showPostProcessing) })
+                deliver(recordingProcessor.retry(entryId, ::showPostProcessing))
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {

@@ -70,6 +70,12 @@ class VoiceInputService : InputMethodService() {
                 profileRepository.switchToRememberedProfile(packageName)
                 profileRepository.getActiveProfile()
             },
+            pickProfile = { packageName, profileId ->
+                profileRepository.activate(profileId)
+                profileRepository.rememberProfileForApp(packageName, profileId)
+                profileRepository.getActiveProfile()
+            },
+            waveformBars = KEYBOARD_WAVEFORM_BARS,
             cacheDir = cacheDir,
             onRecordingChanged = ::buzz,
             onText = ::insert
@@ -84,9 +90,11 @@ class VoiceInputService : InputMethodService() {
                 val state by session.state.collectAsStateWithLifecycle()
                 val levels = session.levels.collectAsStateWithLifecycle()
                 val prefs by preferences.collectAsStateWithLifecycle()
+                val profiles by profileRepository.profiles.collectAsStateWithLifecycle(emptyList())
                 VoiceInputPanel(
                     state = state,
                     levels = { levels.value },
+                    profiles = profiles,
                     actions = BubbleActions(
                         onStart = session::retry,
                         onStop = session::stop,
@@ -97,7 +105,7 @@ class VoiceInputService : InputMethodService() {
                         onDismissError = ::cancelAndSwitchBack
                     ),
                     appearance = BubbleAppearance(prefs.wallpaperColors, prefs.bubbleTranslucent, prefs.bubbleMonochrome),
-                    controlsScale = prefs.controlsSize.scale,
+                    onSelectProfile = session::selectProfile,
                     onSwitchKeyboard = ::cancelAndSwitchBack
                 )
             }

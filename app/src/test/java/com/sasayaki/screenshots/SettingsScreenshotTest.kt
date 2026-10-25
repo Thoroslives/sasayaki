@@ -91,7 +91,19 @@ class SettingsScreenshotTest {
         AppearanceSettingsScreen(
             loaded = true,
             prefs = UserPreferences(bubbleTranslucent = true, bubbleSize = BubbleSize.TINY, controlsSize = BubbleSize.LARGE),
-            actions = AppearanceActions({}, {}, {}, {}, {}, {}),
+            bubbleRunning = true,
+            actions = AppearanceActions({}, {}, {}, {}, {}, {}, {}),
+            onBack = {}
+        )
+    }
+
+    @Test
+    fun appearanceBubbleOff() = compose.screenshot("settings_appearance_off_light") {
+        AppearanceSettingsScreen(
+            loaded = true,
+            prefs = UserPreferences(),
+            bubbleRunning = false,
+            actions = AppearanceActions({}, {}, {}, {}, {}, {}, {}),
             onBack = {}
         )
     }

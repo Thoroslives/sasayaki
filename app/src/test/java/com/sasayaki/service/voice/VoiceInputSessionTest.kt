@@ -44,6 +44,7 @@ class VoiceInputSessionTest {
         processor = processor,
         preferences = flowOf(UserPreferences()),
         activeProfile = { Profile(name = "Chat") },
+        pickProfile = { _, id -> Profile(id = id, name = "Email") },
         cacheDir = File("build/tmp"),
         onRecordingChanged = {},
         onText = {
@@ -103,5 +104,16 @@ class VoiceInputSessionTest {
 
         assertTrue(mayRecord)
         assertEquals(BubblePhase.Idle, session.state.value.phase)
+    }
+
+    @Test
+    fun `picking a profile shows it at once`() = runTest {
+        val session = session()
+        session.prepare(VoiceInputTarget(appContext = null, sensitive = false, micAllowed = true, incognito = false))
+
+        session.selectProfile(2)
+        runCurrent()
+
+        assertEquals("Email", session.state.value.profileName)
     }
 }

@@ -6,6 +6,10 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import com.sasayaki.ui.theme.SasayakiIcons
 
 const val ACCESSIBILITY_KEY = "accessibility"
+private const val OVERLAY_KEY = "overlay"
+
+// BUBBLE_KEYS are the steps only the bubble needs; the keyboard mic key works without them.
+val BUBBLE_KEYS = setOf(OVERLAY_KEY, ACCESSIBILITY_KEY)
 
 @Immutable
 data class SetupItem(
@@ -20,15 +24,15 @@ data class SetupItem(
 )
 
 @Composable
-fun rememberPermissionItems(): List<SetupItem> {
+fun rememberPermissionItems(bubbleNeeded: Boolean = true): List<SetupItem> {
     val microphone = rememberMicrophonePermissionState()
     val overlay = rememberOverlayPermissionState()
     val accessibility = rememberAccessibilityPermissionState()
     val notifications = rememberNotificationPermissionState()
     return listOf(
         microphone.toItem("microphone", SasayakiIcons.Mic, required = true),
-        overlay.toItem("overlay", SasayakiIcons.Layers, required = true),
-        accessibility.toItem(ACCESSIBILITY_KEY, SasayakiIcons.Keyboard, required = true),
+        overlay.toItem(OVERLAY_KEY, SasayakiIcons.Layers, required = bubbleNeeded),
+        accessibility.toItem(ACCESSIBILITY_KEY, SasayakiIcons.Keyboard, required = bubbleNeeded),
         notifications.toItem("notifications", SasayakiIcons.Notifications, required = false)
     )
 }

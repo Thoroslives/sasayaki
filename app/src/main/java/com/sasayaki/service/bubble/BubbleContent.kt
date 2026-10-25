@@ -245,26 +245,30 @@ private fun RecordingPill(state: BubbleUiState, levels: () -> List<Float>, actio
 }
 
 @Composable
-private fun Waveform(levels: () -> List<Float>, paused: Boolean) {
+internal fun Waveform(
+    levels: () -> List<Float>,
+    paused: Boolean,
+    modifier: Modifier = Modifier
+        .width(96.dp)
+        .height(22.dp),
+    bars: Int = WAVEFORM_BARS,
+    barWidth: Dp = 3.dp
+) {
     val color = if (paused) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f) else MaterialTheme.colorScheme.tertiary
-    Canvas(
-        modifier = Modifier
-            .width(96.dp)
-            .height(22.dp)
-    ) {
+    Canvas(modifier = modifier) {
         val values = levels()
-        val barWidth = 3.dp.toPx()
-        val gap = (size.width - barWidth * WAVEFORM_BARS) / (WAVEFORM_BARS - 1)
-        val minHeight = 3.dp.toPx()
-        repeat(WAVEFORM_BARS) { index ->
+        val barPx = barWidth.toPx()
+        val gap = (size.width - barPx * bars) / (bars - 1)
+        val minHeight = barPx
+        repeat(bars) { index ->
             // Newest level on the right; older ones scroll left.
-            val level = values.getOrNull(values.size - WAVEFORM_BARS + index) ?: 0f
+            val level = values.getOrNull(values.size - bars + index) ?: 0f
             val height = (minHeight + (size.height - minHeight) * level.coerceIn(0f, 1f).pow(0.6f))
             drawRoundRect(
                 color = color,
-                topLeft = Offset(index * (barWidth + gap), (size.height - height) / 2),
-                size = Size(barWidth, height),
-                cornerRadius = CornerRadius(barWidth / 2)
+                topLeft = Offset(index * (barPx + gap), (size.height - height) / 2),
+                size = Size(barPx, height),
+                cornerRadius = CornerRadius(barPx / 2)
             )
         }
     }
@@ -411,4 +415,4 @@ fun DismissTarget(armed: Boolean) {
     }
 }
 
-private fun formatElapsed(seconds: Long): String = "%d:%02d".format(seconds / 60, seconds % 60)
+internal fun formatElapsed(seconds: Long): String = "%d:%02d".format(seconds / 60, seconds % 60)

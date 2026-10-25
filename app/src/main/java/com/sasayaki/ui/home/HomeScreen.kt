@@ -65,6 +65,7 @@ import com.sasayaki.data.db.entity.DictationStats
 import com.sasayaki.data.db.entity.DictationSummary
 import com.sasayaki.domain.model.DictationStatus
 import com.sasayaki.domain.model.Profile
+import com.sasayaki.ui.common.BUBBLE_KEYS
 import com.sasayaki.ui.common.SetupItem
 import com.sasayaki.ui.common.copyText
 import com.sasayaki.ui.common.displaySourceApp
@@ -73,6 +74,7 @@ import com.sasayaki.ui.common.formatDuration
 import com.sasayaki.ui.common.minutesSaved
 import com.sasayaki.ui.common.rememberPermissionItems
 import com.sasayaki.ui.common.rememberRestrictedSettingsLikely
+import com.sasayaki.ui.common.rememberVoiceInputEnabled
 import com.sasayaki.ui.common.wordsPerMinute
 import com.sasayaki.ui.components.EmptyState
 import com.sasayaki.ui.components.SectionLabel
@@ -107,7 +109,8 @@ fun HomeRoute(
         actionLabel = "Add",
         onAction = onOpenProviders
     )
-    val steps = listOf(providerItem) + rememberPermissionItems()
+    val voiceInputEnabled = rememberVoiceInputEnabled()
+    val steps = listOf(providerItem) + rememberPermissionItems(bubbleNeeded = !voiceInputEnabled || state.serviceRunning)
     val restricted = rememberRestrictedSettingsLikely()
 
     val snackbarHostState = remember { SnackbarHostState() }
@@ -116,6 +119,7 @@ fun HomeRoute(
     HomeScreen(
         state = state,
         setupSteps = steps,
+        voiceInputEnabled = voiceInputEnabled,
         restrictedSettingsLikely = restricted,
         snackbarHostState = snackbarHostState,
         onStartService = viewModel::startService,
@@ -135,6 +139,7 @@ fun HomeRoute(
 fun HomeScreen(
     state: HomeUiState,
     setupSteps: List<SetupItem>,
+    voiceInputEnabled: Boolean,
     restrictedSettingsLikely: Boolean,
     snackbarHostState: SnackbarHostState,
     onStartService: () -> Unit,
@@ -145,8 +150,10 @@ fun HomeScreen(
     onCopy: (DictationSummary) -> Unit
 ) {
     var showProfiles by rememberSaveable { mutableStateOf(false) }
-    val pendingSteps = setupSteps.filterNot(SetupItem::done)
-    val ready = state.loaded && pendingSteps.none(SetupItem::required)
+    val ready = state.loaded && setupSteps.none { it.required && !it.done }
+    val keyboardOnly = voiceInputEnabled && !state.serviceRunning
+    // Someone using only the keyboard mic key is not nagged about permissions the bubble needs.
+    val pendingSteps = setupSteps.filterNot { it.done || (keyboardOnly && it.key in BUBBLE_KEYS) }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
@@ -172,6 +179,8 @@ fun HomeScreen(
                     loaded = state.loaded,
                     ready = ready,
                     running = state.serviceRunning,
+                    keyboardOnly = keyboardOnly,
+                    bubbleBlocker = setupSteps.firstOrNull { it.key in BUBBLE_KEYS && !it.done },
                     setupSteps = setupSteps,
                     onStart = onStartService,
                     onStop = onStopService
@@ -241,13 +250,15 @@ private fun HomeHeader(activeProfile: Profile?, onOpenProfiles: () -> Unit) {
     }
 }
 
-private enum class HeroMode { LOADING, SETUP, OFF, ON }
+private enum class HeroMode { LOADING, SETUP, OFF, KEYBOARD, ON }
 
 @Composable
 private fun StatusHero(
     loaded: Boolean,
     ready: Boolean,
     running: Boolean,
+    keyboardOnly: Boolean,
+    bubbleBlocker: SetupItem?,
     setupSteps: List<SetupItem>,
     onStart: () -> Unit,
     onStop: () -> Unit
@@ -256,10 +267,12 @@ private fun StatusHero(
         !loaded -> HeroMode.LOADING
         running -> HeroMode.ON
         !ready -> HeroMode.SETUP
+        keyboardOnly -> HeroMode.KEYBOARD
         else -> HeroMode.OFF
     }
-    val containerColor = if (mode == HeroMode.ON) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceBright
-    val contentColor = if (mode == HeroMode.ON) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+    val active = mode == HeroMode.ON || mode == HeroMode.KEYBOARD
+    val containerColor = if (active) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceBright
+    val contentColor = if (active) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
 
     val fadeInSpec = MaterialTheme.motionScheme.defaultEffectsSpec<Float>()
     val fadeOutSpec = MaterialTheme.motionScheme.fastEffectsSpec<Float>()
@@ -285,10 +298,11 @@ private fun StatusHero(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     BubbleOrb(active = heroMode == HeroMode.ON)
-                    if (heroMode == HeroMode.ON || heroMode == HeroMode.OFF) {
+                    if (heroMode == HeroMode.ON || heroMode == HeroMode.OFF || heroMode == HeroMode.KEYBOARD) {
                         BubbleSwitch(
                             checked = heroMode == HeroMode.ON,
-                            onCheckedChange = { if (it) onStart() else onStop() }
+                            // A keyboard-only setup may lack what the bubble needs, so that comes first.
+                            onCheckedChange = { if (!it) onStop() else bubbleBlocker?.onAction?.invoke() ?: onStart() }
                         )
                     }
                 }
@@ -298,6 +312,11 @@ private fun StatusHero(
                     HeroMode.ON -> HeroText("Speak, don’t type", "Tap the bubble in any text field.")
 
                     HeroMode.OFF -> HeroText("The bubble is off", "Turn it on to dictate into any app.")
+
+                    HeroMode.KEYBOARD -> HeroText(
+                        "Ready in your keyboard",
+                        "Tap your keyboard's mic key to dictate. Turn on the bubble if you want it too."
+                    )
 
                     HeroMode.SETUP -> {
                         val required = setupSteps.filter(SetupItem::required)
@@ -580,6 +599,7 @@ private fun HomeScreenPreview() {
                 )
             ),
             setupSteps = emptyList(),
+            voiceInputEnabled = false,
             restrictedSettingsLikely = false,
             snackbarHostState = SnackbarHostState(),
             onStartService = {},

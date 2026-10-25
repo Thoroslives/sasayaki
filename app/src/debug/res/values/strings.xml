@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Sasayaki Debug</string>
+    <string name="tile_label">Dictation bubble (debug)</string>
+    <string name="voice_input_label">Sasayaki voice input (debug)</string>
+</resources>

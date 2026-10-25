@@ -53,7 +53,7 @@ class BubbleOverlay(
     private val levels: StateFlow<List<Float>>,
     private val profiles: StateFlow<List<Profile>>,
     private val appearance: StateFlow<BubbleAppearance>,
-    private val bubbleScale: StateFlow<Float>,
+    private val scales: StateFlow<BubbleScales>,
     private val actions: BubbleActions,
     private val onSelectProfile: (Long) -> Unit,
     private val onRemove: () -> Unit
@@ -70,8 +70,8 @@ class BubbleOverlay(
     private var bubbleRoot: DraggableOverlayLayout? = null
     private var bubbleShown = false
     private val bubbleParams = overlayParams().apply {
-        width = windowPx(BubbleMode.IDLE.windowWidth)
-        height = windowPx(BubbleMode.IDLE.windowHeight)
+        width = windowWidthPx(BubbleMode.IDLE)
+        height = windowHeightPx(BubbleMode.IDLE)
         gravity = Gravity.TOP or side.gravity
         y = positions.getInt(KEY_Y, (screenHeight() * 0.4f).roundToInt())
     }
@@ -102,14 +102,14 @@ class BubbleOverlay(
         val compose = composeView {
             val state by uiState.collectAsStateWithLifecycle()
             val levelState = levels.collectAsStateWithLifecycle()
-            val scale by bubbleScale.collectAsStateWithLifecycle()
+            val bubbleScales by scales.collectAsStateWithLifecycle()
             BubbleContent(
                 state = state,
                 levels = { levelState.value },
                 actions = bubbleActions,
                 onShowProfiles = ::showProfileMenu,
                 alignment = if (side == Side.END) Alignment.CenterEnd else Alignment.CenterStart,
-                scale = scale
+                scales = bubbleScales
             )
         }
         bubbleRoot = DraggableOverlayLayout(context, ::onDragStart, ::onDrag, ::onDragEnd).apply {
@@ -117,16 +117,24 @@ class BubbleOverlay(
             addView(compose)
         }
         windowSizeJob = scope.launch {
-            combine(uiState.map { it.phase.mode }.distinctUntilChanged(), bubbleScale, ::Pair)
+            combine(uiState.map { it.phase.mode }.distinctUntilChanged(), scales, ::Pair)
                 .collectLatest { (mode, _) ->
-                    val width = windowPx(mode.windowWidth).coerceAtMost(screenWidth() - 2 * edgeMargin)
-                    val height = windowPx(mode.windowHeight)
+                    val width = windowWidthPx(mode).coerceAtMost(screenWidth() - 2 * edgeMargin)
+                    val height = windowHeightPx(mode)
                     // Grow the window before the content morphs; shrink it only once the
-                    // content has finished shrinking, so neither is ever clipped.
-                    if (width < bubbleParams.width || height < bubbleParams.height) delay(SHRINK_DELAY_MS)
-                    bubbleParams.width = width
-                    bubbleParams.height = height
+                    // content has finished shrinking, so neither is ever clipped. The bubble and
+                    // the controls are sized separately, so one dimension can grow while the
+                    // other shrinks.
+                    val shrinks = width < bubbleParams.width || height < bubbleParams.height
+                    bubbleParams.width = maxOf(width, bubbleParams.width)
+                    bubbleParams.height = maxOf(height, bubbleParams.height)
                     bubbleRoot?.let(::update)
+                    if (shrinks) {
+                        delay(SHRINK_DELAY_MS)
+                        bubbleParams.width = width
+                        bubbleParams.height = height
+                        bubbleRoot?.let(::update)
+                    }
                 }
         }
     }
@@ -372,7 +380,11 @@ class BubbleOverlay(
         }
     }
 
-    private fun windowPx(size: Dp): Int = (size.value * bubbleScale.value * density).roundToInt()
+    private fun windowWidthPx(mode: BubbleMode): Int = windowPx(mode.windowWidth, mode)
+
+    private fun windowHeightPx(mode: BubbleMode): Int = windowPx(mode.windowHeight, mode)
+
+    private fun windowPx(size: Dp, mode: BubbleMode): Int = (size.value * scales.value.of(mode) * density).roundToInt()
 
     private fun clampY(y: Int, height: Int): Int {
         val min = topInset()

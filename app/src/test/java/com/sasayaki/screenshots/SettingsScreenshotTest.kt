@@ -3,6 +3,7 @@ package com.sasayaki.screenshots
 import android.app.Application
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.sasayaki.data.preferences.BubbleSize
 import com.sasayaki.data.preferences.UserPreferences
 import com.sasayaki.data.repository.ConnectionResult
 import com.sasayaki.domain.model.TextReplacementRule
@@ -54,6 +55,8 @@ class SettingsScreenshotTest {
         SettingsScreen(
             state = SettingsUiState(loaded = true, preferences = UserPreferences(), providers = providers, ruleCount = 3),
             missingPermissions = 1,
+            voiceInputEnabled = false,
+            onOpenKeyboardSettings = {},
             destinations = noDestinations,
             onOpenSource = {}
         )
@@ -64,6 +67,8 @@ class SettingsScreenshotTest {
         SettingsScreen(
             state = SettingsUiState(loaded = true, preferences = UserPreferences(), providers = emptyList()),
             missingPermissions = 0,
+            voiceInputEnabled = true,
+            onOpenKeyboardSettings = {},
             destinations = noDestinations,
             onOpenSource = {}
         )
@@ -85,8 +90,8 @@ class SettingsScreenshotTest {
     fun appearance() = compose.screenshot("settings_appearance_dark", dark = true) {
         AppearanceSettingsScreen(
             loaded = true,
-            prefs = UserPreferences(bubbleTranslucent = true),
-            actions = AppearanceActions({}, {}, {}, {}, {}),
+            prefs = UserPreferences(bubbleTranslucent = true, bubbleSize = BubbleSize.TINY, controlsSize = BubbleSize.LARGE),
+            actions = AppearanceActions({}, {}, {}, {}, {}, {}),
             onBack = {}
         )
     }

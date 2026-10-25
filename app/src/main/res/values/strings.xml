@@ -11,4 +11,5 @@
     <string name="tile_off">Off</string>
     <string name="accessibility_service_description">Sasayaki uses accessibility to insert dictated text into text fields in other apps. It can read the content of the focused field, which it uses to place the dictation at the cursor. Password fields and banking apps are blocked from injection.</string>
     <string name="clipboard_fallback_toast">Text copied to clipboard</string>
+    <string name="voice_input_label">Sasayaki voice input</string>
 </resources>

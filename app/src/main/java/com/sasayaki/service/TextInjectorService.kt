@@ -49,6 +49,13 @@ internal fun isSensitiveInputType(inputType: Int): Boolean {
     }
 }
 
+private val BANKING_KEYWORDS = listOf("bank", "pay", "wallet", "venmo", "zelle")
+
+internal fun isBankingPackage(packageName: CharSequence?): Boolean {
+    val normalized = packageName?.toString()?.lowercase() ?: return false
+    return BANKING_KEYWORDS.any { normalized.contains(it) }
+}
+
 sealed class InjectionResult {
     data object Success : InjectionResult()
     data object NoFocusedNode : InjectionResult()
@@ -80,8 +87,6 @@ class TextInjectorService : AccessibilityService() {
         @Volatile
         var focusedAppPackage: String? = null
             private set
-
-        private val BANKING_KEYWORDS = listOf("bank", "pay", "wallet", "venmo", "zelle")
     }
 
     private var lastFocusedPackage: String? = null
@@ -284,9 +289,4 @@ class TextInjectorService : AccessibilityService() {
 
     private fun isSensitiveField(node: AccessibilityNodeInfo): Boolean =
         node.isPassword || isSensitiveInputType(node.inputType) || isBankingPackage(node.packageName?.toString())
-
-    private fun isBankingPackage(packageName: CharSequence?): Boolean {
-        val normalized = packageName?.toString()?.lowercase() ?: return false
-        return BANKING_KEYWORDS.any { normalized.contains(it) }
-    }
 }

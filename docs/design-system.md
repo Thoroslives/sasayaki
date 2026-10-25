@@ -136,8 +136,9 @@ The bubble is the product; everything else is configuration.
 - Shape changes use the spatial spring, so the bubble visibly morphs instead of jumping.
 - Each state has a fixed window size; the window grows before the content morphs and shrinks
   after, so the overlay never chases the animation.
-- The bubble size setting scales density inside the bubble (1, 1.15 and 1.3x), so every
-  dimension and touch target grows together.
+- Two settings scale density inside the bubble, so every dimension and touch target grows
+  together: the bubble size for the idle bubble (0.65, 0.85, 1 or 1.15x) and the controls size
+  for every other state (1, 1.15 or 1.3x). Each state keeps its own scale while it animates out.
 - `BubbleTheme` is always dark. See-through draws the pills at 80% opacity and drops their
   shadow, which would show through as a smudge; the border alone outlines them.
   Monochrome swaps the brand colors for the Graphite grays but keeps the error colors, so a

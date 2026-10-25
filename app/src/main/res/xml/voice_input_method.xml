@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    A single auxiliary voice subtype: keyboards list it as a voice input their mic key can
+    switch to, and it never joins the cycle of regular keyboards.
+-->
+<input-method xmlns:android="http://schemas.android.com/apk/res/android"
+    android:settingsActivity="com.sasayaki.MainActivity"
+    android:supportsSwitchingToNextInputMethod="false">
+    <subtype
+        android:imeSubtypeMode="voice"
+        android:isAuxiliary="true"
+        android:label="@string/voice_input_label"
+        android:overridesImplicitlyEnabledSubtype="true" />
+</input-method>

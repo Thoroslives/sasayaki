@@ -15,6 +15,7 @@ data class UserPreferences(
     val wallpaperColors: Boolean = false,
     val onboardingCompleted: Boolean = false,
     val bubbleSize: BubbleSize = BubbleSize.STANDARD,
+    val controlsSize: BubbleSize = BubbleSize.STANDARD,
     val bubbleTranslucent: Boolean = false,
     val bubbleMonochrome: Boolean = false,
     val rememberProfilePerApp: Boolean = true,
@@ -30,10 +31,28 @@ enum class ThemeMode {
 }
 
 enum class BubbleSize(val scale: Float) {
+    TINY(0.65f),
+    SMALL(0.85f),
     STANDARD(1f),
     LARGE(1.15f),
     LARGER(1.3f)
 }
+
+internal fun bubbleSizeNamed(name: String?): BubbleSize? = BubbleSize.entries.firstOrNull { it.name == name }
+
+/**
+ * controlsSizeFrom falls back to the bubble size, because one setting sized both before they
+ * were split; the first bubble size change pins the controls. Tiny and Small are only offered
+ * for the bubble, so they never carry over to the controls.
+ */
+internal fun controlsSizeFrom(controls: String?, bubble: String?): BubbleSize =
+    (bubbleSizeNamed(controls) ?: bubbleSizeNamed(bubble))?.takeIf { it in CONTROLS_SIZES } ?: BubbleSize.STANDARD
+
+val BUBBLE_SIZES = listOf(BubbleSize.TINY, BubbleSize.SMALL, BubbleSize.STANDARD, BubbleSize.LARGE)
+val CONTROLS_SIZES = listOf(BubbleSize.STANDARD, BubbleSize.LARGE, BubbleSize.LARGER)
+
+// bubbleSizeFrom keeps a bubble that was set to Huge before that option moved to the controls only.
+internal fun bubbleSizeFrom(bubble: String?): BubbleSize = bubbleSizeNamed(bubble)?.coerceAtMost(BubbleSize.LARGE) ?: BubbleSize.STANDARD
 
 private const val APP_PROFILE_SEPARATOR = '='
 

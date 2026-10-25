@@ -75,6 +75,8 @@ class SettingsViewModel @Inject constructor(
 
     fun setBubbleSize(size: BubbleSize) = persist { preferencesDataStore.setBubbleSize(size) }
 
+    fun setControlsSize(size: BubbleSize) = persist { preferencesDataStore.setControlsSize(size) }
+
     fun setBubbleTranslucent(enabled: Boolean) = persist { preferencesDataStore.setBubbleTranslucent(enabled) }
 
     fun setBubbleMonochrome(enabled: Boolean) = persist { preferencesDataStore.setBubbleMonochrome(enabled) }

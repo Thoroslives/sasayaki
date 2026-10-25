@@ -39,13 +39,15 @@ class TranscriptionManager @Inject constructor(
         durationMs: Long,
         appContext: AppContext?,
         profile: Profile? = null,
-        onPostProcessing: (() -> Unit)? = null
+        onPostProcessing: (() -> Unit)? = null,
+        incognito: Boolean = false
     ): Result<String> {
         val dictation = DictationRecord(
             audio = audioFile,
             durationMs = durationMs,
             appContext = appContext,
-            profile = profile ?: profileRepository.getActiveProfile()
+            profile = profile ?: profileRepository.getActiveProfile(),
+            incognito = incognito
         )
         return process(dictation, onPostProcessing)
     }

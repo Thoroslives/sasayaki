@@ -13,7 +13,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sasayaki.BuildConfig
 import com.sasayaki.data.preferences.BubbleSize
 import com.sasayaki.data.preferences.ThemeMode
+import com.sasayaki.ui.common.openKeyboardSettings
 import com.sasayaki.ui.common.rememberPermissionItems
+import com.sasayaki.ui.common.rememberVoiceInputEnabled
 import com.sasayaki.ui.components.ItemIcon
 import com.sasayaki.ui.components.NavigationItem
 import com.sasayaki.ui.components.SegmentedGroup
@@ -44,13 +46,22 @@ fun SettingsRoute(destinations: SettingsDestinations, viewModel: SettingsViewMod
     SettingsScreen(
         state = state,
         missingPermissions = missingPermissions,
+        voiceInputEnabled = rememberVoiceInputEnabled(),
+        onOpenKeyboardSettings = { openKeyboardSettings(context) },
         destinations = destinations,
         onOpenSource = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(SOURCE_URL))) }
     )
 }
 
 @Composable
-fun SettingsScreen(state: SettingsUiState, missingPermissions: Int, destinations: SettingsDestinations, onOpenSource: () -> Unit) {
+fun SettingsScreen(
+    state: SettingsUiState,
+    missingPermissions: Int,
+    voiceInputEnabled: Boolean,
+    onOpenKeyboardSettings: () -> Unit,
+    destinations: SettingsDestinations,
+    onOpenSource: () -> Unit
+) {
     val prefs = state.preferences
     SettingsPage(title = "Settings", onBack = null) {
         if (!state.loaded) return@SettingsPage
@@ -76,6 +87,19 @@ fun SettingsScreen(state: SettingsUiState, missingPermissions: Int, destinations
                                 "${String.format(Locale.getDefault(), "%.1f", prefs.silenceThresholdMs / 1000f)} s of silence",
                             icon = SasayakiIcons.Mic,
                             onClick = destinations.onRecording
+                        )
+                    },
+                    { shapes ->
+                        NavigationItem(
+                            shapes = shapes,
+                            headline = "Keyboard mic key",
+                            supporting = if (voiceInputEnabled) {
+                                "On. Your keyboard's mic key opens Sasayaki."
+                            } else {
+                                "Turn on Sasayaki voice input to dictate from your keyboard's mic key"
+                            },
+                            icon = SasayakiIcons.Keyboard,
+                            onClick = onOpenKeyboardSettings
                         )
                     },
                     { shapes ->
@@ -167,7 +191,8 @@ fun SettingsScreen(state: SettingsUiState, missingPermissions: Int, destinations
                             supporting = listOfNotNull(
                                 prefs.themeMode.label(),
                                 "wallpaper colors".takeIf { prefs.wallpaperColors },
-                                "${prefs.bubbleSize.name.lowercase()} bubble".takeIf { prefs.bubbleSize != BubbleSize.STANDARD },
+                                "${prefs.bubbleSize.label().lowercase()} bubble".takeIf { prefs.bubbleSize != BubbleSize.STANDARD },
+                                "${prefs.controlsSize.label().lowercase()} controls".takeIf { prefs.controlsSize != BubbleSize.STANDARD },
                                 "see-through".takeIf { prefs.bubbleTranslucent },
                                 "monochrome".takeIf { prefs.bubbleMonochrome }
                             ).joinToString(" · "),

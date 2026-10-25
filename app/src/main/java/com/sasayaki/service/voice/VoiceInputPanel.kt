@@ -39,6 +39,7 @@ import com.sasayaki.service.bubble.BubbleUiState
 import com.sasayaki.service.bubble.Waveform
 import com.sasayaki.service.bubble.formatElapsed
 import com.sasayaki.ui.theme.SasayakiIcons
+import com.sasayaki.ui.theme.SasayakiMark
 import com.sasayaki.ui.theme.Spacing
 
 /** KEYBOARD_WAVEFORM_BARS is how many recent audio levels the panel's waveform draws. */
@@ -68,7 +69,7 @@ fun VoiceInputPanel(
                     .height(PanelHeight)
                     .padding(vertical = Spacing.s)
             ) {
-                ProfileChips(profiles, onSelectProfile)
+                TopRow(profiles, onSelectProfile)
                 Status(state, levels, modifier = Modifier.weight(1f))
                 Controls(state.phase, actions, onSwitchKeyboard)
             }
@@ -76,10 +77,26 @@ fun VoiceInputPanel(
     }
 }
 
+// TopRow names Sasayaki, because the panel replaces the keyboard and could otherwise be mistaken for it.
 @Composable
-private fun ProfileChips(profiles: List<Profile>, onSelect: (Long) -> Unit) {
+private fun TopRow(profiles: List<Profile>, onSelect: (Long) -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = Spacing.l)) {
+        Icon(SasayakiMark, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
+        Text(
+            text = "Sasayaki",
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(start = Spacing.xs, end = Spacing.s)
+        )
+        ProfileChips(profiles, onSelect, modifier = Modifier.weight(1f))
+    }
+}
+
+@Composable
+private fun ProfileChips(profiles: List<Profile>, onSelect: (Long) -> Unit, modifier: Modifier = Modifier) {
     LazyRow(
-        contentPadding = PaddingValues(horizontal = Spacing.m),
+        modifier = modifier,
+        contentPadding = PaddingValues(start = Spacing.xs, end = Spacing.m),
         horizontalArrangement = Arrangement.spacedBy(Spacing.s)
     ) {
         items(profiles, key = Profile::id) { profile ->

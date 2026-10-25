@@ -150,7 +150,15 @@ class PreferencesDataStore @Inject constructor(
 
     suspend fun setOnboardingCompleted() = set(Keys.ONBOARDING_COMPLETED, true)
 
-    suspend fun setBubbleSize(size: BubbleSize) = set(Keys.BUBBLE_SIZE, size.name)
+    suspend fun setBubbleSize(size: BubbleSize) {
+        context.dataStore.edit { prefs ->
+            // Pin the controls to the size they had, so they stop following the bubble size.
+            if (prefs[Keys.CONTROLS_SIZE] == null) {
+                prefs[Keys.CONTROLS_SIZE] = controlsSizeFrom(null, prefs[Keys.BUBBLE_SIZE]).name
+            }
+            prefs[Keys.BUBBLE_SIZE] = size.name
+        }
+    }
 
     suspend fun setControlsSize(size: BubbleSize) = set(Keys.CONTROLS_SIZE, size.name)
 

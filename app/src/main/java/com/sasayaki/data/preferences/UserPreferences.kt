@@ -41,7 +41,8 @@ internal fun bubbleSizeNamed(name: String?): BubbleSize? = BubbleSize.entries.fi
 
 /**
  * controlsSizeFrom falls back to the bubble size, because one setting sized both before they
- * were split. Small is only offered for the bubble, so it never carries over to the controls.
+ * were split; the first bubble size change pins the controls. Small is only offered for the
+ * bubble, so it never carries over to the controls.
  */
 internal fun controlsSizeFrom(controls: String?, bubble: String?): BubbleSize =
     (bubbleSizeNamed(controls) ?: bubbleSizeNamed(bubble))?.takeIf { it != BubbleSize.SMALL } ?: BubbleSize.STANDARD

@@ -122,11 +122,19 @@ class BubbleOverlay(
                     val width = windowWidthPx(mode).coerceAtMost(screenWidth() - 2 * edgeMargin)
                     val height = windowHeightPx(mode)
                     // Grow the window before the content morphs; shrink it only once the
-                    // content has finished shrinking, so neither is ever clipped.
-                    if (width < bubbleParams.width || height < bubbleParams.height) delay(SHRINK_DELAY_MS)
-                    bubbleParams.width = width
-                    bubbleParams.height = height
+                    // content has finished shrinking, so neither is ever clipped. The bubble and
+                    // the controls are sized separately, so one dimension can grow while the
+                    // other shrinks.
+                    val shrinks = width < bubbleParams.width || height < bubbleParams.height
+                    bubbleParams.width = maxOf(width, bubbleParams.width)
+                    bubbleParams.height = maxOf(height, bubbleParams.height)
                     bubbleRoot?.let(::update)
+                    if (shrinks) {
+                        delay(SHRINK_DELAY_MS)
+                        bubbleParams.width = width
+                        bubbleParams.height = height
+                        bubbleRoot?.let(::update)
+                    }
                 }
         }
     }

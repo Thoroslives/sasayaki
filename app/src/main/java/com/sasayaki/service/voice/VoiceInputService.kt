@@ -34,7 +34,8 @@ import kotlinx.coroutines.launch
 
 /**
  * VoiceInputService is a voice-only input method. Its auxiliary voice subtype is what keyboards
- * look for when their mic key hands off to voice input; it types one dictation and hands back.
+ * look for when their mic key hands off to voice input. It stays open after typing, so more can be
+ * dictated, until the keyboard key hands back.
  */
 @AndroidEntryPoint
 class VoiceInputService : InputMethodService() {
@@ -48,7 +49,6 @@ class VoiceInputService : InputMethodService() {
     private val lifecycleOwner = OverlayLifecycleOwner()
     private lateinit var session: VoiceInputSession
     private var hapticFeedback: HapticFeedback? = null
-    private var switchBackJob: Job? = null
 
     // canSwitchBack turns false when no previous keyboard exists, for example after Sasayaki
     // was picked as the keyboard; recording then waits for a tap instead of starting on focus.
@@ -116,7 +116,6 @@ class VoiceInputService : InputMethodService() {
     override fun onStartInputView(editorInfo: EditorInfo, restarting: Boolean) {
         super.onStartInputView(editorInfo, restarting)
         if (restarting) return
-        switchBackJob?.cancel()
         val target = target(editorInfo)
         if (canSwitchBack) session.start(target) else session.prepare(target)
     }
@@ -152,10 +151,9 @@ class VoiceInputService : InputMethodService() {
         val connection = currentInputConnection ?: return false
         val before = connection.getTextBeforeCursor(CURSOR_CONTEXT_CHARS, 0)?.toString()
         if (!connection.commitText(fitToCursor(before, text), 1)) return false
-        // A moment on the check mark shows the text landed before the keyboard comes back.
-        switchBackJob = scope.launch {
-            delay(SWITCH_BACK_DELAY_MS)
-            switchBack()
+        // The panel stays open so another dictation can follow; the buzz says this one landed.
+        scope.launch {
+            if (preferencesDataStore.preferences.first().vibrateOnRecord) hapticFeedback?.complete()
         }
         return true
     }
@@ -179,6 +177,5 @@ class VoiceInputService : InputMethodService() {
 
     private companion object {
         const val CURSOR_CONTEXT_CHARS = 16
-        const val SWITCH_BACK_DELAY_MS = 600L
     }
 }

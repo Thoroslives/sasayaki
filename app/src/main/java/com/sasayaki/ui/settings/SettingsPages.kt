@@ -339,7 +339,7 @@ fun AppearanceSettingsScreen(loaded: Boolean, prefs: UserPreferences, actions: A
 
 @Composable
 fun PermissionsRoute(onBack: () -> Unit) {
-    val items = rememberPermissionItems()
+    val items = rememberPermissionItems(bubbleNeeded = !rememberVoiceInputEnabled())
     val restricted = rememberRestrictedSettingsLikely()
     SettingsPage(title = "Permissions", onBack = onBack) {
         pageIntro("Sasayaki needs these to listen when you ask and type the result where you are.")

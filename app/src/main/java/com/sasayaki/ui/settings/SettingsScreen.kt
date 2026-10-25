@@ -42,11 +42,12 @@ class SettingsDestinations(
 fun SettingsRoute(destinations: SettingsDestinations, viewModel: SettingsViewModel = hiltViewModel()) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
-    val missingPermissions = rememberPermissionItems().count { it.required && !it.done }
+    val voiceInputEnabled = rememberVoiceInputEnabled()
+    val missingPermissions = rememberPermissionItems(bubbleNeeded = !voiceInputEnabled).count { it.required && !it.done }
     SettingsScreen(
         state = state,
         missingPermissions = missingPermissions,
-        voiceInputEnabled = rememberVoiceInputEnabled(),
+        voiceInputEnabled = voiceInputEnabled,
         onOpenKeyboardSettings = { openKeyboardSettings(context) },
         destinations = destinations,
         onOpenSource = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(SOURCE_URL))) }

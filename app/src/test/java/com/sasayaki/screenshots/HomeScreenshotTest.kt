@@ -52,9 +52,15 @@ class HomeScreenshotTest {
     )
 
     @Composable
-    private fun home(state: HomeUiState, steps: List<SetupItem> = emptyList(), restricted: Boolean = false) = HomeScreen(
+    private fun home(
+        state: HomeUiState,
+        steps: List<SetupItem> = emptyList(),
+        restricted: Boolean = false,
+        voiceInputEnabled: Boolean = false
+    ) = HomeScreen(
         state = state,
         setupSteps = steps,
+        voiceInputEnabled = voiceInputEnabled,
         restrictedSettingsLikely = restricted,
         snackbarHostState = SnackbarHostState(),
         onStartService = {},
@@ -107,6 +113,19 @@ class HomeScreenshotTest {
                 step("notifications", "Notifications", done = false, required = false)
             ),
             restricted = true
+        )
+    }
+
+    @Test
+    fun keyboardOnly() = compose.screenshot("home_keyboard_light") {
+        home(
+            HomeUiState(loaded = true, speechProviderConfigured = true, profiles = profiles, recent = recent),
+            listOf(
+                step("microphone", "Microphone", done = true),
+                step("overlay", "Display over other apps", done = false, required = false),
+                step("accessibility", "Text insertion", done = false, required = false)
+            ),
+            voiceInputEnabled = true
         )
     }
 

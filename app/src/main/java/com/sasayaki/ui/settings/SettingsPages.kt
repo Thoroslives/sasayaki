@@ -22,6 +22,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sasayaki.data.preferences.BubbleSize
@@ -29,8 +30,10 @@ import com.sasayaki.data.preferences.ThemeMode
 import com.sasayaki.data.preferences.UserPreferences
 import com.sasayaki.service.bubble.BubbleAppearance
 import com.sasayaki.service.bubble.BubbleScales
+import com.sasayaki.ui.common.openKeyboardSettings
 import com.sasayaki.ui.common.rememberPermissionItems
 import com.sasayaki.ui.common.rememberRestrictedSettingsLikely
+import com.sasayaki.ui.common.rememberVoiceInputEnabled
 import com.sasayaki.ui.components.ConnectedChoice
 import com.sasayaki.ui.components.ItemIcon
 import com.sasayaki.ui.components.NavigationItem
@@ -75,6 +78,28 @@ fun RecordingSettingsRoute(onBack: () -> Unit, viewModel: SettingsViewModel = hi
                             icon = SasayakiIcons.Vibration,
                             checked = prefs.vibrateOnRecord,
                             onCheckedChange = viewModel::setVibrateOnRecord
+                        )
+                    }
+                )
+            )
+        }
+        item(key = "keyboard") {
+            val context = LocalContext.current
+            val enabled = rememberVoiceInputEnabled()
+            SegmentedGroup(
+                title = "Keyboard mic key",
+                items = listOf(
+                    { shapes ->
+                        NavigationItem(
+                            shapes = shapes,
+                            headline = "Dictate from your keyboard",
+                            supporting = if (enabled) {
+                                "On. Your keyboard's mic key opens Sasayaki, then switches back."
+                            } else {
+                                "Turn on Sasayaki voice input in keyboard settings. Works with keyboards that have a mic key, like HeliBoard and FlorisBoard."
+                            },
+                            icon = SasayakiIcons.Keyboard,
+                            onClick = { openKeyboardSettings(context) }
                         )
                     }
                 )

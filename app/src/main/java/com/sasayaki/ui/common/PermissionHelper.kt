@@ -8,6 +8,7 @@ import android.content.pm.PackageInstaller
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
+import android.view.inputmethod.InputMethodManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
@@ -73,6 +74,18 @@ fun rememberRestrictedSettingsLikely(): Boolean = rememberCheckedOnResume { isRe
 
 fun openAppInfo(context: Context) {
     val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}"))
+    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    context.startActivity(intent)
+}
+
+@Composable
+fun rememberVoiceInputEnabled(): Boolean = rememberCheckedOnResume { context ->
+    val inputMethods = context.getSystemService(InputMethodManager::class.java)
+    inputMethods.enabledInputMethodList.any { it.packageName == context.packageName }
+}
+
+fun openKeyboardSettings(context: Context) {
+    val intent = Intent(Settings.ACTION_INPUT_METHOD_SETTINGS)
     intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     context.startActivity(intent)
 }

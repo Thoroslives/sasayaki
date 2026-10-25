@@ -1,0 +1,251 @@
+package com.sasayaki.service.voice
+
+import android.util.Log
+import com.sasayaki.data.preferences.UserPreferences
+import com.sasayaki.domain.model.AppContext
+import com.sasayaki.domain.model.Profile
+import com.sasayaki.domain.provider.describeConnectionError
+import com.sasayaki.domain.transcription.DictationFailure
+import com.sasayaki.service.AudioRecorder
+import com.sasayaki.service.SilenceDetector
+import com.sasayaki.service.bubble.BubblePhase
+import com.sasayaki.service.bubble.BubbleUiState
+import com.sasayaki.service.bubble.WAVEFORM_BARS
+import com.sasayaki.service.dictation.ProcessedRecording
+import com.sasayaki.service.dictation.ProcessesRecordings
+import java.io.File
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+
+/** VoiceInputTarget describes the field the keyboard's mic key was pressed in. */
+data class VoiceInputTarget(val appContext: AppContext?, val sensitive: Boolean, val micAllowed: Boolean)
+
+/**
+ * VoiceInputSession records one dictation for the voice-input keyboard, using the same
+ * processing as the bubble. It reports progress in the bubble's own states, so the keyboard
+ * can draw the bubble's controls.
+ */
+class VoiceInputSession(
+    private val scope: CoroutineScope,
+    private val processor: ProcessesRecordings,
+    private val preferences: Flow<UserPreferences>,
+    private val activeProfile: suspend (packageName: String?) -> Profile,
+    private val cacheDir: File,
+    private val onRecordingChanged: (recording: Boolean) -> Unit,
+    private val onText: (String) -> Unit,
+    private val newRecorder: () -> AudioRecorder = ::AudioRecorder,
+    private val now: () -> Long = System::currentTimeMillis
+) {
+    private val _state = MutableStateFlow(BubbleUiState())
+    val state: StateFlow<BubbleUiState> = _state.asStateFlow()
+
+    private val _levels = MutableStateFlow<List<Float>>(emptyList())
+    val levels: StateFlow<List<Float>> = _levels.asStateFlow()
+
+    private var target: VoiceInputTarget? = null
+    private var recorder: AudioRecorder? = null
+    private var pcm: File? = null
+    private var recordingJob: Job? = null
+    private var watchJob: Job? = null
+    private var processingJob: Job? = null
+    private var profile: Deferred<Profile>? = null
+    private var startedAt = 0L
+    private var pausedAt = 0L
+    private var pausedMs = 0L
+    private var retryEntryId: Long? = null
+
+    private val phase: BubblePhase get() = _state.value.phase
+
+    fun start(target: VoiceInputTarget) {
+        this.target = target
+        when {
+            target.sensitive -> fail("Dictation is off in password and banking fields.")
+            !target.micAllowed -> fail("Allow microphone access in Sasayaki first.")
+            else -> record(target)
+        }
+    }
+
+    fun stop() {
+        if (phase !is BubblePhase.Recording) return
+        val durationMs = recordedMs()
+        val recordedPcm = pcm ?: return
+        val job = recordingJob
+        stopRecorder()
+        setPhase(BubblePhase.Processing(cleaningUp = false))
+        processingJob = scope.launch {
+            try {
+                job?.join()
+                val outcome = processor.process(
+                    pcm = recordedPcm,
+                    durationMs = durationMs,
+                    appContext = target?.appContext,
+                    profile = profile?.await(),
+                    onPostProcessing = ::showCleaningUp
+                )
+                when (outcome) {
+                    ProcessedRecording.Empty -> setPhase(BubblePhase.Idle)
+                    ProcessedRecording.NoSpeech -> setPhase(BubblePhase.NoSpeech)
+                    is ProcessedRecording.Transcribed -> deliver(outcome.result)
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e(TAG, "Voice input failed", e)
+                fail(describeConnectionError(e))
+            } finally {
+                recordedPcm.delete()
+            }
+        }
+    }
+
+    /** cancel drops whatever is in progress and leaves the field untouched. */
+    fun cancel() {
+        processingJob?.cancel()
+        processingJob = null
+        if (phase is BubblePhase.Recording) {
+            stopRecorder()
+            recordingJob?.cancel()
+            pcm?.delete()
+        }
+        setPhase(BubblePhase.Idle)
+    }
+
+    fun togglePause() {
+        val recording = phase as? BubblePhase.Recording ?: return
+        if (recording.paused) {
+            pausedMs += now() - pausedAt
+            recorder?.resume()
+        } else {
+            pausedAt = now()
+            recorder?.pause()
+        }
+        setPhase(BubblePhase.Recording(paused = !recording.paused))
+    }
+
+    /** retry sends a saved failure again, or records anew when nothing was heard. */
+    fun retry() {
+        val entryId = retryEntryId
+        when {
+            phase is BubblePhase.Failed && entryId != null -> {
+                setPhase(BubblePhase.Processing(cleaningUp = false))
+                processingJob = scope.launch {
+                    try {
+                        deliver(processor.retry(entryId, ::showCleaningUp))
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Voice input retry failed", e)
+                        fail(describeConnectionError(e), entryId)
+                    }
+                }
+            }
+
+            phase is BubblePhase.NoSpeech || phase is BubblePhase.Idle -> target?.let(::start)
+        }
+    }
+
+    private fun record(target: VoiceInputTarget) {
+        val newRecorder = newRecorder()
+        val file = File(cacheDir, "voice_input_${now()}.pcm")
+        recorder = newRecorder
+        pcm = file
+        retryEntryId = null
+        startedAt = now()
+        pausedMs = 0
+        _levels.value = emptyList()
+        profile = scope.async { activeProfile(target.appContext?.packageName) }
+        scope.launch { _state.update { it.copy(profileName = profile?.await()?.name.orEmpty()) } }
+        setPhase(BubblePhase.Recording(paused = false))
+        onRecordingChanged(true)
+        recordingJob = scope.launch(Dispatchers.IO) {
+            try {
+                newRecorder.record(file)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e(TAG, "Voice input recording failed", e)
+            }
+        }
+        watchJob = scope.launch { watch(newRecorder) }
+    }
+
+    // watch keeps the waveform and timer current and stops the recording after enough silence.
+    private suspend fun watch(recorder: AudioRecorder) {
+        val detector = SilenceDetector(recorder.audioLevel, preferences.first().silenceThresholdMs)
+        val levelsJob = scope.launch {
+            recorder.audioLevel.collect { level -> _levels.update { (it + level).takeLast(WAVEFORM_BARS) } }
+        }
+        try {
+            delay(SILENCE_GRACE_MS)
+            while (true) {
+                val recording = phase as? BubblePhase.Recording ?: break
+                _state.update { it.copy(elapsedSeconds = recordedMs() / 1000) }
+                if (recording.paused) {
+                    detector.reset()
+                } else if (detector.checkSilence()) {
+                    stop()
+                    break
+                }
+                delay(TICK_MS)
+            }
+        } finally {
+            levelsJob.cancel()
+        }
+    }
+
+    private fun stopRecorder() {
+        recorder?.stop()
+        watchJob?.cancel()
+        onRecordingChanged(false)
+    }
+
+    private fun deliver(result: Result<String>) {
+        result.onSuccess { text ->
+            if (text.isNotBlank()) onText(text)
+            _state.update { it.copy(phase = BubblePhase.Idle, justInserted = text.isNotBlank()) }
+        }.onFailure { error ->
+            val failure = error as? DictationFailure
+            fail(describeConnectionError(failure?.cause ?: error), failure?.retryEntryId)
+        }
+    }
+
+    private fun fail(message: String, entryId: Long? = null) {
+        retryEntryId = entryId
+        setPhase(BubblePhase.Failed(message, canRetry = entryId != null))
+    }
+
+    // showCleaningUp is called from the processing thread, after a cancel may already have
+    // returned the session to idle.
+    private fun showCleaningUp() {
+        _state.update { current ->
+            if (current.phase is BubblePhase.Processing) current.copy(phase = BubblePhase.Processing(cleaningUp = true)) else current
+        }
+    }
+
+    private fun setPhase(phase: BubblePhase) {
+        _state.update { it.copy(phase = phase, justInserted = false) }
+    }
+
+    private fun recordedMs(): Long {
+        val currentPause = if ((phase as? BubblePhase.Recording)?.paused == true) now() - pausedAt else 0L
+        return (now() - startedAt - pausedMs - currentPause).coerceAtLeast(0L)
+    }
+
+    private companion object {
+        const val TAG = "VoiceInputSession"
+        const val SILENCE_GRACE_MS = 1000L
+        const val TICK_MS = 100L
+    }
+}

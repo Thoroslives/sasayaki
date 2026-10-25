@@ -11,6 +11,7 @@ import com.sasayaki.data.repository.HistoryRepository
 import com.sasayaki.data.repository.ProcessingRepository
 import com.sasayaki.data.repository.ProviderRepository
 import com.sasayaki.domain.provider.Provider
+import com.sasayaki.service.BubbleServiceController
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted
@@ -32,6 +33,7 @@ data class SettingsUiState(
 class SettingsViewModel @Inject constructor(
     private val preferencesDataStore: PreferencesDataStore,
     private val historyRepository: HistoryRepository,
+    private val bubbleServiceController: BubbleServiceController,
     providerRepository: ProviderRepository,
     processingRepository: ProcessingRepository
 ) : ViewModel() {
@@ -72,6 +74,12 @@ class SettingsViewModel @Inject constructor(
     fun setThemeMode(mode: ThemeMode) = persist { preferencesDataStore.setThemeMode(mode) }
 
     fun setWallpaperColors(enabled: Boolean) = persist { preferencesDataStore.setWallpaperColors(enabled) }
+
+    val bubbleRunning: StateFlow<Boolean> = bubbleServiceController.running
+
+    fun startBubble() = bubbleServiceController.start()
+
+    fun stopBubble() = bubbleServiceController.stop()
 
     fun setBubbleSize(size: BubbleSize) = persist { preferencesDataStore.setBubbleSize(size) }
 

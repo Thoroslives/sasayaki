@@ -237,10 +237,17 @@ fun HistorySettingsRoute(onBack: () -> Unit, viewModel: SettingsViewModel = hilt
 @Composable
 fun AppearanceSettingsRoute(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewModel()) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val bubbleRunning by viewModel.bubbleRunning.collectAsStateWithLifecycle()
+    val bubbleBlocker = rememberPermissionItems().firstOrNull { it.required && !it.done }
     AppearanceSettingsScreen(
         loaded = state.loaded,
         prefs = state.preferences,
+        bubbleRunning = bubbleRunning,
         actions = AppearanceActions(
+            // The bubble cannot start without its permissions, so a missing one is asked for first.
+            onBubbleEnabled = { enabled ->
+                if (!enabled) viewModel.stopBubble() else bubbleBlocker?.onAction?.invoke() ?: viewModel.startBubble()
+            },
             onThemeMode = viewModel::setThemeMode,
             onWallpaperColors = viewModel::setWallpaperColors,
             onBubbleSize = viewModel::setBubbleSize,
@@ -253,6 +260,7 @@ fun AppearanceSettingsRoute(onBack: () -> Unit, viewModel: SettingsViewModel = h
 }
 
 class AppearanceActions(
+    val onBubbleEnabled: (Boolean) -> Unit,
     val onThemeMode: (ThemeMode) -> Unit,
     val onWallpaperColors: (Boolean) -> Unit,
     val onBubbleSize: (BubbleSize) -> Unit,
@@ -262,7 +270,13 @@ class AppearanceActions(
 )
 
 @Composable
-fun AppearanceSettingsScreen(loaded: Boolean, prefs: UserPreferences, actions: AppearanceActions, onBack: () -> Unit) {
+fun AppearanceSettingsScreen(
+    loaded: Boolean,
+    prefs: UserPreferences,
+    bubbleRunning: Boolean,
+    actions: AppearanceActions,
+    onBack: () -> Unit
+) {
     SettingsPage(title = "Appearance", onBack = onBack) {
         if (!loaded) return@SettingsPage
         item(key = "app") {
@@ -285,11 +299,24 @@ fun AppearanceSettingsScreen(loaded: Boolean, prefs: UserPreferences, actions: A
         }
         item(key = "bubble") {
             val appearance = BubbleAppearance(prefs.wallpaperColors, prefs.bubbleTranslucent, prefs.bubbleMonochrome)
-            SegmentedGroup(
-                title = "Bubble",
-                items = listOf(
-                    { shapes -> BubblePreview(shapes, appearance, BubbleScales(prefs.bubbleSize.scale, prefs.controlsSize.scale)) },
-                    { shapes ->
+            val items = buildList<SegmentedItem> {
+                add { shapes ->
+                    SwitchItem(
+                        shapes = shapes,
+                        headline = "Show the bubble",
+                        supporting = if (bubbleRunning) {
+                            "Appears whenever your keyboard opens"
+                        } else {
+                            "Turn it on to set its size and look"
+                        },
+                        icon = SasayakiIcons.PowerSettings,
+                        checked = bubbleRunning,
+                        onCheckedChange = actions.onBubbleEnabled
+                    )
+                }
+                if (bubbleRunning) {
+                    add { shapes -> BubblePreview(shapes, appearance, BubbleScales(prefs.bubbleSize.scale, prefs.controlsSize.scale)) }
+                    add { shapes ->
                         SizeItem(
                             shapes = shapes,
                             icon = SasayakiIcons.ChatBubble,
@@ -299,8 +326,8 @@ fun AppearanceSettingsScreen(loaded: Boolean, prefs: UserPreferences, actions: A
                             selected = prefs.bubbleSize,
                             onSelect = actions.onBubbleSize
                         )
-                    },
-                    { shapes ->
+                    }
+                    add { shapes ->
                         SizeItem(
                             shapes = shapes,
                             icon = SasayakiIcons.GraphicEq,
@@ -310,8 +337,8 @@ fun AppearanceSettingsScreen(loaded: Boolean, prefs: UserPreferences, actions: A
                             selected = prefs.controlsSize,
                             onSelect = actions.onControlsSize
                         )
-                    },
-                    { shapes ->
+                    }
+                    add { shapes ->
                         SwitchItem(
                             shapes = shapes,
                             headline = "See-through",
@@ -320,19 +347,20 @@ fun AppearanceSettingsScreen(loaded: Boolean, prefs: UserPreferences, actions: A
                             checked = prefs.bubbleTranslucent,
                             onCheckedChange = actions.onBubbleTranslucent
                         )
-                    },
-                    { shapes ->
-                        SwitchItem(
-                            shapes = shapes,
-                            headline = "Monochrome",
-                            supporting = "Gray instead of color, so it stands out less",
-                            icon = SasayakiIcons.FilterBAndW,
-                            checked = prefs.bubbleMonochrome,
-                            onCheckedChange = actions.onBubbleMonochrome
-                        )
                     }
-                )
-            )
+                }
+                add { shapes ->
+                    SwitchItem(
+                        shapes = shapes,
+                        headline = "Monochrome",
+                        supporting = "Gray instead of color, for the bubble and the keyboard panel",
+                        icon = SasayakiIcons.FilterBAndW,
+                        checked = prefs.bubbleMonochrome,
+                        onCheckedChange = actions.onBubbleMonochrome
+                    )
+                }
+            }
+            SegmentedGroup(title = "Bubble", items = items)
         }
     }
 }

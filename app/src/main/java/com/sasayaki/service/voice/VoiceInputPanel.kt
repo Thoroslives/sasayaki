@@ -152,7 +152,7 @@ private fun Status(state: BubbleUiState, levels: () -> List<Float>, modifier: Mo
             BubblePhase.Idle -> if (state.justInserted) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
                     Icon(SasayakiIcons.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                    StatusText("Typed")
+                    StatusText("Typed. Tap the mic to add more.")
                 }
             } else {
                 StatusText("Tap the mic to dictate")

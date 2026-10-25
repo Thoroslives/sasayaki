@@ -3,6 +3,7 @@ package com.sasayaki.screenshots
 import android.app.Application
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.sasayaki.data.preferences.BubbleSize
 import com.sasayaki.data.preferences.UserPreferences
 import com.sasayaki.data.repository.ConnectionResult
 import com.sasayaki.domain.model.TextReplacementRule
@@ -85,8 +86,8 @@ class SettingsScreenshotTest {
     fun appearance() = compose.screenshot("settings_appearance_dark", dark = true) {
         AppearanceSettingsScreen(
             loaded = true,
-            prefs = UserPreferences(bubbleTranslucent = true),
-            actions = AppearanceActions({}, {}, {}, {}, {}),
+            prefs = UserPreferences(bubbleTranslucent = true, bubbleSize = BubbleSize.SMALL, controlsSize = BubbleSize.LARGE),
+            actions = AppearanceActions({}, {}, {}, {}, {}, {}),
             onBack = {}
         )
     }

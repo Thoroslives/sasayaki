@@ -22,6 +22,7 @@ import com.sasayaki.service.bubble.BubbleActions
 import com.sasayaki.service.bubble.BubbleAppearance
 import com.sasayaki.service.bubble.BubbleContent
 import com.sasayaki.service.bubble.BubblePhase
+import com.sasayaki.service.bubble.BubbleScales
 import com.sasayaki.service.bubble.BubbleTheme
 import com.sasayaki.service.bubble.BubbleUiState
 import com.sasayaki.service.bubble.DismissTarget
@@ -65,10 +66,12 @@ class BubbleScreenshotTest {
                     BubbleUiState(BubblePhase.Failed("The server rejected the API key.", canRetry = true)),
                     BubbleUiState(BubblePhase.NoSpeech)
                 ).forEach { state -> Window(state) }
+                val tinyBubbleLargeControls = BubbleScales(bubble = BubbleSize.SMALL.scale, controls = BubbleSize.LARGER.scale)
                 Window(
                     BubbleUiState(BubblePhase.Recording(paused = false), elapsedSeconds = 3, profileName = "Chat"),
-                    scale = BubbleSize.LARGER.scale
+                    tinyBubbleLargeControls
                 )
+                Window(BubbleUiState(BubblePhase.Idle), tinyBubbleLargeControls)
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
                     ProfileMenu(listOf(Profile(1, "Chat", isActive = true), Profile(2, "Email"), Profile(3, "Raw notes"))) {}
                     DismissTarget(armed = false)
@@ -80,14 +83,15 @@ class BubbleScreenshotTest {
 
     // Window draws a state inside the overlay window size the service gives it.
     @Composable
-    private fun Window(state: BubbleUiState, scale: Float = 1f) {
+    private fun Window(state: BubbleUiState, scales: BubbleScales = BubbleScales()) {
         val mode = state.phase.mode
+        val scale = scales.of(mode)
         Box(
             modifier = Modifier
                 .size(mode.windowWidth * scale, mode.windowHeight * scale)
                 .border(1.dp, Color(0x55FF00FF))
         ) {
-            BubbleContent(state, { levels }, actions, {}, scale = scale)
+            BubbleContent(state, { levels }, actions, {}, scales = scales)
         }
     }
 

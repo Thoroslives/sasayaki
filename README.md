@@ -18,7 +18,7 @@ Sasayaki does the same job as [WisprFlow](https://wisprflow.ai), except it costs
   - Long-press it to switch profile. Toggle it from a Quick Settings tile.
   - Recordings with no speech are dropped on the phone instead of being sent.
   - It refuses to record into password fields and apps it recognises as banking or payment apps, so nothing meant for them reaches a provider or your history.
-  - Make it larger, see-through or monochrome from Appearance.
+  - Size the bubble and its recording controls separately, and make it see-through or monochrome, from Appearance.
 - **Providers**: add any number of OpenAI-compatible servers, each with a default speech and cleanup model picked from its own model list. Keys are optional for self-hosted servers.
 - **Profiles** bundle a language, a speech model, an optional cleanup model and a writing style. Switch the active one from the bubble, and Sasayaki remembers your pick for each app.
 - **Post-processing**: a small model turns what you said into a clean written message.

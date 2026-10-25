@@ -167,7 +167,8 @@ fun SettingsScreen(state: SettingsUiState, missingPermissions: Int, destinations
                             supporting = listOfNotNull(
                                 prefs.themeMode.label(),
                                 "wallpaper colors".takeIf { prefs.wallpaperColors },
-                                "${prefs.bubbleSize.name.lowercase()} bubble".takeIf { prefs.bubbleSize != BubbleSize.STANDARD },
+                                "${prefs.bubbleSize.label().lowercase()} bubble".takeIf { prefs.bubbleSize != BubbleSize.STANDARD },
+                                "${prefs.controlsSize.label().lowercase()} controls".takeIf { prefs.controlsSize != BubbleSize.STANDARD },
                                 "see-through".takeIf { prefs.bubbleTranslucent },
                                 "monochrome".takeIf { prefs.bubbleMonochrome }
                             ).joinToString(" · "),

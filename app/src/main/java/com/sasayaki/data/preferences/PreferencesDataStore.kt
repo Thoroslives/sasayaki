@@ -56,6 +56,7 @@ class PreferencesDataStore @Inject constructor(
         val WALLPAPER_COLORS = booleanPreferencesKey("wallpaper_colors")
         val ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
         val BUBBLE_SIZE = stringPreferencesKey("bubble_size")
+        val CONTROLS_SIZE = stringPreferencesKey("controls_size")
         val BUBBLE_TRANSLUCENT = booleanPreferencesKey("bubble_translucent")
         val BUBBLE_MONOCHROME = booleanPreferencesKey("bubble_monochrome")
         val REMEMBER_PROFILE_PER_APP = booleanPreferencesKey("remember_profile_per_app")
@@ -88,7 +89,8 @@ class PreferencesDataStore @Inject constructor(
                 themeMode = ThemeMode.entries.firstOrNull { it.name == prefs[Keys.THEME_MODE] } ?: ThemeMode.SYSTEM,
                 wallpaperColors = prefs[Keys.WALLPAPER_COLORS] ?: false,
                 onboardingCompleted = prefs[Keys.ONBOARDING_COMPLETED] ?: false,
-                bubbleSize = BubbleSize.entries.firstOrNull { it.name == prefs[Keys.BUBBLE_SIZE] } ?: BubbleSize.STANDARD,
+                bubbleSize = bubbleSizeNamed(prefs[Keys.BUBBLE_SIZE]) ?: BubbleSize.STANDARD,
+                controlsSize = controlsSizeFrom(prefs[Keys.CONTROLS_SIZE], prefs[Keys.BUBBLE_SIZE]),
                 bubbleTranslucent = prefs[Keys.BUBBLE_TRANSLUCENT] ?: false,
                 bubbleMonochrome = prefs[Keys.BUBBLE_MONOCHROME] ?: false,
                 rememberProfilePerApp = prefs[Keys.REMEMBER_PROFILE_PER_APP] ?: true,
@@ -149,6 +151,8 @@ class PreferencesDataStore @Inject constructor(
     suspend fun setOnboardingCompleted() = set(Keys.ONBOARDING_COMPLETED, true)
 
     suspend fun setBubbleSize(size: BubbleSize) = set(Keys.BUBBLE_SIZE, size.name)
+
+    suspend fun setControlsSize(size: BubbleSize) = set(Keys.CONTROLS_SIZE, size.name)
 
     suspend fun setBubbleTranslucent(enabled: Boolean) = set(Keys.BUBBLE_TRANSLUCENT, enabled)
 

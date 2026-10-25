@@ -20,6 +20,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -27,6 +28,7 @@ import com.sasayaki.data.preferences.BubbleSize
 import com.sasayaki.data.preferences.ThemeMode
 import com.sasayaki.data.preferences.UserPreferences
 import com.sasayaki.service.bubble.BubbleAppearance
+import com.sasayaki.service.bubble.BubbleScales
 import com.sasayaki.ui.common.rememberPermissionItems
 import com.sasayaki.ui.common.rememberRestrictedSettingsLikely
 import com.sasayaki.ui.components.ConnectedChoice
@@ -237,6 +239,7 @@ fun AppearanceSettingsRoute(onBack: () -> Unit, viewModel: SettingsViewModel = h
             onThemeMode = viewModel::setThemeMode,
             onWallpaperColors = viewModel::setWallpaperColors,
             onBubbleSize = viewModel::setBubbleSize,
+            onControlsSize = viewModel::setControlsSize,
             onBubbleTranslucent = viewModel::setBubbleTranslucent,
             onBubbleMonochrome = viewModel::setBubbleMonochrome
         ),
@@ -248,6 +251,7 @@ class AppearanceActions(
     val onThemeMode: (ThemeMode) -> Unit,
     val onWallpaperColors: (Boolean) -> Unit,
     val onBubbleSize: (BubbleSize) -> Unit,
+    val onControlsSize: (BubbleSize) -> Unit,
     val onBubbleTranslucent: (Boolean) -> Unit,
     val onBubbleMonochrome: (Boolean) -> Unit
 )
@@ -279,8 +283,29 @@ fun AppearanceSettingsScreen(loaded: Boolean, prefs: UserPreferences, actions: A
             SegmentedGroup(
                 title = "Bubble",
                 items = listOf(
-                    { shapes -> BubblePreview(shapes, appearance, prefs.bubbleSize.scale) },
-                    { shapes -> BubbleSizeItem(shapes, prefs.bubbleSize, actions.onBubbleSize) },
+                    { shapes -> BubblePreview(shapes, appearance, BubbleScales(prefs.bubbleSize.scale, prefs.controlsSize.scale)) },
+                    { shapes ->
+                        SizeItem(
+                            shapes = shapes,
+                            icon = SasayakiIcons.ChatBubble,
+                            headline = "Bubble size",
+                            supporting = "The bubble that waits by your keyboard.",
+                            options = BubbleSize.entries,
+                            selected = prefs.bubbleSize,
+                            onSelect = actions.onBubbleSize
+                        )
+                    },
+                    { shapes ->
+                        SizeItem(
+                            shapes = shapes,
+                            icon = SasayakiIcons.GraphicEq,
+                            headline = "Controls size",
+                            supporting = "The controls while recording. Bigger buttons are easier to hit on the move.",
+                            options = BubbleSize.entries - BubbleSize.SMALL,
+                            selected = prefs.controlsSize,
+                            onSelect = actions.onControlsSize
+                        )
+                    },
                     { shapes ->
                         SwitchItem(
                             shapes = shapes,
@@ -379,31 +404,40 @@ private fun RetentionItem(shapes: ListItemShapes, limit: Int, enabled: Boolean, 
 }
 
 @Composable
-private fun BubbleSizeItem(shapes: ListItemShapes, size: BubbleSize, onSelect: (BubbleSize) -> Unit) {
+private fun SizeItem(
+    shapes: ListItemShapes,
+    icon: ImageVector,
+    headline: String,
+    supporting: String,
+    options: List<BubbleSize>,
+    selected: BubbleSize,
+    onSelect: (BubbleSize) -> Unit
+) {
     SegmentedListItem(
         shapes = shapes,
         colors = segmentedItemColors(),
-        leadingContent = { ItemIcon(SasayakiIcons.ChatBubble) },
+        leadingContent = { ItemIcon(icon) },
         supportingContent = {
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.s), modifier = Modifier.padding(top = Spacing.xs)) {
-                Text("Bigger bubbles have bigger buttons, easier to hit with gloves or on the move.")
+                Text(supporting)
                 ConnectedChoice(
-                    options = BubbleSize.entries,
-                    selected = size,
+                    options = options,
+                    selected = selected,
                     onSelect = onSelect,
-                    label = {
-                        when (it) {
-                            BubbleSize.STANDARD -> "Standard"
-                            BubbleSize.LARGE -> "Large"
-                            BubbleSize.LARGER -> "Larger"
-                        }
-                    }
+                    label = BubbleSize::label
                 )
             }
         }
     ) {
-        Text("Bubble size")
+        Text(headline)
     }
+}
+
+internal fun BubbleSize.label(): String = when (this) {
+    BubbleSize.SMALL -> "Small"
+    BubbleSize.STANDARD -> "Normal"
+    BubbleSize.LARGE -> "Large"
+    BubbleSize.LARGER -> "Huge"
 }
 
 @Composable

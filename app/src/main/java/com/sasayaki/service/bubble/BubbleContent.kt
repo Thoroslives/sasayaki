@@ -36,6 +36,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -89,6 +90,12 @@ enum class BubbleMode(val windowWidth: Dp, val windowHeight: Dp) {
     NO_SPEECH(244.dp, 72.dp)
 }
 
+/** BubbleScales sizes the idle bubble separately from the controls it expands into. */
+@Immutable
+data class BubbleScales(val bubble: Float = 1f, val controls: Float = 1f) {
+    fun of(mode: BubbleMode): Float = if (mode == BubbleMode.IDLE) bubble else controls
+}
+
 val BubblePhase.mode: BubbleMode
     get() = when (this) {
         BubblePhase.Idle -> BubbleMode.IDLE
@@ -105,38 +112,37 @@ fun BubbleContent(
     actions: BubbleActions,
     onShowProfiles: () -> Unit,
     alignment: Alignment = Alignment.CenterEnd,
-    scale: Float = 1f
+    scales: BubbleScales = BubbleScales()
 ) {
     val spatial = MaterialTheme.motionScheme.defaultSpatialSpec<IntSize>()
     val fade = MaterialTheme.motionScheme.fastEffectsSpec<Float>()
     val density = LocalDensity.current
-    // Scaling density grows every dimension of the bubble together, touch targets included.
-    CompositionLocalProvider(LocalDensity provides Density(density.density * scale, density.fontScale)) {
-        // Padding leaves room for the shadow inside the overlay window's bounds.
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(Spacing.s),
-            contentAlignment = alignment
-        ) {
-            // Keyed by mode but rendering the state it was given, so an outgoing pill fades out
-            // showing what it showed rather than the next state's values.
-            AnimatedContent(
-                targetState = state,
-                contentKey = { it.phase.mode },
-                contentAlignment = alignment,
-                transitionSpec = {
-                    (fadeIn(fade) + scaleIn(fade, initialScale = 0.9f)) togetherWith fadeOut(fade) using
-                        SizeTransform(clip = false) { _, _ -> spatial }
-                },
-                label = "bubble"
-            ) { shown ->
-                when (val phase = shown.phase) {
-                    BubblePhase.Idle -> IdleBubble(shown.justInserted, actions.onStart, onShowProfiles)
-                    is BubblePhase.Recording -> RecordingPill(shown, levels, actions, onShowProfiles)
-                    is BubblePhase.Processing -> ProcessingPill(phase.cleaningUp, actions)
-                    is BubblePhase.Failed -> FailedPill(phase, actions)
-                    BubblePhase.NoSpeech -> NoSpeechPill(actions.onStart)
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = alignment) {
+        // Keyed by mode but rendering the state it was given, so an outgoing pill fades out
+        // showing what it showed rather than the next state's values.
+        AnimatedContent(
+            targetState = state,
+            contentKey = { it.phase.mode },
+            contentAlignment = alignment,
+            transitionSpec = {
+                (fadeIn(fade) + scaleIn(fade, initialScale = 0.9f)) togetherWith fadeOut(fade) using
+                    SizeTransform(clip = false) { _, _ -> spatial }
+            },
+            label = "bubble"
+        ) { shown ->
+            // Scaling density grows every dimension of a mode together, touch targets included,
+            // and each mode keeps its own scale while it animates out.
+            val scale = scales.of(shown.phase.mode)
+            CompositionLocalProvider(LocalDensity provides Density(density.density * scale, density.fontScale)) {
+                // Padding leaves room for the shadow inside the overlay window's bounds.
+                Box(modifier = Modifier.padding(Spacing.s)) {
+                    when (val phase = shown.phase) {
+                        BubblePhase.Idle -> IdleBubble(shown.justInserted, actions.onStart, onShowProfiles)
+                        is BubblePhase.Recording -> RecordingPill(shown, levels, actions, onShowProfiles)
+                        is BubblePhase.Processing -> ProcessingPill(phase.cleaningUp, actions)
+                        is BubblePhase.Failed -> FailedPill(phase, actions)
+                        BubblePhase.NoSpeech -> NoSpeechPill(actions.onStart)
+                    }
                 }
             }
         }

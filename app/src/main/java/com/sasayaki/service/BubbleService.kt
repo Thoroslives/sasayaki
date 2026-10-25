@@ -19,7 +19,6 @@ import android.view.WindowManager
 import android.widget.Toast
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
-import com.sasayaki.data.preferences.BubbleSize
 import com.sasayaki.data.preferences.PreferencesDataStore
 import com.sasayaki.data.repository.ProfileRepository
 import com.sasayaki.domain.model.AppContext
@@ -32,6 +31,7 @@ import com.sasayaki.domain.transcription.TranscriptionManager
 import com.sasayaki.service.bubble.BubbleActions
 import com.sasayaki.service.bubble.BubbleAppearance
 import com.sasayaki.service.bubble.BubbleOverlay
+import com.sasayaki.service.bubble.BubbleScales
 import com.sasayaki.service.bubble.BubbleUiState
 import com.sasayaki.service.bubble.WAVEFORM_BARS
 import com.sasayaki.service.bubble.toPhase
@@ -246,9 +246,9 @@ class BubbleService : Service() {
             appearance = preferencesDataStore.preferences
                 .map { BubbleAppearance(it.wallpaperColors, it.bubbleTranslucent, it.bubbleMonochrome) }
                 .stateIn(scope, SharingStarted.Eagerly, BubbleAppearance()),
-            bubbleScale = preferencesDataStore.preferences
-                .map { it.bubbleSize.scale }
-                .stateIn(scope, SharingStarted.Eagerly, BubbleSize.STANDARD.scale),
+            scales = preferencesDataStore.preferences
+                .map { BubbleScales(bubble = it.bubbleSize.scale, controls = it.controlsSize.scale) }
+                .stateIn(scope, SharingStarted.Eagerly, BubbleScales()),
             actions = BubbleActions(
                 onStart = ::onBubbleTap,
                 onStop = ::stopRecordingAndTranscribe,

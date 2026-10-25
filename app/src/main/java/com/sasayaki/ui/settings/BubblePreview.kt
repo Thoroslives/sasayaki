@@ -20,6 +20,7 @@ import com.sasayaki.service.bubble.BubbleAppearance
 import com.sasayaki.service.bubble.BubbleContent
 import com.sasayaki.service.bubble.BubbleMode
 import com.sasayaki.service.bubble.BubblePhase
+import com.sasayaki.service.bubble.BubbleScales
 import com.sasayaki.service.bubble.BubbleTheme
 import com.sasayaki.service.bubble.BubbleUiState
 import com.sasayaki.service.bubble.WAVEFORM_BARS
@@ -39,7 +40,7 @@ private val idle = BubbleUiState(BubblePhase.Idle)
 
 // BubblePreview lays the bubble over sample text so see-through has something to show.
 @Composable
-fun BubblePreview(shapes: ListItemShapes, appearance: BubbleAppearance, scale: Float) {
+fun BubblePreview(shapes: ListItemShapes, appearance: BubbleAppearance, scales: BubbleScales) {
     Surface(
         shape = shapes.shape,
         color = MaterialTheme.colorScheme.surfaceContainerHighest,
@@ -49,7 +50,7 @@ fun BubblePreview(shapes: ListItemShapes, appearance: BubbleAppearance, scale: F
     ) {
         BoxWithConstraints(modifier = Modifier.padding(Spacing.l)) {
             Text(BACKDROP, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            val fitted = scale.coerceAtMost(maxWidth / BubbleMode.RECORDING.windowWidth)
+            val fitted = scales.copy(controls = scales.controls.coerceAtMost(maxWidth / BubbleMode.RECORDING.windowWidth))
             BubbleTheme(appearance) {
                 Column(
                     horizontalAlignment = Alignment.End,
@@ -65,9 +66,10 @@ fun BubblePreview(shapes: ListItemShapes, appearance: BubbleAppearance, scale: F
 }
 
 @Composable
-private fun PreviewWindow(state: BubbleUiState, scale: Float) {
+private fun PreviewWindow(state: BubbleUiState, scales: BubbleScales) {
     val mode = state.phase.mode
+    val scale = scales.of(mode)
     Box(modifier = Modifier.size(mode.windowWidth * scale, mode.windowHeight * scale)) {
-        BubbleContent(state, { previewLevels }, previewActions, {}, scale = scale)
+        BubbleContent(state, { previewLevels }, previewActions, {}, scales = scales)
     }
 }

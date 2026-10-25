@@ -45,7 +45,10 @@ android {
     }
 
     buildTypes {
+        // Debug builds install beside the release app, so they can be tested without replacing it.
         debug {
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-debug"
             signingConfig = signingConfigs.getByName("debug")
         }
         // Release APKs are left unsigned here and signed by scripts/sign-release.sh, because

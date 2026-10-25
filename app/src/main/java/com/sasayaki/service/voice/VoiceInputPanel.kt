@@ -1,6 +1,10 @@
 package com.sasayaki.service.voice
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -39,40 +43,52 @@ fun VoiceInputPanel(
     controlsScale: Float,
     onSwitchKeyboard: () -> Unit
 ) {
-    // The idle bubble only appears here as a tap-to-retry button, so it matches the controls.
-    val scales = BubbleScales(bubble = controlsScale, controls = controlsScale)
     BubbleTheme(appearance) {
         Surface(color = MaterialTheme.colorScheme.surfaceContainer) {
-            Box(
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .fillMaxWidth()
                     .navigationBarsPadding()
                     .height(PanelHeight)
                     .padding(horizontal = Spacing.s)
             ) {
-                IconButton(onClick = onSwitchKeyboard, modifier = Modifier.align(Alignment.CenterStart)) {
+                IconButton(onClick = onSwitchKeyboard) {
                     Icon(SasayakiIcons.Keyboard, contentDescription = "Back to keyboard")
                 }
-                if (state.phase == BubblePhase.Idle && !state.justInserted) {
-                    Text(
-                        text = "Tap to dictate",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
+                BoxWithConstraints(modifier = Modifier.weight(1f).fillMaxHeight()) {
+                    val mode = state.phase.mode
+                    // Wide pills shrink to fit beside the keyboard button instead of covering it.
+                    val scale = controlsScale.coerceAtMost(maxWidth / mode.windowWidth)
+                    Box(
                         modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .padding(bottom = Spacing.s)
-                    )
+                            .align(Alignment.Center)
+                            .size(mode.windowWidth * scale, mode.windowHeight * scale)
+                    ) {
+                        BubbleContent(
+                            state = state,
+                            levels = levels,
+                            actions = actions,
+                            onShowProfiles = {},
+                            alignment = Alignment.Center,
+                            scales = BubbleScales(bubble = scale, controls = scale)
+                        )
+                    }
+                    if (state.phase == BubblePhase.Idle && !state.justInserted) {
+                        Text(
+                            text = "Tap to dictate",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .padding(bottom = Spacing.xs)
+                        )
+                    }
                 }
-                val mode = state.phase.mode
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.Center)
-                        .size(mode.windowWidth * controlsScale, mode.windowHeight * controlsScale)
-                ) {
-                    BubbleContent(state, levels, actions, onShowProfiles = {}, alignment = Alignment.Center, scales = scales)
-                }
+                // Balances the keyboard button so the controls sit in the middle of the panel.
+                Spacer(modifier = Modifier.size(48.dp))
             }
         }
     }

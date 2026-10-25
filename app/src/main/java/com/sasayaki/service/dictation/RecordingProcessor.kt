@@ -12,6 +12,7 @@ import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
 
 sealed interface ProcessedRecording {
@@ -28,7 +29,8 @@ interface ProcessesRecordings {
         durationMs: Long,
         appContext: AppContext?,
         profile: Profile?,
-        onPostProcessing: () -> Unit
+        onPostProcessing: () -> Unit,
+        incognito: Boolean = false
     ): ProcessedRecording
 
     suspend fun retry(entryId: Long, onPostProcessing: () -> Unit): Result<String>
@@ -48,7 +50,8 @@ class RecordingProcessor @Inject constructor(
         durationMs: Long,
         appContext: AppContext?,
         profile: Profile?,
-        onPostProcessing: () -> Unit
+        onPostProcessing: () -> Unit,
+        incognito: Boolean
     ): ProcessedRecording {
         val hasAudio = withContext(Dispatchers.IO) { pcm.exists() && pcm.length() > 0L }
         if (!hasAudio) return ProcessedRecording.Empty
@@ -64,10 +67,12 @@ class RecordingProcessor @Inject constructor(
         return try {
             withContext(Dispatchers.IO) {
                 AudioConverter.pcmToWav(pcm, wav)
-                ProcessedRecording.Transcribed(transcriptionManager.transcribe(wav, durationMs, appContext, profile, onPostProcessing))
+                ProcessedRecording.Transcribed(
+                    transcriptionManager.transcribe(wav, durationMs, appContext, profile, onPostProcessing, incognito)
+                )
             }
         } finally {
-            wav.delete()
+            withContext(NonCancellable + Dispatchers.IO) { wav.delete() }
         }
     }
 

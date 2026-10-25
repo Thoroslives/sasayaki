@@ -28,7 +28,8 @@ class VoiceInputSessionTest {
             durationMs: Long,
             appContext: AppContext?,
             profile: Profile?,
-            onPostProcessing: () -> Unit
+            onPostProcessing: () -> Unit,
+            incognito: Boolean
         ) = ProcessedRecording.Empty
 
         override suspend fun retry(entryId: Long, onPostProcessing: () -> Unit): Result<String> {
@@ -45,14 +46,17 @@ class VoiceInputSessionTest {
         activeProfile = { Profile(name = "Chat") },
         cacheDir = File("build/tmp"),
         onRecordingChanged = {},
-        onText = { typed += it }
+        onText = {
+            typed += it
+            true
+        }
     )
 
     @Test
     fun `password fields are refused without recording`() = runTest {
         val session = session()
 
-        session.start(VoiceInputTarget(appContext = null, sensitive = true, micAllowed = true))
+        session.start(VoiceInputTarget(appContext = null, sensitive = true, micAllowed = true, incognito = false))
 
         val phase = session.state.value.phase as BubblePhase.Failed
         assertEquals("Dictation is off in password and banking fields.", phase.message)
@@ -63,7 +67,7 @@ class VoiceInputSessionTest {
     fun `a missing microphone permission is explained`() = runTest {
         val session = session()
 
-        session.start(VoiceInputTarget(appContext = null, sensitive = false, micAllowed = false))
+        session.start(VoiceInputTarget(appContext = null, sensitive = false, micAllowed = false, incognito = false))
 
         assertEquals("Allow microphone access in Sasayaki first.", (session.state.value.phase as BubblePhase.Failed).message)
     }
@@ -71,7 +75,7 @@ class VoiceInputSessionTest {
     @Test
     fun `a refused field cannot be retried into recording`() = runTest {
         val session = session()
-        session.start(VoiceInputTarget(appContext = null, sensitive = true, micAllowed = true))
+        session.start(VoiceInputTarget(appContext = null, sensitive = true, micAllowed = true, incognito = false))
 
         session.retry()
         runCurrent()
@@ -83,11 +87,21 @@ class VoiceInputSessionTest {
     @Test
     fun `cancel leaves the field untouched`() = runTest {
         val session = session()
-        session.start(VoiceInputTarget(appContext = null, sensitive = true, micAllowed = true))
+        session.start(VoiceInputTarget(appContext = null, sensitive = true, micAllowed = true, incognito = false))
 
         session.cancel()
 
         assertEquals(BubblePhase.Idle, session.state.value.phase)
         assertTrue(typed.isEmpty())
+    }
+
+    @Test
+    fun `prepare waits for a tap instead of recording`() = runTest {
+        val session = session()
+
+        val mayRecord = session.prepare(VoiceInputTarget(appContext = null, sensitive = false, micAllowed = true, incognito = false))
+
+        assertTrue(mayRecord)
+        assertEquals(BubblePhase.Idle, session.state.value.phase)
     }
 }

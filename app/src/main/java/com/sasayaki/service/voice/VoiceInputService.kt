@@ -33,8 +33,8 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 /**
- * VoiceInputService is a voice-only keyboard. Keyboards with a mic key (HeliBoard, FlorisBoard
- * and others) switch to it, it records and types one dictation, then hands back to them.
+ * VoiceInputService is a voice-only input method. Its auxiliary voice subtype is what keyboards
+ * look for when their mic key hands off to voice input; it types one dictation and hands back.
  */
 @AndroidEntryPoint
 class VoiceInputService : InputMethodService() {
@@ -49,6 +49,10 @@ class VoiceInputService : InputMethodService() {
     private lateinit var session: VoiceInputSession
     private var hapticFeedback: HapticFeedback? = null
     private var switchBackJob: Job? = null
+
+    // canSwitchBack turns false when no previous keyboard exists, for example after Sasayaki
+    // was picked as the keyboard; recording then waits for a tap instead of starting on focus.
+    private var canSwitchBack = true
 
     private val preferences by lazy {
         preferencesDataStore.preferences.stateIn(scope, SharingStarted.Eagerly, UserPreferences())
@@ -105,7 +109,8 @@ class VoiceInputService : InputMethodService() {
         super.onStartInputView(editorInfo, restarting)
         if (restarting) return
         switchBackJob?.cancel()
-        session.start(target(editorInfo))
+        val target = target(editorInfo)
+        if (canSwitchBack) session.start(target) else session.prepare(target)
     }
 
     override fun onFinishInputView(finishingInput: Boolean) {
@@ -130,19 +135,21 @@ class VoiceInputService : InputMethodService() {
         return VoiceInputTarget(
             appContext = AppContext(label = label, packageName = packageName).takeIf { it.hasData },
             sensitive = isSensitiveInputType(editorInfo.inputType) || isBankingPackage(packageName),
-            micAllowed = checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+            micAllowed = checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED,
+            incognito = editorInfo.imeOptions and EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING != 0
         )
     }
 
-    private fun insert(text: String) {
-        val connection = currentInputConnection ?: return
+    private fun insert(text: String): Boolean {
+        val connection = currentInputConnection ?: return false
         val before = connection.getTextBeforeCursor(CURSOR_CONTEXT_CHARS, 0)?.toString()
-        connection.commitText(fitToCursor(before, text), 1)
+        if (!connection.commitText(fitToCursor(before, text), 1)) return false
         // A moment on the check mark shows the text landed before the keyboard comes back.
         switchBackJob = scope.launch {
             delay(SWITCH_BACK_DELAY_MS)
             switchBack()
         }
+        return true
     }
 
     private fun cancelAndSwitchBack() {
@@ -151,7 +158,8 @@ class VoiceInputService : InputMethodService() {
     }
 
     private fun switchBack() {
-        if (!switchToPreviousInputMethod()) requestHideSelf(0)
+        canSwitchBack = switchToPreviousInputMethod()
+        if (!canSwitchBack) requestHideSelf(0)
     }
 
     private fun buzz(recording: Boolean) {

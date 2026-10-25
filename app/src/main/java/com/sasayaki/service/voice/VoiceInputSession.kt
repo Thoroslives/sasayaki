@@ -29,8 +29,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-/** VoiceInputTarget describes the field the keyboard's mic key was pressed in. */
-data class VoiceInputTarget(val appContext: AppContext?, val sensitive: Boolean, val micAllowed: Boolean)
+data class VoiceInputTarget(val appContext: AppContext?, val sensitive: Boolean, val micAllowed: Boolean, val incognito: Boolean)
 
 /**
  * VoiceInputSession records one dictation for the voice-input keyboard, using the same
@@ -44,7 +43,8 @@ class VoiceInputSession(
     private val activeProfile: suspend (packageName: String?) -> Profile,
     private val cacheDir: File,
     private val onRecordingChanged: (recording: Boolean) -> Unit,
-    private val onText: (String) -> Unit,
+    // onText reports whether the text reached the field.
+    private val onText: (String) -> Boolean,
     private val newRecorder: () -> AudioRecorder = ::AudioRecorder,
     private val now: () -> Long = System::currentTimeMillis
 ) {
@@ -69,12 +69,23 @@ class VoiceInputSession(
     private val phase: BubblePhase get() = _state.value.phase
 
     fun start(target: VoiceInputTarget) {
+        if (prepare(target)) record(target)
+    }
+
+    /** prepare waits for a tap instead of recording, and reports whether recording may start. */
+    fun prepare(target: VoiceInputTarget): Boolean {
         this.target = target
         when {
             target.sensitive -> fail("Dictation is off in password and banking fields.")
+
             !target.micAllowed -> fail("Allow microphone access in Sasayaki first.")
-            else -> record(target)
+
+            else -> {
+                setPhase(BubblePhase.Idle)
+                return true
+            }
         }
+        return false
     }
 
     fun stop() {
@@ -92,7 +103,8 @@ class VoiceInputSession(
                     durationMs = durationMs,
                     appContext = target?.appContext,
                     profile = profile?.await(),
-                    onPostProcessing = ::showCleaningUp
+                    onPostProcessing = ::showCleaningUp,
+                    incognito = target?.incognito == true
                 )
                 when (outcome) {
                     ProcessedRecording.Empty -> setPhase(BubblePhase.Idle)
@@ -165,8 +177,20 @@ class VoiceInputSession(
         startedAt = now()
         pausedMs = 0
         _levels.value = emptyList()
-        profile = scope.async { activeProfile(target.appContext?.packageName) }
-        scope.launch { _state.update { it.copy(profileName = profile?.await()?.name.orEmpty()) } }
+        val recordingProfile = scope.async { activeProfile(target.appContext?.packageName) }
+        profile = recordingProfile
+        scope.launch {
+            val name = try {
+                recordingProfile.await().name
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e(TAG, "Could not load the profile", e)
+                ""
+            }
+            _state.update { it.copy(profileName = name) }
+        }
+        _state.update { it.copy(elapsedSeconds = 0) }
         setPhase(BubblePhase.Recording(paused = false))
         onRecordingChanged(true)
         recordingJob = scope.launch(Dispatchers.IO) {
@@ -181,7 +205,6 @@ class VoiceInputSession(
         watchJob = scope.launch { watch(newRecorder) }
     }
 
-    // watch keeps the waveform and timer current and stops the recording after enough silence.
     private suspend fun watch(recorder: AudioRecorder) {
         val detector = SilenceDetector(recorder.audioLevel, preferences.first().silenceThresholdMs)
         val levelsJob = scope.launch {
@@ -213,8 +236,11 @@ class VoiceInputSession(
 
     private fun deliver(result: Result<String>) {
         result.onSuccess { text ->
-            if (text.isNotBlank()) onText(text)
-            _state.update { it.copy(phase = BubblePhase.Idle, justInserted = text.isNotBlank()) }
+            when {
+                text.isBlank() -> setPhase(BubblePhase.Idle)
+                onText(text) -> _state.update { it.copy(phase = BubblePhase.Idle, justInserted = true) }
+                else -> fail("The text field closed before the text arrived.")
+            }
         }.onFailure { error ->
             val failure = error as? DictationFailure
             fail(describeConnectionError(failure?.cause ?: error), failure?.retryEntryId)

@@ -64,6 +64,7 @@ class HistoryRepository internal constructor(
     suspend fun getRawText(id: Long): String? = dictationDao.getRawText(id)
 
     suspend fun recordSuccess(dictation: DictationRecord, text: String, rawText: String) = writes.withLock {
+        if (dictation.incognito) return@withLock
         val prefs = preferences.first()
         val wordCount = countWords(text)
         if (prefs.historyEnabled || prefs.keepStatsWithoutHistory) {
@@ -85,6 +86,7 @@ class HistoryRepository internal constructor(
 
     /** recordFailure returns the entry the failure can be retried from, if one was kept. */
     suspend fun recordFailure(dictation: DictationRecord, error: Throwable): Long? = writes.withLock {
+        if (dictation.incognito) return@withLock null
         val prefs = preferences.first()
         if (!prefs.historyEnabled && dictation.retryEntryId == null) return@withLock null
         val saved = save(
@@ -224,5 +226,7 @@ data class DictationRecord(
     val durationMs: Long,
     val appContext: AppContext?,
     val profile: Profile,
-    val retryEntryId: Long? = null
+    val retryEntryId: Long? = null,
+    // incognito is set for fields that ask not to be learned from, such as private browser tabs.
+    val incognito: Boolean = false
 )

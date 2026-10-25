@@ -66,7 +66,7 @@ class BubbleScreenshotTest {
                     BubbleUiState(BubblePhase.Failed("The server rejected the API key.", canRetry = true)),
                     BubbleUiState(BubblePhase.NoSpeech)
                 ).forEach { state -> Window(state) }
-                val tinyBubbleLargeControls = BubbleScales(bubble = BubbleSize.SMALL.scale, controls = BubbleSize.LARGER.scale)
+                val tinyBubbleLargeControls = BubbleScales(bubble = BubbleSize.TINY.scale, controls = BubbleSize.LARGER.scale)
                 Window(
                     BubbleUiState(BubblePhase.Recording(paused = false), elapsedSeconds = 3, profileName = "Chat"),
                     tinyBubbleLargeControls

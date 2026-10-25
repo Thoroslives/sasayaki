@@ -25,7 +25,9 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.sasayaki.data.preferences.BUBBLE_SIZES
 import com.sasayaki.data.preferences.BubbleSize
+import com.sasayaki.data.preferences.CONTROLS_SIZES
 import com.sasayaki.data.preferences.ThemeMode
 import com.sasayaki.data.preferences.UserPreferences
 import com.sasayaki.service.bubble.BubbleAppearance
@@ -78,28 +80,6 @@ fun RecordingSettingsRoute(onBack: () -> Unit, viewModel: SettingsViewModel = hi
                             icon = SasayakiIcons.Vibration,
                             checked = prefs.vibrateOnRecord,
                             onCheckedChange = viewModel::setVibrateOnRecord
-                        )
-                    }
-                )
-            )
-        }
-        item(key = "keyboard") {
-            val context = LocalContext.current
-            val enabled = rememberVoiceInputEnabled()
-            SegmentedGroup(
-                title = "Keyboard mic key",
-                items = listOf(
-                    { shapes ->
-                        NavigationItem(
-                            shapes = shapes,
-                            headline = "Dictate from your keyboard",
-                            supporting = if (enabled) {
-                                "On. Your keyboard's mic key opens Sasayaki, then switches back."
-                            } else {
-                                "Turn on Sasayaki voice input in keyboard settings. Works with keyboards that have a mic key, like HeliBoard and FlorisBoard."
-                            },
-                            icon = SasayakiIcons.Keyboard,
-                            onClick = { openKeyboardSettings(context) }
                         )
                     }
                 )
@@ -315,7 +295,7 @@ fun AppearanceSettingsScreen(loaded: Boolean, prefs: UserPreferences, actions: A
                             icon = SasayakiIcons.ChatBubble,
                             headline = "Bubble size",
                             supporting = "The bubble that waits by your keyboard.",
-                            options = BubbleSize.entries,
+                            options = BUBBLE_SIZES,
                             selected = prefs.bubbleSize,
                             onSelect = actions.onBubbleSize
                         )
@@ -326,7 +306,7 @@ fun AppearanceSettingsScreen(loaded: Boolean, prefs: UserPreferences, actions: A
                             icon = SasayakiIcons.GraphicEq,
                             headline = "Controls size",
                             supporting = "The controls while recording. Bigger buttons are easier to hit on the move.",
-                            options = BubbleSize.entries - BubbleSize.SMALL,
+                            options = CONTROLS_SIZES,
                             selected = prefs.controlsSize,
                             onSelect = actions.onControlsSize
                         )
@@ -459,6 +439,7 @@ private fun SizeItem(
 }
 
 internal fun BubbleSize.label(): String = when (this) {
+    BubbleSize.TINY -> "Tiny"
     BubbleSize.SMALL -> "Small"
     BubbleSize.STANDARD -> "Normal"
     BubbleSize.LARGE -> "Large"

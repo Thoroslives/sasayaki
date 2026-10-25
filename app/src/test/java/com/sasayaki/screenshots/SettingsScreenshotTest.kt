@@ -55,6 +55,8 @@ class SettingsScreenshotTest {
         SettingsScreen(
             state = SettingsUiState(loaded = true, preferences = UserPreferences(), providers = providers, ruleCount = 3),
             missingPermissions = 1,
+            voiceInputEnabled = false,
+            onOpenKeyboardSettings = {},
             destinations = noDestinations,
             onOpenSource = {}
         )
@@ -65,6 +67,8 @@ class SettingsScreenshotTest {
         SettingsScreen(
             state = SettingsUiState(loaded = true, preferences = UserPreferences(), providers = emptyList()),
             missingPermissions = 0,
+            voiceInputEnabled = true,
+            onOpenKeyboardSettings = {},
             destinations = noDestinations,
             onOpenSource = {}
         )
@@ -86,7 +90,7 @@ class SettingsScreenshotTest {
     fun appearance() = compose.screenshot("settings_appearance_dark", dark = true) {
         AppearanceSettingsScreen(
             loaded = true,
-            prefs = UserPreferences(bubbleTranslucent = true, bubbleSize = BubbleSize.SMALL, controlsSize = BubbleSize.LARGE),
+            prefs = UserPreferences(bubbleTranslucent = true, bubbleSize = BubbleSize.TINY, controlsSize = BubbleSize.LARGE),
             actions = AppearanceActions({}, {}, {}, {}, {}, {}),
             onBack = {}
         )

@@ -137,7 +137,7 @@ The bubble is the product; everything else is configuration.
 - Each state has a fixed window size; the window grows before the content morphs and shrinks
   after, so the overlay never chases the animation.
 - Two settings scale density inside the bubble, so every dimension and touch target grows
-  together: the bubble size for the idle bubble (0.85, 1, 1.15 or 1.3x) and the controls size
+  together: the bubble size for the idle bubble (0.65, 0.85, 1 or 1.15x) and the controls size
   for every other state (1, 1.15 or 1.3x). Each state keeps its own scale while it animates out.
 - `BubbleTheme` is always dark. See-through draws the pills at 80% opacity and drops their
   shadow, which would show through as a smudge; the border alone outlines them.

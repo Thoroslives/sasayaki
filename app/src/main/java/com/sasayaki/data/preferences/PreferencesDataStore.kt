@@ -89,7 +89,7 @@ class PreferencesDataStore @Inject constructor(
                 themeMode = ThemeMode.entries.firstOrNull { it.name == prefs[Keys.THEME_MODE] } ?: ThemeMode.SYSTEM,
                 wallpaperColors = prefs[Keys.WALLPAPER_COLORS] ?: false,
                 onboardingCompleted = prefs[Keys.ONBOARDING_COMPLETED] ?: false,
-                bubbleSize = bubbleSizeNamed(prefs[Keys.BUBBLE_SIZE]) ?: BubbleSize.STANDARD,
+                bubbleSize = bubbleSizeFrom(prefs[Keys.BUBBLE_SIZE]),
                 controlsSize = controlsSizeFrom(prefs[Keys.CONTROLS_SIZE], prefs[Keys.BUBBLE_SIZE]),
                 bubbleTranslucent = prefs[Keys.BUBBLE_TRANSLUCENT] ?: false,
                 bubbleMonochrome = prefs[Keys.BUBBLE_MONOCHROME] ?: false,

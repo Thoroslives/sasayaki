@@ -23,4 +23,16 @@ class BubbleSizesTest {
     fun `unknown names fall back to standard`() {
         assertEquals(BubbleSize.STANDARD, controlsSizeFrom(controls = "GIANT", bubble = null))
     }
+
+    @Test
+    fun `a tiny bubble does not shrink the controls`() {
+        assertEquals(BubbleSize.STANDARD, controlsSizeFrom(controls = null, bubble = "TINY"))
+    }
+
+    @Test
+    fun `a huge bubble from before the split becomes large`() {
+        assertEquals(BubbleSize.LARGE, bubbleSizeFrom("LARGER"))
+        assertEquals(BubbleSize.TINY, bubbleSizeFrom("TINY"))
+        assertEquals(BubbleSize.STANDARD, bubbleSizeFrom(null))
+    }
 }

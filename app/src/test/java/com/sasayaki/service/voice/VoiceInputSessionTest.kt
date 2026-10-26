@@ -16,6 +16,8 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -153,5 +155,37 @@ class VoiceInputSessionTest {
         session.retry()
         session.stop()
         assertEquals(chat, heardFrom.receive())
+    }
+
+    @Test
+    fun `handing over a recording lets the bubble carry it without stopping it`() = runTest {
+        val recorder = AudioRecorder().apply { stop() }
+        val session = session(newRecorder = { recorder })
+        val notes = AppContext(label = "Notes", packageName = "org.notes")
+        session.start(VoiceInputTarget(appContext = notes, sensitive = false, micAllowed = true, incognito = true))
+
+        val handed = session.handOver()
+
+        assertSame(recorder, handed?.recorder)
+        assertEquals(notes, handed?.appContext)
+        assertTrue(handed?.incognito == true)
+        assertFalse(session.busy)
+        assertEquals(BubblePhase.Idle, session.state.value.phase)
+        assertNull(session.handOver())
+    }
+
+    @Test
+    fun `a dictation the bubble gives back keeps recording in the panel`() = runTest {
+        val session = session(newRecorder = { AudioRecorder().apply { stop() } })
+        val notes = AppContext(label = "Notes", packageName = "org.notes")
+        val chat = AppContext(label = "Chat", packageName = "org.chat")
+        session.start(VoiceInputTarget(appContext = notes, sensitive = false, micAllowed = true, incognito = false))
+        val handed = requireNotNull(session.handOver())
+
+        session.takeOver(handed, VoiceInputTarget(appContext = chat, sensitive = false, micAllowed = true, incognito = false))
+
+        assertTrue(session.recording)
+        session.stop()
+        assertEquals(notes, heardFrom.receive())
     }
 }

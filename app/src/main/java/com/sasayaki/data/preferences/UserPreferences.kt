@@ -8,6 +8,9 @@ data class UserPreferences(
     // showBubble remembers whether the person wants the bubble, so a boot or an update brings it
     // back only when it was on.
     val showBubble: Boolean = true,
+    // carryKeyboardDictation lets the bubble appear, with the bubble off, to carry a dictation the
+    // keyboard panel leaves.
+    val carryKeyboardDictation: Boolean = true,
     val silenceThresholdMs: Long = 2000,
     val preferredLanguages: List<String> = emptyList(),
     val activeLanguage: String? = null,

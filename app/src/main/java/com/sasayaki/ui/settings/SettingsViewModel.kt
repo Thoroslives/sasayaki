@@ -83,6 +83,8 @@ class SettingsViewModel @Inject constructor(
 
     fun stopBubble() = bubbleServiceController.stop()
 
+    fun setCarryKeyboardDictation(enabled: Boolean) = persist { preferencesDataStore.setCarryKeyboardDictation(enabled) }
+
     fun setBubbleSize(size: BubbleSize) = persist { preferencesDataStore.setBubbleSize(size) }
 
     fun setControlsSize(size: BubbleSize) = persist { preferencesDataStore.setControlsSize(size) }

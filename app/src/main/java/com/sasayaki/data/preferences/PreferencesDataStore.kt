@@ -45,6 +45,7 @@ class PreferencesDataStore @Inject constructor(
         val VIBRATE_ON_RECORD = booleanPreferencesKey("vibrate_on_record")
         val PAUSE_OTHER_AUDIO = booleanPreferencesKey("pause_other_audio")
         val KEEP_LISTENING_WHEN_KEYBOARD_HIDES = booleanPreferencesKey("keep_listening_when_keyboard_hides")
+        val SHOW_BUBBLE = booleanPreferencesKey("show_bubble")
         val SILENCE_THRESHOLD_MS = longPreferencesKey("silence_threshold_ms")
         val LANGUAGE = stringPreferencesKey("language")
         val PREFERRED_LANGUAGES = stringPreferencesKey("preferred_languages")
@@ -81,6 +82,7 @@ class PreferencesDataStore @Inject constructor(
                 vibrateOnRecord = prefs[Keys.VIBRATE_ON_RECORD] ?: true,
                 pauseOtherAudio = prefs[Keys.PAUSE_OTHER_AUDIO] ?: false,
                 keepListeningWhenKeyboardHides = prefs[Keys.KEEP_LISTENING_WHEN_KEYBOARD_HIDES] ?: true,
+                showBubble = prefs[Keys.SHOW_BUBBLE] ?: true,
                 silenceThresholdMs = prefs[Keys.SILENCE_THRESHOLD_MS] ?: 2000L,
                 preferredLanguages = parsePreferredLanguages(prefs),
                 activeLanguage = resolveActiveLanguage(prefs),
@@ -137,6 +139,8 @@ class PreferencesDataStore @Inject constructor(
     suspend fun setPauseOtherAudio(enabled: Boolean) = set(Keys.PAUSE_OTHER_AUDIO, enabled)
 
     suspend fun setKeepListeningWhenKeyboardHides(enabled: Boolean) = set(Keys.KEEP_LISTENING_WHEN_KEYBOARD_HIDES, enabled)
+
+    suspend fun setShowBubble(enabled: Boolean) = set(Keys.SHOW_BUBBLE, enabled)
 
     suspend fun setSilenceThresholdMs(value: Long) = set(Keys.SILENCE_THRESHOLD_MS, value)
 

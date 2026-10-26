@@ -70,6 +70,9 @@ class VoiceInputSession(
 
     private val phase: BubblePhase get() = _state.value.phase
 
+    /** busy is true while a dictation is recording or being turned into text. */
+    val busy: Boolean get() = phase is BubblePhase.Recording || phase is BubblePhase.Processing
+
     fun start(target: VoiceInputTarget) {
         if (prepare(target)) record(target)
     }

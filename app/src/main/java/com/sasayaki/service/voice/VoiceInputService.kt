@@ -112,17 +112,20 @@ class VoiceInputService : InputMethodService() {
         }
     }
 
-    // The mic key expects dictation to start at once, so the panel opens recording.
+    // The mic key expects dictation to start at once, so the panel opens recording. A dictation
+    // that carried on while the keyboard was hidden is shown again instead of restarted.
     override fun onStartInputView(editorInfo: EditorInfo, restarting: Boolean) {
         super.onStartInputView(editorInfo, restarting)
-        if (restarting) return
+        if (restarting || session.busy) return
         val target = target(editorInfo)
         if (canSwitchBack) session.start(target) else session.prepare(target)
     }
 
-    override fun onFinishInputView(finishingInput: Boolean) {
+    // Hiding the keyboard leaves the field focused, so dictation keeps going and its text still
+    // lands there. It is dropped only once the field itself goes away.
+    override fun onFinishInput() {
         session.cancel()
-        super.onFinishInputView(finishingInput)
+        super.onFinishInput()
     }
 
     override fun onEvaluateFullscreenMode(): Boolean = false

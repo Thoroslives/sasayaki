@@ -13,6 +13,7 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -94,6 +95,17 @@ class VoiceInputSessionTest {
 
         assertEquals(BubblePhase.Idle, session.state.value.phase)
         assertTrue(typed.isEmpty())
+    }
+
+    @Test
+    fun `a refused or idle session does not carry over to the next keyboard`() = runTest {
+        val session = session()
+
+        session.start(VoiceInputTarget(appContext = null, sensitive = true, micAllowed = true, incognito = false))
+        assertFalse(session.busy)
+
+        session.prepare(VoiceInputTarget(appContext = null, sensitive = false, micAllowed = true, incognito = false))
+        assertFalse(session.busy)
     }
 
     @Test

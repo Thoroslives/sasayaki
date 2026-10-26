@@ -122,7 +122,13 @@ class VoiceInputService : InputMethodService() {
     }
 
     // Hiding the keyboard leaves the field focused, so dictation keeps going and its text still
-    // lands there. It is dropped only once the field itself goes away.
+    // lands there, unless the setting asks for it to stop with the keyboard.
+    override fun onFinishInputView(finishingInput: Boolean) {
+        if (!preferences.value.keepListeningWhenKeyboardHides) session.cancel()
+        super.onFinishInputView(finishingInput)
+    }
+
+    // The field going away always drops the dictation, since its text has nowhere left to land.
     override fun onFinishInput() {
         session.cancel()
         super.onFinishInput()

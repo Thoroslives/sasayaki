@@ -54,6 +54,10 @@ class VoiceInputService : InputMethodService() {
     // was picked as the keyboard; recording then waits for a tap instead of starting on focus.
     private var canSwitchBack = true
 
+    // handingBack is set while switching to the previous keyboard, whose own hiding of this
+    // panel must not hand back a second time.
+    private var handingBack = false
+
     private val preferences by lazy {
         preferencesDataStore.preferences.stateIn(scope, SharingStarted.Eagerly, UserPreferences())
     }
@@ -116,16 +120,21 @@ class VoiceInputService : InputMethodService() {
     // that carried on while the keyboard was hidden is shown again instead of restarted.
     override fun onStartInputView(editorInfo: EditorInfo, restarting: Boolean) {
         super.onStartInputView(editorInfo, restarting)
+        handingBack = false
         if (restarting || session.busy) return
         val target = target(editorInfo)
         if (canSwitchBack) session.start(target) else session.prepare(target)
     }
 
-    // Hiding the keyboard leaves the field focused, so dictation keeps going and its text still
-    // lands there, unless the setting asks for it to stop with the keyboard.
+    // Hiding the keyboard leaves the field focused, so a dictation in progress keeps going and its
+    // text still lands there, unless the setting asks for it to stop with the keyboard. Otherwise
+    // hiding hands back to the previous keyboard, so the field reopens with it rather than with a
+    // new recording.
     override fun onFinishInputView(finishingInput: Boolean) {
-        if (!preferences.value.keepListeningWhenKeyboardHides) session.cancel()
         super.onFinishInputView(finishingInput)
+        if (finishingInput || handingBack) return
+        if (session.busy && preferences.value.keepListeningWhenKeyboardHides) return
+        cancelAndSwitchBack()
     }
 
     // The field going away always drops the dictation, since its text has nowhere left to land.
@@ -160,9 +169,13 @@ class VoiceInputService : InputMethodService() {
         val connection = currentInputConnection ?: return false
         val before = connection.getTextBeforeCursor(CURSOR_CONTEXT_CHARS, 0)?.toString()
         if (!connection.commitText(fitToCursor(before, text), 1)) return false
-        // The panel stays open so another dictation can follow; the buzz says this one landed.
+        // The panel stays open so another dictation can follow; the buzz says this one landed. A
+        // dictation that ends while the keyboard is hidden hands back instead, so the field reopens
+        // with the previous keyboard.
+        val hidden = !isInputViewShown
         scope.launch {
             if (preferencesDataStore.preferences.first().vibrateOnRecord) hapticFeedback?.complete()
+            if (hidden) switchBack()
         }
         return true
     }
@@ -173,6 +186,7 @@ class VoiceInputService : InputMethodService() {
     }
 
     private fun switchBack() {
+        handingBack = true
         canSwitchBack = switchToPreviousInputMethod()
         if (!canSwitchBack) requestHideSelf(0)
     }

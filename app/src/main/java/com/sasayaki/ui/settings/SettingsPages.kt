@@ -76,7 +76,7 @@ fun RecordingSettingsRoute(onBack: () -> Unit, viewModel: SettingsViewModel = hi
                         SwitchItem(
                             shapes = shapes,
                             headline = "Keep listening when the keyboard hides",
-                            supporting = "Hide the keyboard to read or scroll while you speak, then tap the field to come back",
+                            supporting = "Hide the keyboard or switch apps while you speak, and the text lands where you stop",
                             icon = SasayakiIcons.Keyboard,
                             checked = prefs.keepListeningWhenKeyboardHides,
                             onCheckedChange = viewModel::setKeepListeningWhenKeyboardHides

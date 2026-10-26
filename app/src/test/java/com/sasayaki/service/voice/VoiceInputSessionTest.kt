@@ -3,11 +3,13 @@ package com.sasayaki.service.voice
 import com.sasayaki.data.preferences.UserPreferences
 import com.sasayaki.domain.model.AppContext
 import com.sasayaki.domain.model.Profile
+import com.sasayaki.service.AudioRecorder
 import com.sasayaki.service.bubble.BubblePhase
 import com.sasayaki.service.dictation.ProcessedRecording
 import com.sasayaki.service.dictation.ProcessesRecordings
 import java.io.File
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runCurrent
@@ -21,6 +23,7 @@ import org.junit.Test
 class VoiceInputSessionTest {
     private val typed = mutableListOf<String>()
     private val retried = mutableListOf<Long>()
+    private val heardFrom = Channel<AppContext?>(Channel.UNLIMITED)
     private val retryResult: Result<String> = Result.success("Let's meet at 9.")
 
     private val processor = object : ProcessesRecordings {
@@ -31,7 +34,10 @@ class VoiceInputSessionTest {
             profile: Profile?,
             onPostProcessing: () -> Unit,
             incognito: Boolean
-        ) = ProcessedRecording.Empty
+        ): ProcessedRecording {
+            heardFrom.trySend(appContext)
+            return ProcessedRecording.Empty
+        }
 
         override suspend fun retry(entryId: Long, onPostProcessing: () -> Unit): Result<String> {
             retried += entryId
@@ -40,7 +46,7 @@ class VoiceInputSessionTest {
         }
     }
 
-    private fun TestScope.session() = VoiceInputSession(
+    private fun TestScope.session(newRecorder: () -> AudioRecorder = ::AudioRecorder) = VoiceInputSession(
         scope = backgroundScope,
         processor = processor,
         preferences = flowOf(UserPreferences()),
@@ -51,7 +57,8 @@ class VoiceInputSessionTest {
         onText = {
             typed += it
             true
-        }
+        },
+        newRecorder = newRecorder
     )
 
     @Test
@@ -127,5 +134,24 @@ class VoiceInputSessionTest {
         runCurrent()
 
         assertEquals("Email", session.state.value.profileName)
+    }
+
+    @Test
+    fun `a dictation keeps the app it started in, and the next one takes the new field's`() = runTest {
+        // A recorder stopped before it starts never opens the microphone.
+        val session = session(newRecorder = { AudioRecorder().apply { stop() } })
+        val notes = AppContext(label = "Notes", packageName = "org.notes")
+        val chat = AppContext(label = "Chat", packageName = "org.chat")
+
+        session.start(VoiceInputTarget(appContext = notes, sensitive = false, micAllowed = true, incognito = false))
+        session.retarget(VoiceInputTarget(appContext = chat, sensitive = false, micAllowed = true, incognito = false))
+        assertTrue(session.busy)
+        session.stop()
+        assertEquals(notes, heardFrom.receive())
+        runCurrent()
+
+        session.retry()
+        session.stop()
+        assertEquals(chat, heardFrom.receive())
     }
 }
